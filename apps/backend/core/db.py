@@ -9,7 +9,7 @@ from .settings import get_settings
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, future=True, echo=False)
+engine = create_engine(settings.sync_database_url, future=True, echo=False)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
 
 

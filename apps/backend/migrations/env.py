@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy import engine_from_config, pool
 
 from apps.backend.core import Base, get_settings
 
@@ -19,7 +16,7 @@ if config.config_file_name is not None:
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 
 
 # target metadata for 'autogenerate' support
@@ -35,27 +32,17 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = async_engine_from_config(
+    connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    async def do_run_migrations(connection: Connection) -> None:
-        await connection.run_sync(
-            lambda sync_conn: context.configure(
-                connection=sync_conn,
-                target_metadata=target_metadata,
-            )
-        )
-        await connection.run_sync(lambda sync_conn: context.run_migrations())
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
 
-    async def run() -> None:
-        async with connectable.connect() as connection:
-            await connection.run_sync(lambda _: None)
-            await do_run_migrations(connection)
-
-    asyncio.run(run())
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
