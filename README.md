@@ -73,6 +73,16 @@ You are expected to delete modules you don’t need.
 
 ---
 
+### Dependency management
+
+Each Python service is its own Poetry project (for example, `apps/backend/pyproject.toml` and
+`apps/tg_bot/pyproject.toml`). Install dependencies by running Poetry inside the respective
+service directory. The backend image installs only runtime dependencies by default; Docker builds
+meant for tests enable the optional dev group so `pytest` and the linting stack are available
+without bloating production images.
+
+---
+
 ## Modules
 
 ### Core

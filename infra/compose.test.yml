@@ -5,6 +5,9 @@ services:
     extends:
       file: infra/compose.base.yml
       service: backend
+    build:
+      args:
+        INSTALL_DEV_DEPS: "true"
     command: pytest -q
     profiles: ["test"]
     working_dir: /workspace

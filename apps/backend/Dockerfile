@@ -8,12 +8,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir --upgrade pip poetry
+
+COPY apps/backend/pyproject.toml apps/backend/poetry.lock ./apps/backend/
+
+ARG INSTALL_DEV_DEPS="false"
+RUN cd apps/backend \
+    && poetry config virtualenvs.create false \
+    && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
+        poetry install --with dev --no-root; \
+    else \
+        poetry install --without dev --no-root; \
+    fi
+
+COPY README.md ./
 COPY apps ./apps
 COPY tests ./tests
-
-RUN pip install --upgrade pip \
-    && pip install -e .[dev]
 
 EXPOSE 8000
 CMD ["uvicorn", "apps.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

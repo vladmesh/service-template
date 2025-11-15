@@ -11,6 +11,8 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
     environment:
       <<: *backend-env
     depends_on:
