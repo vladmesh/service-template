@@ -88,6 +88,21 @@ Common targets:
 * `make tests integration` — start the integration Compose stack (backend + Postgres + deps) and run `tests/integration`.
 * `make makemigrations name="add_users"` — generate Alembic revisions via the backend container so that migrations are reproducible.
 
+### Git hooks
+
+This repo ships hook scripts under `.githooks`. Point Git to the directory once via:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Hooks in this folder:
+
+* `pre-commit` — runs `make format` and auto-stages resulting changes.
+* `pre-push` — when pushing `main`, blocks the push unless `make lint` and `make tests` succeed.
+
+Hooks run inside your working tree, so ensure Docker is available before pushing.
+
 The backend container now runs `apps/backend/scripts/migrate.sh` automatically during startup (both dev and prod overlays), so schema changes are always applied before Uvicorn comes up.
 
 Follow the same pattern when you add new services: every module can have its own `test-<service>` unit target plus optional integration coverage driven by Compose profiles.
