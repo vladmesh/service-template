@@ -48,6 +48,8 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
 
   tg_bot:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
