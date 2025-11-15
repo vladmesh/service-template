@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  tg_bot:
+    image: ${TG_BOT_IMAGE:-service-template-tg:latest}
+    build:
+      context: apps/tg_bot
+    env_file:
+      - infra/.env
+      - infra/.env.tg
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - internal
+    profiles: ["tg"]
