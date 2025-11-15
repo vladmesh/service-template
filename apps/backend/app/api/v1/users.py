@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from apps.backend.app.api.deps import get_db
+from apps.backend.app.models import User
 from apps.backend.app.repositories import UserRepository
 from apps.backend.app.schemas import UserCreate, UserRead, UserUpdate
 
@@ -19,7 +20,7 @@ def _get_repo(session: Session) -> UserRepository:
     return UserRepository(session)
 
 
-def _get_user_or_404(repo: UserRepository, user_id: int):
+def _get_user_or_404(repo: UserRepository, user_id: int) -> User:
     user = repo.get(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -36,18 +37,23 @@ def _ensure_unique_telegram(
         )
 
 
+def _to_schema(user: User) -> UserRead:
+    return UserRead.from_orm(user)
+
+
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(payload: UserCreate, session: SessionDep) -> UserRead:
     repo = _get_repo(session)
     _ensure_unique_telegram(repo, payload.telegram_id)
-    return repo.create(payload)
+    created = repo.create(payload)
+    return _to_schema(created)
 
 
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: int, session: SessionDep) -> UserRead:
     repo = _get_repo(session)
     user = _get_user_or_404(repo, user_id)
-    return user
+    return _to_schema(user)
 
 
 @router.put("/{user_id}", response_model=UserRead)
@@ -59,7 +65,8 @@ def update_user(user_id: int, payload: UserUpdate, session: SessionDep) -> UserR
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No changes supplied")
     if payload.telegram_id is not None:
         _ensure_unique_telegram(repo, payload.telegram_id, current_id=user_id)
-    return repo.update(user, payload)
+    updated = repo.update(user, payload)
+    return _to_schema(updated)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

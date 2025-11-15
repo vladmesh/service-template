@@ -1,5 +1,6 @@
 """Application lifespan hooks."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,7 +9,7 @@ from apps.backend.core import configure_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # pragma: no cover - side effect heavy
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover - side effect heavy
     """Configure resources for the application lifespan."""
 
     configure_logging()
