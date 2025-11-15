@@ -19,4 +19,4 @@ RUN cd apps/tg_bot \
 
 COPY apps/tg_bot ./apps/tg_bot
 
-CMD ["python", "apps/tg_bot/main.py"]
+CMD ["python", "apps/tg_bot/src/main.py"]

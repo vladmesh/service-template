@@ -1,5 +1,5 @@
-"""Backend application package."""
+"""Backend application package exposed for compatibility."""
 
-from .main import app, create_app
+from .src.main import app, create_app
 
 __all__ = ["app", "create_app"]

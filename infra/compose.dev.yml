@@ -10,7 +10,7 @@ services:
         INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
     command: >-
       bash -lc "./apps/backend/scripts/migrate.sh &&
-      uvicorn apps.backend.main:app --host 0.0.0.0 --port 8000 --reload"
+      uvicorn apps.backend.src.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ../:/workspace:delegated
     working_dir: /workspace

@@ -17,7 +17,7 @@ commands, message handlers, or background jobs as you iterate.
    ```
 3. Run the bot:
    ```bash
-   python apps/tg_bot/main.py
+   python apps/tg_bot/src/main.py
    ```
 
 ## Docker compose integration

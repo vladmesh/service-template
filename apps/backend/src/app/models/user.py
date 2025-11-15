@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.backend.core import BaseModel
+from ...core import BaseModel
 
 
 class User(BaseModel):

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from apps.backend.core import configure_logging
+from ..core import configure_logging
 
 
 @asynccontextmanager

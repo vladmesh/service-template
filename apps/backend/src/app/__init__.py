@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from apps.backend.core import get_settings
+from ..core import get_settings
 
 from .api.router import api_router
 from .lifespan import lifespan

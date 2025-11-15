@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.backend.app.models import User
-from apps.backend.app.schemas import UserCreate, UserUpdate
+from ..models import User
+from ..schemas import UserCreate, UserUpdate
 
 
 class UserRepository:
