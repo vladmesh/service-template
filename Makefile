@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -95,3 +95,6 @@ prod-start:
 
 prod-stop:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROD) down --remove-orphans
+
+services-validate:
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/services_registry.py validate

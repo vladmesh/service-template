@@ -1,0 +1,62 @@
+version: 1
+services:
+  - name: backend
+    display_name: Backend API
+    type: backend
+    language: python
+    template: python
+    path: apps/backend
+    description: >-
+      FastAPI backend that exposes REST endpoints, owns the database, and
+      powers the rest of the system.
+    compose:
+      services:
+        base: backend
+        dev: backend
+    logs:
+      - backend
+    tests:
+      - name: backend
+        description: Backend unit tests (pytest)
+        compose_file: infra/compose.tests.unit.yml
+        compose_project: tests-unit
+        service: backend-tests-unit
+    tags:
+      - api
+      - critical
+  - name: tg_bot
+    display_name: Telegram Bot
+    type: bot
+    language: python
+    template: python
+    path: apps/tg_bot
+    description: >-
+      Telegram bot used for user onboarding and backend notifications.
+    compose:
+      services:
+        base: tg_bot
+        dev: tg_bot
+    logs:
+      - tg_bot
+    tests:
+      - name: tg_bot
+        description: Telegram bot unit tests (pytest)
+        compose_file: infra/compose.tests.unit.yml
+        compose_project: tests-unit
+        service: tg-bot-tests-unit
+    tags:
+      - bot
+  - name: frontend
+    display_name: Frontend
+    type: frontend
+    language: node
+    template: default
+    path: apps/frontend
+    description: >-
+      Static frontend placeholder served separately via infra/compose.frontend.yml.
+    compose:
+      services: {}
+    logs: []
+    tests: []
+    tags:
+      - frontend
