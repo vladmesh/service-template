@@ -16,6 +16,7 @@ services:
     volumes:
       - ../:/workspace:delegated
     working_dir: /workspace
+    stop_grace_period: 2s
 
   db:
     extends:
