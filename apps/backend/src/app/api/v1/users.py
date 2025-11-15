@@ -7,10 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..deps import get_db
 from ...models import User
 from ...repositories import UserRepository
 from ...schemas import UserCreate, UserRead, UserUpdate
+from ..deps import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
 SessionDep = Annotated[Session, Depends(get_db)]

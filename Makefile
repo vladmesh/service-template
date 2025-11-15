@@ -29,6 +29,7 @@ lint:
 
 format:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'apps/**/migrations' --exclude '.venv' .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check --fix --exclude 'apps/**/migrations' --exclude '.venv' .
 
 typecheck:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy apps tests
