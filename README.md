@@ -171,11 +171,12 @@ docker compose \
 
 ## CI/CD
 
-GitHub Actions workflows for:
+Two GitHub Actions workflows are included out of the box:
 
-* lint + tests on PR
-* build/push images on main
-* deploy via compose on server
+* `.github/workflows/pr.yml` &mdash; builds the Compose test stack and runs `ruff` + `pytest` for each pull request.
+* `.github/workflows/main.yml` &mdash; builds/pushes the backend (and optional modules) and triggers a remote `docker compose up` via SSH.
+
+Configuration details, required secrets, and troubleshooting tips live in [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 
 ---
 
