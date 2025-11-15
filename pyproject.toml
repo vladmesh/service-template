@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "service-template"
+version = "0.1.0"
+description = "Monorepo template with backend, frontend, and Telegram bot"
+authors = [{name = "Example", email = "example@example.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "pytest>=8.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["tests"]
