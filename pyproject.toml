@@ -9,13 +9,24 @@ description = "Monorepo template with backend, frontend, and Telegram bot"
 authors = [{name = "Example", email = "example@example.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "fastapi>=0.110.0,<1.0.0",
+    "uvicorn[standard]>=0.29.0,<1.0.0",
+    "sqlalchemy>=2.0.0,<3.0.0",
+    "alembic>=1.13.0,<2.0.0",
+    "psycopg[binary]>=3.1.0,<4.0.0",
+    "pydantic>=1.10,<2.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "ruff>=0.4",
     "pytest>=8.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*"]
 
 [tool.ruff]
 line-length = 100

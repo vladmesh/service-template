@@ -1,0 +1,44 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROFILES: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare environment files
+        run: |
+          cp .env.example .env
+          if [ ! -f infra/.env.test ]; then
+            echo "infra/.env.test missing" >&2
+            exit 1
+          fi
+
+      - name: Build backend test image
+        run: |
+          docker compose -f infra/compose.base.yml -f infra/compose.test.yml build backend
+
+      - name: Run ruff
+        run: |
+          docker compose -f infra/compose.base.yml -f infra/compose.test.yml run --rm backend ruff check .
+
+      - name: Run pytest
+        run: |
+          docker compose -f infra/compose.base.yml -f infra/compose.test.yml run --rm backend pytest -q
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker compose -f infra/compose.base.yml -f infra/compose.test.yml down --volumes --remove-orphans

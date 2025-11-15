@@ -10,5 +10,6 @@ __pycache__/
 pytest.cache/
 .mypy_cache/
 .eggs/
+*.egg-info/
 build/
 dist/
