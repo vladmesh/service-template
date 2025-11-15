@@ -23,8 +23,12 @@ class Settings(BaseSettings):
     postgres_password: str = Field(default="postgres", env="POSTGRES_PASSWORD")
     postgres_require_ssl: bool = Field(default=False, env="POSTGRES_REQUIRE_SSL")
 
-    sqlalchemy_sync_driver: str = Field(default="postgresql+psycopg", env="SQLALCHEMY_SYNC_DRIVER")
-    sqlalchemy_async_driver: str = Field(default="postgresql+asyncpg", env="SQLALCHEMY_ASYNC_DRIVER")
+    sqlalchemy_sync_driver: str = Field(
+        default="postgresql+psycopg", env="SQLALCHEMY_SYNC_DRIVER"
+    )
+    sqlalchemy_async_driver: str = Field(
+        default="postgresql+asyncpg", env="SQLALCHEMY_ASYNC_DRIVER"
+    )
     database_url_override: str | None = Field(default=None, env="DATABASE_URL")
     async_database_url_override: str | None = Field(default=None, env="ASYNC_DATABASE_URL")
 
