@@ -1,4 +1,4 @@
-"""Common pytest fixtures for integration style tests."""
+"""Common pytest fixtures for backend API tests."""
 
 from __future__ import annotations
 
@@ -13,8 +13,14 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 # Ensure the backend uses a lightweight SQLite database for tests.
-TEST_DB_PATH = Path("tests/test.db")
+TESTS_DIR = Path(__file__).resolve().parent
+TEST_DB_PATH = TESTS_DIR / ".tmp" / "test.db"
+TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("DATABASE_URL", f"sqlite+pysqlite:///{TEST_DB_PATH}")
+
+from apps.backend.core.settings import get_settings  # noqa: E402
+
+get_settings.cache_clear()
 TEST_DB_PATH.unlink(missing_ok=True)
 
 from apps.backend.core.db import Base, engine, get_db  # noqa: E402  (after env setup)

@@ -13,3 +13,4 @@ pytest.cache/
 *.egg-info/
 build/
 dist/
+apps/backend/tests/.tmp/

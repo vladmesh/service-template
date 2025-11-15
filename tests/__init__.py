@@ -1,1 +1,1 @@
-"""Test package placeholder."""
+"""Root namespace for cross-service integration tests."""

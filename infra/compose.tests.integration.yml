@@ -1,0 +1,52 @@
+services:
+  backend:
+    extends:
+      file: compose.base.yml
+      service: backend
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    env_file:
+      - ../.env
+      - ./.env.test
+    environment:
+      PYTHONPATH: /workspace
+    volumes:
+      - ../:/workspace:delegated
+    working_dir: /workspace
+
+  db:
+    extends:
+      file: compose.base.yml
+      service: db
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+
+  integration-tests:
+    image: ${BACKEND_IMAGE:-service-template-backend:latest}
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: pytest -q tests/integration
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace:delegated
+    env_file:
+      - ../.env
+      - ./.env.test
+    environment:
+      PYTHONPATH: /workspace
+    depends_on:
+      backend:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+networks:
+  internal:
+  edge:

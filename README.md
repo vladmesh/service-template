@@ -52,17 +52,20 @@ You fork it, tweak it, remove modules you don’t need, and start building your 
 .
 ├── apps/
 │   ├── backend/
+│   │   └── tests/
 │   ├── tg_bot/
+│   │   └── tests/
 │   └── frontend/
 │
 ├── infra/
 │   ├── compose.base.yml
 │   ├── compose.dev.yml
-│   ├── compose.test.yml
+│   ├── compose.tests.unit.yml
+│   ├── compose.tests.integration.yml
 │   ├── compose.prod.yml
 │   └── compose.frontend.yml
 │
-├── tests/
+├── tests/        # cross-service integration suites
 ├── Makefile or justfile
 ├── .env.example
 └── README.md
@@ -80,8 +83,12 @@ Common targets:
 
 * `make dev-start` / `make dev-stop` — bring the dev stack up or down (`infra/compose.dev.yml` overlay).
 * `make lint`, `make format`, `make typecheck` — run ruff/mypy inside the backend unit test container.
-* `make test-backend` — backend unit suite with a lightweight SQLite database (no Postgres dependency).
-* `make test-backend-integration` — current way to exercise backend integration tests (starts Postgres + deps). These checks will eventually move under a shared `make test_integration` entry point; the README documents this upcoming change even though the command is not live yet.
+* `make tests` — run every unit suite (backend, tg_bot, and future services) plus the cross-service integration tests inside Docker Compose.
+* `make tests backend` / `make tests tg_bot` — run a single service’s unit test suite (all executed inside Docker containers).
+* `make tests integration` — start the integration Compose stack (backend + Postgres + deps) and run `tests/integration`.
+* `make makemigrations name="add_users"` — generate Alembic revisions via the backend container so that migrations are reproducible.
+
+The backend container now runs `apps/backend/scripts/migrate.sh` automatically during startup (both dev and prod overlays), so schema changes are always applied before Uvicorn comes up.
 
 Follow the same pattern when you add new services: every module can have its own `test-<service>` unit target plus optional integration coverage driven by Compose profiles.
 
@@ -153,15 +160,31 @@ Add modules as needed.
 
 ### Tests
 
+Unit suites run through `infra/compose.tests.unit.yml`:
+
 ```
 docker compose \
-  -f infra/compose.base.yml \
-  -f infra/compose.test.yml \
-  --profile unit \
-  run --rm backend-unit
+  -f infra/compose.tests.unit.yml \
+  run --rm backend-tests-unit
+
+docker compose \
+  -f infra/compose.tests.unit.yml \
+  run --rm tg-bot-tests-unit
 ```
 
-Use the `unit` profile (default behind `make test-backend`) for isolated service tests that reuse the shared developer image but skip ancillary services. Switch to the `integration` profile (`make test-backend-integration`) to run against Postgres and other dependencies. A consolidated `make test_integration` target will land soon to orchestrate cross-service suites; for now `make test-backend-integration` is the supported path.
+Cross-service integration tests live under `tests/integration` and leverage `infra/compose.tests.integration.yml`:
+
+```
+docker compose \
+  -f infra/compose.tests.integration.yml \
+  up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests
+
+docker compose \
+  -f infra/compose.tests.integration.yml \
+  down --volumes --remove-orphans
+```
+
+`make tests` drives the exact same commands and adds simple switches for `backend`, `tg_bot`, `integration`, or `frontend` once the latter is implemented.
 
 ### Production
 
@@ -193,8 +216,8 @@ docker compose \
 * pytest
 * Unit + API integration tests
 * Test DB fixtures
-* Unit tests run through `make test-<service>` and leverage the Compose `unit` profile (for example, `make test-backend`).
-* Integration suites currently live under service-scoped targets such as `make test-backend-integration`; they will migrate to a unified `make test_integration` command in a follow-up.
+* Unit tests live inside each service (`apps/<service>/tests/unit`) and run through `make tests <service>` (for example, `make tests backend`).
+* Cross-service integration suites live under `tests/integration` and run through `make tests integration` (or `make tests` to execute everything).
 
 ---
 
@@ -202,7 +225,7 @@ docker compose \
 
 Two GitHub Actions workflows are included out of the box:
 
-* `.github/workflows/pr.yml` &mdash; builds the Compose test stack and runs `ruff` + `pytest` for each pull request.
+* `.github/workflows/pr.yml` &mdash; runs `make lint` + `make tests` (Dockerized) for each pull request.
 * `.github/workflows/main.yml` &mdash; builds/pushes the backend (and optional modules) and triggers a remote `docker compose up` via SSH.
 
 Configuration details, required secrets, and troubleshooting tips live in [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).

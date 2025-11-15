@@ -11,17 +11,15 @@ The `Makefile` exposes a conventional set of commands:
 ```bash
 make install  # pip install -e .[dev]
 make lint     # ruff check .
-make test     # pytest
+make tests    # run backend + bot unit tests and shared integration tests
 ```
 
-For full fidelity with CI run the docker-compose test stack:
+For full fidelity with CI, use the Dockerized suites exposed via the `tests` target. Examples:
 
 ```bash
-docker compose \
-  -f infra/compose.base.yml \
-  -f infra/compose.test.yml \
-  --profile test \
-  run --rm backend pytest -q
+make tests backend
+make tests tg_bot
+make tests integration
 ```
 
 ## GitHub Actions workflows
@@ -31,9 +29,9 @@ docker compose \
 Runs on every pull request against `main` (and manually via `workflow_dispatch`). The job:
 
 1. Copies `.env.example` to `.env` so that services referencing `env_file` boot without extra setup.
-2. Builds the backend test image defined in `infra/compose.test.yml`.
-3. Executes `ruff check` and `pytest` inside the backend container from the Compose test profile.
-4. Tears down the stack to ensure clean layers for the next run.
+2. Executes `make lint` (ruff) inside the backend test container.
+3. Executes `make tests` which fans out to the backend/tg_bot unit suites and the cross-service integration tests.
+4. Tears down the Compose stacks to ensure clean layers for the next run.
 
 ### `.github/workflows/main.yml`
 
