@@ -1,22 +1,36 @@
-.PHONY: install lint format typecheck test up
+.PHONY: lint format typecheck test-backend test-backend-unit test-backend-integration dev-start dev-stop prod-start prod-stop
 
-POETRY ?= poetry
-BACKEND_DIR := apps/backend
-
-install:
-	cd $(BACKEND_DIR) && $(POETRY) install --with dev
+DOCKER_COMPOSE ?= docker compose
+COMPOSE_BASE := -f infra/compose.base.yml
+COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
+COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
+COMPOSE_TEST := $(COMPOSE_BASE) -f infra/compose.test.yml
 
 lint:
-	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && ruff check .'
+	COMPOSE_PROFILES=unit $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-unit ruff check .
 
 format:
-	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && ruff format .'
+	COMPOSE_PROFILES=unit $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-unit ruff format .
 
 typecheck:
-	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && mypy apps tests'
+	COMPOSE_PROFILES=unit $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-unit mypy apps tests
 
-test:
-	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && PYTHONPATH=. pytest'
+test-backend: test-backend-unit
 
-up:
-	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && PYTHONPATH=. uvicorn apps.backend.main:create_app --factory --reload --host 0.0.0.0 --port 8000'
+test-backend-unit:
+	COMPOSE_PROFILES=unit $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-unit
+
+test-backend-integration:
+	COMPOSE_PROFILES=integration $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-integration
+
+dev-start:
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build
+
+dev-stop:
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans
+
+prod-start:
+	$(DOCKER_COMPOSE) $(COMPOSE_PROD) up -d --remove-orphans
+
+prod-stop:
+	$(DOCKER_COMPOSE) $(COMPOSE_PROD) down --remove-orphans

@@ -1,14 +1,12 @@
-version: "3.9"
-
 services:
   tg_bot:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
     build:
-      context: apps/tg_bot
+      context: ../apps/tg_bot
     command: python main.py
     env_file:
-      - infra/.env
-      - infra/.env.tg
+      - ../.env
+      - ./.env.tg
     depends_on:
       backend:
         condition: service_started

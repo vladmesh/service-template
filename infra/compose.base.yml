@@ -1,7 +1,5 @@
-version: "3.9"
-
 x-backend-env: &backend-env
-  DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-service}}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-service}}
   ENVIRONMENT: ${ENVIRONMENT:-local}
   LOG_LEVEL: ${LOG_LEVEL:-info}
 
@@ -9,7 +7,7 @@ services:
   backend:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
     build:
-      context: .
+      context: ..
       dockerfile: apps/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}

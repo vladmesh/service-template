@@ -1,37 +1,58 @@
-version: "3.9"
-
 services:
   backend:
+    profiles: ["integration"]
+
+  backend-unit:
+    image: ${BACKEND_IMAGE:-service-template-backend:latest}
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: pytest -q
+    profiles: ["unit"]
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace:delegated
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /workspace
+      ENVIRONMENT: test
+      APP_ENV: test
+      DATABASE_URL: sqlite+pysqlite:////workspace/tests/test.db
+
+  backend-integration:
     extends:
-      file: infra/compose.base.yml
+      file: compose.base.yml
       service: backend
     build:
       args:
         INSTALL_DEV_DEPS: "true"
     command: pytest -q
-    profiles: ["test"]
+    profiles: ["integration"]
     working_dir: /workspace
     volumes:
-      - ./:/workspace:delegated
+      - ../:/workspace:delegated
     env_file:
-      - .env
-      - infra/.env.test
+      - ../.env
+      - ./.env.test
     environment:
       PYTHONPATH: /workspace
 
   db:
     extends:
-      file: infra/compose.base.yml
+      file: compose.base.yml
       service: db
-    profiles: ["test"]
-    volumes: []
-    tmpfs:
-      - /var/lib/postgresql/data
+    profiles: ["integration"]
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
 
   caddy:
     extends:
-      file: infra/compose.base.yml
+      file: compose.base.yml
       service: caddy
-    profiles: ["test"]
+    profiles: ["integration"]
     deploy:
       replicas: 0

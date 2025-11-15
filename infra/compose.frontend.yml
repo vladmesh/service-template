@@ -1,14 +1,12 @@
-version: "3.9"
-
 services:
   frontend:
     image: ${FRONTEND_IMAGE:-service-template-frontend:latest}
     build:
-      context: apps/frontend
+      context: ../apps/frontend
     command: npm run dev -- --host 0.0.0.0 --port 4321
     env_file:
-      - infra/.env
-      - infra/.env.frontend
+      - ../.env
+      - ./.env.frontend
     depends_on:
       backend:
         condition: service_started
