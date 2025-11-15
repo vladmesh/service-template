@@ -5,9 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip poetry
 
-COPY . .
+COPY apps/tg_bot/pyproject.toml apps/tg_bot/poetry.lock ./apps/tg_bot/
+RUN cd apps/tg_bot \
+    && poetry config virtualenvs.create false \
+    && poetry install --no-root
 
-CMD ["python", "main.py"]
+COPY apps/tg_bot ./apps/tg_bot
+
+CMD ["python", "apps/tg_bot/main.py"]

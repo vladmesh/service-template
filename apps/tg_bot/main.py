@@ -10,8 +10,7 @@ import os
 from typing import Final
 
 from telegram import Update
-from telegram.ext import (Application, ApplicationBuilder, CommandHandler,
-                          ContextTypes)
+from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

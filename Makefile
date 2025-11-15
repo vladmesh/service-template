@@ -1,19 +1,22 @@
 .PHONY: install lint format typecheck test up
 
+POETRY ?= poetry
+BACKEND_DIR := apps/backend
+
 install:
-	pip install -e .[dev]
+	cd $(BACKEND_DIR) && $(POETRY) install --with dev
 
 lint:
-	ruff check .
+	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && ruff check .'
 
 format:
-	ruff format .
+	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && ruff format .'
 
 typecheck:
-	mypy apps tests
+	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && mypy apps tests'
 
 test:
-	pytest
+	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && PYTHONPATH=. pytest'
 
 up:
-	uvicorn apps.backend.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+	cd $(BACKEND_DIR) && $(POETRY) run bash -c 'cd ../.. && PYTHONPATH=. uvicorn apps.backend.main:create_app --factory --reload --host 0.0.0.0 --port 8000'
