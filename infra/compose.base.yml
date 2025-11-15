@@ -13,6 +13,7 @@ services:
         INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
     environment:
       <<: *backend-env
+    command: ["apps/backend/scripts/start.sh"]
     depends_on:
       db:
         condition: service_healthy

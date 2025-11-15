@@ -1,3 +1,5 @@
 """Database access helpers and repositories."""
 
-__all__: list[str] = []
+from .user import UserRepository
+
+__all__ = ["UserRepository"]

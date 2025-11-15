@@ -8,6 +8,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from apps.backend.app import models  # noqa: F401  # ensure models are imported
 from apps.backend.core import Base, get_settings
 
 config = context.config

@@ -1,10 +1,10 @@
-.PHONY: lint format typecheck test-backend test-backend-unit test-backend-integration dev-start dev-stop prod-start prod-stop
+.PHONY: lint format typecheck test-backend test-backend-unit test-backend-integration dev-start dev-stop prod-start prod-stop makemigrations
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
 COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
 COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
-COMPOSE_TEST := $(COMPOSE_BASE) -f infra/compose.test.yml
+COMPOSE_TEST := -f infra/compose.test.yml
 
 lint:
 	COMPOSE_PROFILES=unit $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-unit ruff check .
@@ -22,6 +22,13 @@ test-backend-unit:
 
 test-backend-integration:
 	COMPOSE_PROFILES=integration $(DOCKER_COMPOSE) $(COMPOSE_TEST) run --rm backend-integration
+
+makemigrations:
+	@if [ -z "$(name)" ]; then \
+		echo "Usage: make makemigrations name=\"<description>\""; \
+		exit 1; \
+	fi
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c apps/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build

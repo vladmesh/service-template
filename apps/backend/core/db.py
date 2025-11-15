@@ -1,9 +1,10 @@
 """Database engine and session management."""
 
 from collections.abc import Generator
+from datetime import datetime
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy import DateTime, create_engine, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from .settings import get_settings
 
@@ -16,6 +17,19 @@ class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
     pass
+
+
+class BaseModel(Base):
+    """Common columns shared by all persisted models."""
+
+    __abstract__ = True
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 def get_db() -> Generator[Session, None, None]:

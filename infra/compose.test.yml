@@ -1,5 +1,8 @@
 services:
   backend:
+    extends:
+      file: compose.base.yml
+      service: backend
     profiles: ["integration"]
 
   backend-unit:
