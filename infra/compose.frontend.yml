@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:-service-template-frontend:latest}
+    build:
+      context: apps/frontend
+    env_file:
+      - infra/.env
+      - infra/.env.frontend
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - edge
+    profiles: ["frontend"]

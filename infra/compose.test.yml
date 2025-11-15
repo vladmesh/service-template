@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  backend:
+    extends:
+      file: infra/compose.base.yml
+      service: backend
+    command: pytest -q
+    profiles: ["test"]
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:delegated
+    env_file:
+      - .env
+      - infra/.env.test
+    environment:
+      PYTHONPATH: /workspace
+
+  db:
+    extends:
+      file: infra/compose.base.yml
+      service: db
+    profiles: ["test"]
+    volumes: []
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  caddy:
+    extends:
+      file: infra/compose.base.yml
+      service: caddy
+    profiles: ["test"]
+    deploy:
+      replicas: 0
