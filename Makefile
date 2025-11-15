@@ -7,6 +7,7 @@ COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_UNIT := -f infra/compose.tests.unit.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_UNIT := COMPOSE_PROJECT_NAME=tests-unit
+COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 
 ifeq ($(word 1,$(MAKECMDGOALS)),log)
@@ -24,13 +25,13 @@ endif
 endif
 
 lint:
-	$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm backend-tests-unit ruff check .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check .
 
 format:
-	$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm backend-tests-unit ruff format .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'apps/**/migrations' --exclude '.venv' .
 
 typecheck:
-	$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm backend-tests-unit mypy apps tests
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy apps tests
 
 tests:
 	@run_integration_tests() { \

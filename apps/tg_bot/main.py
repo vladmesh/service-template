@@ -3,11 +3,12 @@
 This module wires a minimal python-telegram-bot application that can be
 extended with real handlers later on.
 """
+
 from __future__ import annotations
 
+from http import HTTPStatus
 import logging
 import os
-from http import HTTPStatus
 from typing import Final
 
 import httpx
@@ -78,7 +79,9 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if sync_result is None:
         reply_text = REGISTRATION_ERROR
     elif sync_result:
-        reply_text = f"{DEFAULT_GREETING}\nРады познакомиться, {telegram_user.first_name or 'друг'}!"
+        reply_text = (
+            f"{DEFAULT_GREETING}\nРады познакомиться, {telegram_user.first_name or 'друг'}!"
+        )
     else:
         reply_text = f"{WELCOME_BACK_GREETING} {telegram_user.first_name or ''}".strip()
 
