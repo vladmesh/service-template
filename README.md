@@ -60,7 +60,6 @@ You fork it, tweak it, remove modules you don’t need, and start building your 
 │   ├── compose.dev.yml
 │   ├── compose.test.yml
 │   ├── compose.prod.yml
-│   ├── compose.tg.yml
 │   └── compose.frontend.yml
 │
 ├── tests/
@@ -114,12 +113,12 @@ without bloating production images.
 
 * Lives in `apps/tg_bot`.
 * Talks to backend via HTTP.
-* Enabled via `compose.tg.yml`.
+* Included in the base Compose stack.
 
 Remove by deleting:
 
 * `apps/tg_bot/`
-* `infra/compose.tg.yml`
+* the `tg_bot` service block in `infra/compose.base.yml`
 
 ---
 
@@ -137,7 +136,7 @@ All environments are built from a shared base.
 
 ### Base
 
-Defines backend, db, caddy.
+Defines backend, db, caddy, tg_bot.
 
 ### Development
 

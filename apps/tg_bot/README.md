@@ -20,14 +20,16 @@ commands, message handlers, or background jobs as you iterate.
    python apps/tg_bot/main.py
    ```
 
-## Docker compose overlay
+## Docker compose integration
 
-The `infra/compose.tg.yml` overlay registers this service under the `tg`
-profile so you can toggle it alongside the rest of the stack:
+The base Compose stack already includes this service, so `make dev-start`
+will build and start it automatically alongside the backend and database.
+If you only need the bot (or want to force a rebuild), target the service
+explicitly:
 
 ```bash
-docker compose -f infra/compose.dev.yml -f infra/compose.tg.yml \
-  --profile tg up --build tg_bot
+docker compose -f infra/compose.base.yml -f infra/compose.dev.yml \
+  up --build tg_bot
 ```
 
 Feel free to add additional handlers, background tasks, or persistence

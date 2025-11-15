@@ -1,0 +1,6 @@
+:80 {
+	encode gzip zstd
+
+	# Default reverse proxy to the FastAPI backend service.
+	reverse_proxy backend:8000
+}

@@ -14,7 +14,6 @@ services:
     working_dir: /workspace
     env_file:
       - ../.env
-      - ./.env.local
     environment:
       PYTHONPATH: /workspace
     ports:
@@ -26,8 +25,6 @@ services:
       service: db
     ports:
       - "5432:5432"
-    env_file:
-      - ./.env.local
 
   caddy:
     extends:
@@ -37,8 +34,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    env_file:
-      - ./.env.local
     ports:
       - "8080:80"
 

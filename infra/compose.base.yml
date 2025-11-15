@@ -49,6 +49,19 @@ services:
       - caddy_data:/data
       - caddy_config:/config
 
+  tg_bot:
+    image: ${TG_BOT_IMAGE:-service-template-tg:latest}
+    build:
+      context: ..
+      dockerfile: apps/tg_bot/Dockerfile
+    env_file:
+      - ../.env
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - internal
+
 networks:
   internal:
   edge:
