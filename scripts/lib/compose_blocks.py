@@ -9,9 +9,9 @@ from typing import Any
 
 import yaml
 
-from scripts.lib import ROOT
 from scripts.lib.service_scaffold import service_compose_template_paths
 
+ROOT = Path(__file__).resolve().parents[2]
 REGISTRY_PATH = ROOT / "services.yml"
 START_MARKER = "# >>> services (auto-generated from services.yml)"
 END_MARKER = "# <<< services (auto-generated from services.yml)"

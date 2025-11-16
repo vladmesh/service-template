@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
 
-from scripts.lib import ROOT
+ROOT = Path(__file__).resolve().parents[2]
 
 TEMPLATES_DIR = ROOT / "templates" / "services"
 SERVICES_ROOT = ROOT / "services"

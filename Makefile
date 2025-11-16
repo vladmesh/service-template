@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate compose-sync add-service sync-services
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -104,15 +104,6 @@ prod-start:
 
 prod-stop:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROD) down --remove-orphans
-
-services-validate:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/services_registry.py validate
-
-compose-sync:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/compose_sync.py
-
-add-service:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm -e TERM=$${TERM:-xterm-256color} -e COLUMNS=$${COLUMNS:-80} -e LINES=$${LINES:-24} tooling python scripts/add_service.py
 
 sync-services:
 	@mode="$(if $(mode),$(mode),$(if $(SYNC_MODE),$(SYNC_MODE),check))"; \

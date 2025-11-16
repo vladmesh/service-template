@@ -7,9 +7,9 @@ import argparse
 from dataclasses import dataclass, field
 from typing import Any
 
-from scripts.lib import ROOT
 from scripts.lib.compose_blocks import (
     COMPOSE_TARGETS,
+    ROOT,
     build_service_block,
     gather_templates,
     load_registry,

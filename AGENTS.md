@@ -28,9 +28,6 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 - `make typecheck` — Mypy for every Python module.
 - `make tests` — runs backend + bot unit suites and the shared integration tests. Use `make tests backend|tg_bot|integration` for scoped suites.
 - `make makemigrations name="..."` — generates Alembic migrations via Docker (never run Alembic locally).
-- `make services-validate` — checks that `services.yml` stays well-formed before automating infra changes.
-- `make compose-sync` — регенерирует сервисные блоки `infra/compose.*.yml` из `services.yml` и шаблонов.
-- `make add-service` — интерактивный генератор нового сервиса; запускает шаблон, обновляет `services.yml` и синхронизирует Compose.
 - `make sync-services [create]` — сверяет `services.yml` с файловой системой (по умолчанию `check`, `create` дописывает отсутствующие каркасы и compose-шаблоны).
 
 ## Service Specs & Sync (rollout plan)

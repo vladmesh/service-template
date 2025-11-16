@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from scripts.lib import ROOT
 from scripts.lib.compose_blocks import (
     COMPOSE_TARGETS,
+    ROOT,
     build_service_block,
     gather_templates,
     load_registry,
