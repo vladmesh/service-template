@@ -14,6 +14,7 @@ from scripts.lib.service_scaffold import ServiceSpec
 
 ROOT = get_repo_root()
 REGISTRY_PATH = ROOT / "services.yml"
+SERVICES_ROOT = ROOT / "services"
 START_MARKER = "# >>> services (auto-generated from services.yml)"
 END_MARKER = "# <<< services (auto-generated from services.yml)"
 
@@ -30,6 +31,7 @@ class ComposeTarget:
 COMPOSE_TARGETS = [
     ComposeTarget(key="base", path=ROOT / "infra/compose.base.yml"),
     ComposeTarget(key="dev", path=ROOT / "infra/compose.dev.yml"),
+    ComposeTarget(key="tests_unit", path=ROOT / "infra/compose.tests.unit.yml"),
 ]
 
 
@@ -39,6 +41,7 @@ class ServiceComposeTemplate:
 
     base: str | None = None
     dev: str | None = None
+    tests_unit: str | None = None
 
 
 IMAGE_SLUG_OVERRIDES = {
@@ -72,6 +75,23 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
               working_dir: /workspace
               env_file:
                 - ../.env
+            """
+        ),
+        tests_unit=textwrap.dedent(
+            """\
+            __SLUG_DASH__-tests-unit:
+              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              build:
+                context: ..
+                dockerfile: services/__SLUG__/Dockerfile
+                args:
+                  INSTALL_DEV_DEPS: "true"
+              command: pytest -q __UNIT_TEST_TARGET__
+              working_dir: /app
+              env_file:
+                - ../.env
+              environment:
+                PYTHONPATH: /app
             """
         ),
     ),
@@ -124,6 +144,26 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 PYTHONPATH: /workspace
             """
         ),
+        tests_unit=textwrap.dedent(
+            """\
+            __SLUG_DASH__-tests-unit:
+              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              build:
+                context: ..
+                dockerfile: services/__SLUG__/Dockerfile
+                args:
+                  INSTALL_DEV_DEPS: "true"
+              command: pytest -q __UNIT_TEST_TARGET__
+              working_dir: /app
+              env_file:
+                - ../.env
+              environment:
+                PYTHONPATH: /app
+                ENVIRONMENT: test
+                APP_ENV: test
+                DATABASE_URL: sqlite+pysqlite:////app/services/__SLUG__/tests/.tmp/test.db
+            """
+        ),
     ),
     "tg_bot": ServiceComposeTemplate(
         base=textwrap.dedent(
@@ -142,6 +182,7 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 - internal
             """
         ),
+        tests_unit=DEFAULT_TEMPLATES["python"].tests_unit,
     ),
 }
 
@@ -157,9 +198,30 @@ def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
 
 
 def compose_template_for_spec(spec: ServiceSpec) -> ServiceComposeTemplate | None:
-    if spec.slug in SERVICE_OVERRIDES:
-        return SERVICE_OVERRIDES[spec.slug]
-    return DEFAULT_TEMPLATES.get(spec.service_type)
+    override = SERVICE_OVERRIDES.get(spec.slug)
+    default_template = DEFAULT_TEMPLATES.get(spec.service_type)
+    if not override:
+        return default_template
+    if not default_template:
+        return override
+    return ServiceComposeTemplate(
+        base=override.base if override.base is not None else default_template.base,
+        dev=override.dev if override.dev is not None else default_template.dev,
+        tests_unit=(
+            override.tests_unit if override.tests_unit is not None else default_template.tests_unit
+        ),
+    )
+
+
+def _unit_test_target(spec: ServiceSpec) -> str:
+    service_root = SERVICES_ROOT / spec.slug
+    unit_tests_dir = service_root / "tests" / "unit"
+    if unit_tests_dir.exists():
+        return f"services/{spec.slug}/tests/unit"
+    tests_dir = service_root / "tests"
+    if tests_dir.exists():
+        return f"services/{spec.slug}/tests"
+    return f"services/{spec.slug}/tests/unit"
 
 
 def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
@@ -170,6 +232,7 @@ def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
         "__IMAGE_ENV__": f"{spec.slug.upper()}_IMAGE",
         "__INSTALL_DEV_ENV__": f"{spec.slug.upper()}_INSTALL_DEV_DEPS",
         "__IMAGE_SLUG__": image_slug,
+        "__UNIT_TEST_TARGET__": _unit_test_target(spec),
     }
     rendered = template
     for key, value in replacements.items():
@@ -183,9 +246,9 @@ def render_service_templates(specs: list[ServiceSpec], key: str) -> list[str]:
         template = compose_template_for_spec(spec)
         if not template:
             continue
-        snippet = template.base if key == "base" else template.dev
         if key == "dev" and not spec.create_dev_template:
             continue
+        snippet = getattr(template, key, None)
         if not snippet:
             continue
         templates.append(_apply_placeholders(snippet, spec))

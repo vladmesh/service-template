@@ -38,6 +38,7 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
 
     _write_compose(infra_dir / "compose.base.yml")
     _write_compose(infra_dir / "compose.dev.yml")
+    _write_compose(infra_dir / "compose.tests.unit.yml")
 
     templates_root = root / "templates" / "services"
     templates_root.mkdir(parents=True, exist_ok=True)

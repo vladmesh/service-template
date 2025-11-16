@@ -39,6 +39,8 @@ def test_sync_services_create_and_check_flow(fake_repo) -> None:
     assert "omega" in base_compose
     dev_compose = (root / "infra" / "compose.dev.yml").read_text(encoding="utf-8")
     assert "omega" in dev_compose
+    tests_compose = (root / "infra" / "compose.tests.unit.yml").read_text(encoding="utf-8")
+    assert "omega-tests-unit" in tests_compose
 
     final_check = sync_mod.run_sync(apply=False)
     assert final_check == 0
