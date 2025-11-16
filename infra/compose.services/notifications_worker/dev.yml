@@ -1,0 +1,9 @@
+notifications_worker:
+  extends:
+    file: compose.base.yml
+    service: notifications_worker
+  volumes:
+    - ../:/workspace:delegated
+  working_dir: /workspace
+  env_file:
+    - ../.env
