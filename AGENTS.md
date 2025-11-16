@@ -29,6 +29,7 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 - `make tests` — runs backend + bot unit suites and the shared integration tests. Use `make tests backend|tg_bot|integration` for scoped suites.
 - `make makemigrations name="..."` — generates Alembic migrations via Docker (never run Alembic locally).
 - `make sync-services [create]` — сверяет `services.yml` с файловой системой (по умолчанию `check`, `create` дописывает отсутствующие каркасы и compose-шаблоны).
+- `make tooling-tests` — pytest-набор для `sync_services` и scaffolding-хелперов (в tooling-контейнере).
 
 ## Service Specs & Sync (rollout plan)
 
@@ -40,7 +41,14 @@ Guidelines for automation agents (or humans in "automation mode") working inside
   - `make sync-services create` (`sync_services create-missing`) — создаёт отсутствующие артефакты из шаблонов, не правит существующие файлы.
 - Автоматически управляемые артефакты: `services/<slug>/` (шаблонная заготовка), `infra/compose.services/<slug>/base.yml` и `dev.yml`, а также секции между маркерами `# >>> services`/`# <<< services` в `infra/compose.base.yml` и `infra/compose.dev.yml`.
 - README и AGENTS внутри сервиса заполняются вручную после генерации (никаких автотекстов) — sync лишь проверяет их наличие.
-- До полного ввода `sync_services` допускается `make add-service`, но новые PR уже должны описывать сервис в `services.yml` и ссылаться на этот план миграции.
+- Новые сервисы создаются только через `services.yml` + `make sync-services create`; интерактивный `add-service` больше не поддерживается.
+
+## Добавление нового сервиса
+
+1. Добавьте запись в `services.yml` (поля `name`, `type`, `description`).
+2. Запустите `make sync-services create`, чтобы получить заготовку каталога и compose-шаблонов.
+3. В сервисе заполните `README.md`, `AGENTS.md`, `Dockerfile` и минимальный код.
+4. Закоммитьте изменения и прогоните `make sync-services`, `make lint`, `make tests` перед PR.
 
 ## Coding Standards
 

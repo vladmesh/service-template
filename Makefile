@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -113,3 +113,6 @@ sync-services:
 		*) echo "Unknown sync mode: $$mode (expected 'check' or 'create')" >&2; exit 1 ;; \
 	esac; \
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/sync_services.py $$cmd
+
+tooling-tests:
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q tests/tooling

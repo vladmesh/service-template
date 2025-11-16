@@ -28,5 +28,13 @@ Container-first starter kit for building small and mid-sized backend services wi
 | `make tests` | Execute backend + bot unit suites and shared integration tests (use `service=` or CLI args to scope). |
 | `make makemigrations name="add_users"` | Generate Alembic migrations inside Docker. |
 | `make sync-services [create]` | Ensure `services.yml` artifacts exist (default `check`, add `create` to scaffold missing files). |
+| `make tooling-tests` | Run sync-services/scaffolding pytest suites inside the tooling container. |
 
 See [`AGENTS.md`](AGENTS.md) for workflow rules (always use `make`, never run code locally) and hook instructions.
+
+## Adding a Service
+
+1. Describe the service in `services.yml` (fields: `name`, `type`, `description`).
+2. Run `make sync-services create` to scaffold the directory and Compose overlays inside containers.
+3. Fill in the generated `README.md`, `AGENTS.md`, Dockerfile, and stub code/tests manually.
+4. Commit the changes and run `make sync-services`, `make lint`, and `make tests` before opening a PR.

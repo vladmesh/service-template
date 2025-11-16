@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: make tests
 
+      - name: Run sync-services tooling tests
+        run: make tooling-tests
+
       - name: Clean up
         if: always()
         run: |
