@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import ModuleType
+from typing import TypeAlias
+
+import pytest
 
 from tests.tooling.conftest import create_python_template
+
+FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
 
 
 def _write_services_file(root: Path, slug: str = "omega", dev_template: bool = True) -> None:
@@ -22,7 +28,7 @@ def _write_services_file(root: Path, slug: str = "omega", dev_template: bool = T
     )
 
 
-def test_sync_services_create_and_check_flow(fake_repo) -> None:
+def test_sync_services_create_and_check_flow(fake_repo: FakeRepo) -> None:
     root, _scaffold, _compose, sync_mod = fake_repo
     create_python_template(root)
     _write_services_file(root, slug="omega", dev_template=True)
@@ -52,7 +58,9 @@ def test_sync_services_create_and_check_flow(fake_repo) -> None:
     assert "omega" not in dev_compose
 
 
-def test_sync_services_flags_unscoped_dockerfile_copy(fake_repo, capsys) -> None:
+def test_sync_services_flags_unscoped_dockerfile_copy(
+    fake_repo: FakeRepo, capsys: pytest.CaptureFixture[str]
+) -> None:
     root, _scaffold, _compose, sync_mod = fake_repo
     create_python_template(root)
     _write_services_file(root, slug="omega", dev_template=True)

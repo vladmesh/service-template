@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import ModuleType
+from typing import TypeAlias
+
 from tests.tooling.conftest import create_python_template
 
+FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
 
-def test_scaffold_creates_expected_artifacts(fake_repo) -> None:
+
+def test_scaffold_creates_expected_artifacts(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
     create_python_template(root, include_docs=False)
     spec = scaffold_mod.ServiceSpec(
@@ -32,7 +38,7 @@ def test_scaffold_creates_expected_artifacts(fake_repo) -> None:
     assert not report.missing
 
 
-def test_scaffold_reports_missing_when_dry_run(fake_repo) -> None:
+def test_scaffold_reports_missing_when_dry_run(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
     create_python_template(root, include_docs=False)
     spec = scaffold_mod.ServiceSpec(
@@ -49,7 +55,7 @@ def test_scaffold_reports_missing_when_dry_run(fake_repo) -> None:
     assert not report.created
 
 
-def test_scaffold_preserves_existing_files(fake_repo) -> None:
+def test_scaffold_preserves_existing_files(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
     create_python_template(root, include_docs=False)
     spec = scaffold_mod.ServiceSpec(
@@ -75,7 +81,7 @@ def test_scaffold_preserves_existing_files(fake_repo) -> None:
     assert not report.errors
 
 
-def test_scaffold_reports_unknown_template(fake_repo) -> None:
+def test_scaffold_reports_unknown_template(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
     spec = scaffold_mod.ServiceSpec(
         slug="delta",

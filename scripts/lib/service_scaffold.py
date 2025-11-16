@@ -147,16 +147,22 @@ def _ensure_service_docs(
 
     _ensure_file(
         dest / "README.md",
-        lambda path: path.write_text(readme_stub, encoding="utf-8"),
+        lambda path: _write_stub(path, readme_stub),
         apply,
         report,
     )
     _ensure_file(
         dest / "AGENTS.md",
-        lambda path: path.write_text(agents_stub, encoding="utf-8"),
+        lambda path: _write_stub(path, agents_stub),
         apply,
         report,
     )
+
+
+def _write_stub(path: Path, contents: str) -> None:
+    """Write stub text to a file."""
+
+    path.write_text(contents, encoding="utf-8")
 
 
 def _ensure_file(

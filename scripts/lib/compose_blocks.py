@@ -7,7 +7,7 @@ from pathlib import Path
 import textwrap
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from scripts.lib.env import get_repo_root
 from scripts.lib.service_scaffold import ServiceSpec

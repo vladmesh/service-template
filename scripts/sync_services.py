@@ -18,6 +18,7 @@ from scripts.lib.compose_blocks import (
 )
 from scripts.lib.service_scaffold import (
     SERVICES_ROOT,
+    ScaffoldReport,
     ServiceSpec,
     build_service_specs,
     scaffold_service,
@@ -33,7 +34,7 @@ class AggregateReport:
     missing: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
-    def merge(self, spec_report) -> None:
+    def merge(self, spec_report: ScaffoldReport) -> None:
         self.created.extend(spec_report.created)
         self.existing.extend(spec_report.existing)
         self.missing.extend(spec_report.missing)
