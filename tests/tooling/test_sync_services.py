@@ -60,7 +60,7 @@ def test_sync_services_flags_unscoped_dockerfile_copy(fake_repo, capsys) -> None
     sync_mod.run_sync(apply=True)
     dockerfile = root / "services" / "omega" / "Dockerfile"
     dockerfile.write_text(
-        "FROM python:3.12-slim\nCOPY services ./services\n",
+        "FROM python:3.11-slim\nCOPY services ./services\n",
         encoding="utf-8",
     )
 

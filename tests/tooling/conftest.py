@@ -59,7 +59,7 @@ def create_python_template(root: Path, include_docs: bool = False) -> Path:
     (template_dir / "src").mkdir(parents=True, exist_ok=True)
     (template_dir / "tests").mkdir(parents=True, exist_ok=True)
     (template_dir / "Dockerfile").write_text(
-        'FROM python:3.12-slim\nLABEL service="__SERVICE_NAME__"\n',
+        'FROM python:3.11-slim\nLABEL service="__SERVICE_NAME__"\n',
         encoding="utf-8",
     )
     if include_docs:
