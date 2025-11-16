@@ -13,6 +13,7 @@ TEMPLATES_DIR = ROOT / "templates" / "services"
 SERVICES_ROOT = ROOT / "services"
 COMPOSE_SERVICES_ROOT = ROOT / "infra" / "compose.services"
 PLACEHOLDER = "__SERVICE_NAME__"
+DEFAULT_DEV_TEMPLATE = True
 
 
 @dataclass
@@ -192,3 +193,13 @@ def _render_dev_compose(slug: str) -> str:
         f"  env_file:\n"
         f"    - ../.env\n"
     )
+
+
+def service_compose_template_paths(slug: str) -> dict[str, Path]:
+    """Return expected compose template paths for the service."""
+
+    target_dir = COMPOSE_SERVICES_ROOT / slug
+    return {
+        "base": target_dir / "base.yml",
+        "dev": target_dir / "dev.yml",
+    }
