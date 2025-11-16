@@ -30,6 +30,20 @@ services:
     environment:
       PYTHONPATH: /app
 
+  notifications-worker-tests-unit:
+    image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications_worker:latest}
+    build:
+      context: ..
+      dockerfile: apps/notifications_worker/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: pytest -q apps/notifications_worker/tests
+    working_dir: /app
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /app
+
   tooling:
     image: ${TOOLING_IMAGE:-service-template-tooling:latest}
     build:
