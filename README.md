@@ -27,5 +27,6 @@ Container-first starter kit for building small and mid-sized backend services wi
 | `make typecheck` | Run Mypy across `services` and `tests`. |
 | `make tests` | Execute backend + bot unit suites and shared integration tests (use `service=` or CLI args to scope). |
 | `make makemigrations name="add_users"` | Generate Alembic migrations inside Docker. |
+| `make sync-services [create]` | Ensure `services.yml` artifacts exist (default `check`, add `create` to scaffold missing files). |
 
 See [`AGENTS.md`](AGENTS.md) for workflow rules (always use `make`, never run code locally) and hook instructions.

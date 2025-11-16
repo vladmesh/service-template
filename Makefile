@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate compose-sync add-service
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate compose-sync add-service sync-services
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -22,6 +22,13 @@ ifeq ($(word 1,$(MAKECMDGOALS)),tests)
 TEST_TARGET := $(word 2,$(MAKECMDGOALS))
 ifneq ($(TEST_TARGET),)
 $(eval $(TEST_TARGET):;@:)
+endif
+endif
+
+ifeq ($(word 1,$(MAKECMDGOALS)),sync-services)
+SYNC_MODE := $(word 2,$(MAKECMDGOALS))
+ifneq ($(SYNC_MODE),)
+$(eval $(SYNC_MODE):;@:)
 endif
 endif
 
@@ -106,3 +113,12 @@ compose-sync:
 
 add-service:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm -e TERM=$${TERM:-xterm-256color} -e COLUMNS=$${COLUMNS:-80} -e LINES=$${LINES:-24} tooling python scripts/add_service.py
+
+sync-services:
+	@mode="$(if $(mode),$(mode),$(if $(SYNC_MODE),$(SYNC_MODE),check))"; \
+	case "$$mode" in \
+		create) cmd="create" ;; \
+		check|"") cmd="check" ;; \
+		*) echo "Unknown sync mode: $$mode (expected 'check' or 'create')" >&2; exit 1 ;; \
+	esac; \
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/sync_services.py $$cmd
