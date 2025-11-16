@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 import sys
 from typing import Any
@@ -13,8 +14,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = ROOT / "services.yml"
+SERVICES_ROOT = ROOT / "services"
+COMPOSE_SERVICES_ROOT = ROOT / "infra" / "compose.services"
+UNIT_COMPOSE_FILE = ROOT / "infra" / "compose.tests.unit.yml"
+INTEGRATION_COMPOSE_FILE = ROOT / "infra" / "compose.tests.integration.yml"
 ALLOWED_TYPES = {"python", "default"}
-ALLOWED_TEST_MODES = {"run", "up"}
+SPECIAL_SERVICE_PATHS: dict[str, Path] = {"integration": ROOT / "tests"}
 
 
 @dataclass
@@ -25,20 +30,51 @@ class ValidationResult:
     errors: list[str]
 
 
+def load_yaml(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
 def load_registry(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Registry file not found: {path}")
-    with path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
+    data = load_yaml(path)
     if not isinstance(data, dict):
         raise ValueError("Registry root must be a mapping")
     return data
 
 
+def service_path(slug: str) -> Path:
+    return SPECIAL_SERVICE_PATHS.get(slug, SERVICES_ROOT / slug)
+
+
+def compose_template_path(slug: str, template: str) -> Path:
+    return COMPOSE_SERVICES_ROOT / slug / f"{template}.yml"
+
+
+def slug_to_unit_service(slug: str) -> str:
+    return f"{slug.replace('_', '-')}-tests-unit"
+
+
+def slug_to_compose_service(slug: str) -> str:
+    return slug
+
+
+@lru_cache(maxsize=2)
+def load_compose_services(compose_path: Path) -> dict[str, Any]:
+    if not compose_path.exists():
+        return {}
+    data = load_yaml(compose_path)
+    if not isinstance(data, dict):
+        return {}
+    services = data.get("services", {})
+    return services if isinstance(services, dict) else {}
+
+
 def validate_registry(data: dict[str, Any]) -> ValidationResult:
     errors: list[str] = []
-    if data.get("version") != 1:
-        errors.append("Registry version must be set to 1")
+    if data.get("version") != 2:
+        errors.append("Registry version must be set to 2")
 
     services = data.get("services")
     if not isinstance(services, list):
@@ -60,50 +96,22 @@ def validate_registry(data: dict[str, Any]) -> ValidationResult:
             continue
         seen_names.add(name)
 
-        required_fields = ("display_name", "type", "path", "description")
-        for field in required_fields:
-            if not isinstance(service.get(field), str) or not service[field]:
-                errors.append(f"{prefix}.{field} must be a non-empty string")
+        description = service.get("description")
+        if not isinstance(description, str) or not description.strip():
+            errors.append(f"{prefix}.description must be a non-empty string")
+
         type_value = service.get("type")
-        if isinstance(type_value, str) and type_value not in ALLOWED_TYPES:
-            errors.append(f"{prefix}.type must be one of {sorted(ALLOWED_TYPES)}")
-
-        path_value = service.get("path")
-        if isinstance(path_value, str) and not (ROOT / path_value).exists():
-            errors.append(f"{prefix}.path does not exist: {path_value}")
-
-        compose = service.get("compose")
-        if not isinstance(compose, dict):
-            errors.append(f"{prefix}.compose must be a mapping")
+        if isinstance(type_value, str):
+            if type_value not in ALLOWED_TYPES:
+                errors.append(f"{prefix}.type must be one of {sorted(ALLOWED_TYPES)}")
         else:
-            svc_map = compose.get("services", {})
-            if not isinstance(svc_map, dict):
-                errors.append(f"{prefix}.compose.services must be a mapping")
+            errors.append(f"{prefix}.type must be a string")
 
-        logs = service.get("logs", [])
-        if not isinstance(logs, list):
-            errors.append(f"{prefix}.logs must be a list of service names")
-
-        tests = service.get("tests", [])
-        if not isinstance(tests, list):
-            errors.append(f"{prefix}.tests must be a list")
-        else:
-            for test in tests:
-                if not isinstance(test, dict):
-                    errors.append(f"{prefix}.tests entries must be mappings")
-                    continue
-                for field in ("name", "compose_file", "compose_project", "service"):
-                    if not isinstance(test.get(field), str) or not test[field]:
-                        errors.append(f"{prefix}.tests.{field} must be a non-empty string")
-                        continue
-                compose_file = test.get("compose_file")
-                if isinstance(compose_file, str) and not (ROOT / compose_file).exists():
-                    errors.append(f"{prefix}.tests.compose_file not found: {compose_file}")
-                mode = test.get("mode", "run")
-                if mode not in ALLOWED_TEST_MODES:
-                    errors.append(
-                        f"{prefix}.tests.mode must be one of {sorted(ALLOWED_TEST_MODES)}"
-                    )
+        derived_path = service_path(name)
+        if not derived_path.exists():
+            errors.append(
+                f"{prefix}: derived path does not exist ({derived_path.relative_to(ROOT)})"
+            )
 
     return ValidationResult(not errors, errors)
 
@@ -129,47 +137,48 @@ def iter_services(data: dict[str, Any]) -> list[dict[str, Any]]:
 def gather_log_targets(data: dict[str, Any]) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for service in iter_services(data):
-        name = service.get("name")
-        compose_cfg = service.get("compose", {})
-        if not isinstance(compose_cfg, dict) or not isinstance(name, str):
+        slug = service.get("name")
+        if not isinstance(slug, str):
             continue
-        compose_services = compose_cfg.get("services", {})
-        if not isinstance(compose_services, dict):
+        if not compose_template_path(slug, "base").exists():
             continue
-        target = compose_services.get("dev") or compose_services.get("base")
-        if isinstance(target, str) and target:
-            mapping[name] = target
+        mapping[slug] = slug_to_compose_service(slug)
     return mapping
 
 
 def iter_tests(data: dict[str, Any]) -> list[dict[str, str]]:
     tests: list[dict[str, str]] = []
+    unit_services = load_compose_services(UNIT_COMPOSE_FILE)
+    integration_services = load_compose_services(INTEGRATION_COMPOSE_FILE)
+
     for service in iter_services(data):
-        entries = service.get("tests", [])
-        if not isinstance(entries, list):
+        slug = service.get("name")
+        if not isinstance(slug, str):
             continue
-        for test in entries:
-            if not isinstance(test, dict):
-                continue
-            name = test.get("name")
-            compose_file = test.get("compose_file")
-            compose_project = test.get("compose_project")
-            compose_service = test.get("service")
-            mode = test.get("mode", "run")
-            if not all(
-                isinstance(value, str) and value
-                for value in (name, compose_file, compose_project, compose_service)
-            ):
-                continue
-            tests.append(
-                {
-                    "name": name,
-                    "compose_file": compose_file,
-                    "compose_project": compose_project,
-                    "compose_service": compose_service,
-                    "mode": mode,
-                }
-            )
+        if slug == "integration":
+            if "integration-tests" in integration_services:
+                tests.append(
+                    {
+                        "name": slug,
+                        "compose_file": str(INTEGRATION_COMPOSE_FILE.relative_to(ROOT)),
+                        "compose_project": "tests-integration",
+                        "compose_service": "integration-tests",
+                        "mode": "up",
+                    }
+                )
+            continue
+        compose_service = slug_to_unit_service(slug)
+        if compose_service not in unit_services:
+            continue
+        tests.append(
+            {
+                "name": slug,
+                "compose_file": str(UNIT_COMPOSE_FILE.relative_to(ROOT)),
+                "compose_project": "tests-unit",
+                "compose_service": compose_service,
+                "mode": "run",
+            }
+        )
     return tests
 
 
@@ -177,20 +186,23 @@ def cmd_list(args: argparse.Namespace) -> int:
     data = load_registry(args.path)
     services = iter_services(data)
     for service in services:
-        name = service.get("name", "<unknown>")
-        display = service.get("display_name", name)
-        path_value = service.get("path", "?")
-        print(f"- {name} ({display}) -> {path_value}")
+        slug = service.get("name", "<unknown>")
+        type_value = service.get("type", "?")
+        desc = service.get("description", "").strip()
+        path_value = service_path(slug).relative_to(ROOT)
+        description = f" — {desc}" if desc else ""
+        print(f"- {slug} ({type_value}) -> {path_value}{description}")
     return 0
 
 
 def cmd_tests(args: argparse.Namespace) -> int:
     data = load_registry(args.path)
     tests = iter_tests(data)
-    if args.suite and args.suite != "all":
-        tests = [test for test in tests if test["name"] == args.suite]
+    suite = args.suite
+    if suite and suite != "all":
+        tests = [test for test in tests if test["name"] == suite]
         if not tests:
-            print(f"Unknown test suite: {args.suite}", file=sys.stderr)
+            print(f"Unknown test suite: {suite}", file=sys.stderr)
             return 1
     if not tests:
         print("No tests configured in services.yml", file=sys.stderr)

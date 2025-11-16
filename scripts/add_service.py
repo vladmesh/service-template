@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SERVICES_FILE = ROOT / "services.yml"
 TEMPLATES_DIR = ROOT / "templates" / "services"
 COMPOSE_TEMPLATES_DIR = ROOT / "infra" / "compose.services"
+SERVICES_ROOT = ROOT / "services"
 PLACEHOLDER = "__SERVICE_NAME__"
 
 
@@ -79,15 +80,6 @@ def slug_validator_factory(existing_names: set[str]):
     return _validator
 
 
-def path_validator(path_value: str) -> str | None:
-    if Path(path_value).is_absolute():
-        return "Path must be relative to the repository root."
-    dest = ROOT / path_value
-    if dest.exists():
-        return f"Path '{path_value}' already exists."
-    return None
-
-
 def load_services() -> dict[str, Any]:
     if not SERVICES_FILE.exists():
         raise FileNotFoundError(f"Cannot find {SERVICES_FILE}")
@@ -116,28 +108,22 @@ def copy_service_template(service_type: str, target_dir: Path, slug: str) -> Non
             file.write_text(text.replace(PLACEHOLDER, slug), encoding="utf-8")
 
 
-def write_if_content(path: Path, content: str) -> None:
-    if content:
-        path.write_text(content.rstrip() + "\n", encoding="utf-8")
-
-
 def compose_env_var(slug: str) -> str:
     return f"{slug.upper()}_IMAGE"
 
 
 def generate_compose_templates(
     slug: str,
-    compose_service: str,
     service_path: Path,
     create_dev: bool,
-) -> dict[str, str]:
+) -> None:
     target_dir = COMPOSE_TEMPLATES_DIR / slug
     if target_dir.exists():
         raise FileExistsError(f"Compose templates directory already exists: {target_dir}")
     target_dir.mkdir(parents=True, exist_ok=False)
     dockerfile_path = (service_path / "Dockerfile").as_posix()
     base_content = (
-        f"{compose_service}:\n"
+        f"{slug}:\n"
         f"  image: ${{{compose_env_var(slug)}:-service-template-{slug}:latest}}\n"
         f"  build:\n"
         f"    context: ..\n"
@@ -147,61 +133,21 @@ def generate_compose_templates(
         f"  networks:\n"
         f"    - internal\n"
     )
-    base_file = target_dir / "base.yml"
-    base_file.write_text(base_content, encoding="utf-8")
-
-    templates = {"base": str(base_file.relative_to(ROOT).as_posix())}
+    (target_dir / "base.yml").write_text(base_content, encoding="utf-8")
 
     if create_dev:
         dev_content = (
-            f"{compose_service}:\n"
+            f"{slug}:\n"
             f"  extends:\n"
             f"    file: compose.base.yml\n"
-            f"    service: {compose_service}\n"
+            f"    service: {slug}\n"
             f"  volumes:\n"
             f"    - ../:/workspace:delegated\n"
             f"  working_dir: /workspace\n"
             f"  env_file:\n"
             f"    - ../.env\n"
         )
-        dev_file = target_dir / "dev.yml"
-        dev_file.write_text(dev_content, encoding="utf-8")
-        templates["dev"] = str(dev_file.relative_to(ROOT).as_posix())
-    return templates
-
-
-def prompt_tests() -> list[dict[str, str]]:
-    tests: list[dict[str, str]] = []
-    while prompt_bool("Add a test suite entry?", default=not tests):
-        name = prompt("Test suite name (e.g. backend)", default=f"suite{len(tests) + 1}")
-        description = prompt("Test description", default=f"{name} tests")
-        compose_file = prompt(
-            "Compose file for tests",
-            default="infra/compose.tests.unit.yml",
-        )
-        compose_project = prompt(
-            "Compose project name",
-            default="tests-unit",
-        )
-        compose_service = prompt("Compose service to run", default=f"{name}-tests-unit")
-        mode = prompt(
-            "Run mode ('run' or 'up')",
-            default="run",
-            validator=lambda value: None
-            if value in {"run", "up"}
-            else "Mode must be 'run' or 'up'.",
-        )
-        tests.append(
-            {
-                "name": name,
-                "description": description,
-                "compose_file": compose_file,
-                "compose_project": compose_project,
-                "service": compose_service,
-                "mode": mode,
-            }
-        )
-    return tests
+        (target_dir / "dev.yml").write_text(dev_content, encoding="utf-8")
 
 
 def run_subprocess(args: list[str]) -> None:
@@ -219,7 +165,6 @@ def main() -> int:
     slug = prompt(
         "Service slug (e.g. backend_v2)", validator=slug_validator_factory(existing_names)
     )
-    display_name = prompt("Display name", default=slug.replace("_", " ").title())
     service_type = prompt(
         "Service type ('python' or 'default')",
         default="python",
@@ -227,48 +172,29 @@ def main() -> int:
         if value in {"python", "default"}
         else "Type must be 'python' or 'default'.",
     )
-    default_path = f"services/{slug}"
-    service_path_str = prompt("Relative path", default_path, validator=path_validator)
-    service_path = ROOT / service_path_str
+    service_path = SERVICES_ROOT / slug
+    if service_path.exists():
+        raise FileExistsError(f"Service directory already exists: {service_path}")
     description = prompt_multiline("Service description")
-    compose_service = prompt("Compose service name", default=slug)
     create_dev = prompt_bool("Generate dev overlay template?", default=True)
-    include_logs = prompt_bool("Include service in 'make log' command?", default=True)
-    tests = prompt_tests()
-    readme_content = prompt_multiline("README.md content (leave blank to keep template)")
-    agents_content = prompt_multiline("AGENTS.md content (leave blank to keep template)")
 
     print("-> Copying service template...")
     service_path.parent.mkdir(parents=True, exist_ok=True)
     copy_service_template(service_type, service_path, slug)
-    write_if_content(service_path / "README.md", readme_content)
-    write_if_content(service_path / "AGENTS.md", agents_content)
 
     print("-> Generating compose templates...")
-    compose_templates = generate_compose_templates(
+    generate_compose_templates(
         slug=slug,
-        compose_service=compose_service,
-        service_path=Path(service_path_str),
+        service_path=service_path.relative_to(ROOT),
         create_dev=create_dev,
     )
 
     print("-> Updating services.yml...")
+    services_data.setdefault("version", 2)
     service_entry = {
         "name": slug,
-        "display_name": display_name,
         "type": service_type,
-        "path": service_path_str,
-        "description": description or f"{display_name} service",
-        "compose": {
-            "services": {
-                "base": compose_service,
-                **({"dev": compose_service} if create_dev else {}),
-            },
-            "templates": compose_templates,
-        },
-        "logs": [compose_service] if include_logs else [],
-        "tests": tests,
-        "tags": [service_type],
+        "description": description or f"{slug.replace('_', ' ').title()} service",
     }
     services_data.setdefault("services", []).append(service_entry)
     save_services(services_data)
@@ -284,8 +210,8 @@ def main() -> int:
     run_subprocess(["python", "scripts/compose_sync.py"])
 
     print("\nService scaffolding complete!")
-    print(f"- Path: {service_path_str}")
-    print(f"- Compose service: {compose_service}")
+    print(f"- Path: {service_path.relative_to(ROOT)}")
+    print(f"- Compose service: {slug}")
     print("Next steps:")
     print("  * Commit the generated files.")
     print("  * Adjust Dockerfile/tests/compose templates as needed.")

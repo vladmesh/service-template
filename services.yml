@@ -1,105 +1,23 @@
-version: 1
+version: 2
 services:
-- name: backend
-  display_name: Backend API
-  type: python
-  path: services/backend
-  description: FastAPI backend that exposes REST endpoints, owns the database, and
-    powers the rest of the system.
-  compose:
-    services:
-      base: backend
-      dev: backend
-    templates:
-      base: infra/compose.services/backend/base.yml
-      dev: infra/compose.services/backend/dev.yml
-  logs:
-  - backend
-  tests:
   - name: backend
-    description: Backend unit tests (pytest)
-    compose_file: infra/compose.tests.unit.yml
-    compose_project: tests-unit
-    service: backend-tests-unit
-    mode: run
-  tags:
-  - api
-  - critical
-- name: tg_bot
-  display_name: Telegram Bot
-  type: python
-  path: services/tg_bot
-  description: Telegram bot used for user onboarding and backend notifications.
-  compose:
-    services:
-      base: tg_bot
-      dev: tg_bot
-    templates:
-      base: infra/compose.services/tg_bot/base.yml
-  logs:
-  - tg_bot
-  tests:
-  - name: tg_bot
-    description: Telegram bot unit tests (pytest)
-    compose_file: infra/compose.tests.unit.yml
-    compose_project: tests-unit
-    service: tg-bot-tests-unit
-    mode: run
-  tags:
-  - bot
-  - name: frontend
-    display_name: Frontend
-    type: default
-    path: services/frontend
-    description: >-
-      Static frontend placeholder served separately via infra/compose.frontend.yml.
-    compose:
-      services: {}
-      templates: {}
-    logs: []
-    tests: []
-    tags:
-      - frontend
-  - name: integration
-    display_name: Integration Suite
-    type: default
-    path: tests
-    description: >-
-      Shared integration tests executed via infra/compose.tests.integration.yml.
-    compose:
-      services: {}
-      templates: {}
-    logs: []
-    tests:
-      - name: integration
-        description: Backend + bot integration tests
-        compose_file: infra/compose.tests.integration.yml
-        compose_project: tests-integration
-        service: integration-tests
-        mode: up
-    tags:
-      - tests
-  - name: notifications_worker
-    display_name: Notifications Worker
     type: python
-    path: services/notifications_worker
-    description: >-
-      Service for notifications (email, telegram).
-    compose:
-      services:
-        base: notifications_worker
-        dev: notifications_worker
-      templates:
-        base: infra/compose.services/notifications_worker/base.yml
-        dev: infra/compose.services/notifications_worker/dev.yml
-    logs:
-      - notifications_worker
-  tests:
+    description: >
+      FastAPI backend that exposes REST endpoints, owns the database, and powers the rest of the
+      system.
+  - name: tg_bot
+    type: python
+    description: >
+      Telegram bot used for user onboarding and backend notifications.
+  - name: frontend
+    type: default
+    description: >
+      Static frontend placeholder served separately via infra/compose.frontend.yml.
+  - name: integration
+    type: default
+    description: >
+      Shared integration tests executed via infra/compose.tests.integration.yml.
   - name: notifications_worker
-    description: Notifications worker unit tests
-    compose_file: infra/compose.tests.unit.yml
-    compose_project: tests-unit
-    service: notifications-worker-tests-unit
-    mode: run
-    tags:
-      - python
+    type: python
+    description: >
+      Service for notifications (email, telegram).

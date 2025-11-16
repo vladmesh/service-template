@@ -12,6 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = ROOT / "services.yml"
+COMPOSE_SERVICES_ROOT = ROOT / "infra" / "compose.services"
 START_MARKER = "# >>> services (auto-generated from services.yml)"
 END_MARKER = "# <<< services (auto-generated from services.yml)"
 
@@ -49,19 +50,12 @@ def gather_templates(registry: dict[str, Any], key: str) -> list[Path]:
     for service in services:
         if not isinstance(service, dict):
             continue
-        compose_cfg = service.get("compose", {})
-        if not isinstance(compose_cfg, dict):
+        slug = service.get("name")
+        if not isinstance(slug, str):
             continue
-        template_cfg = compose_cfg.get("templates", {})
-        if not isinstance(template_cfg, dict):
-            continue
-        template_path = template_cfg.get(key)
-        if not template_path:
-            continue
-        template_file = (ROOT / template_path).resolve()
-        if not template_file.exists():
-            raise FileNotFoundError(f"Missing compose template: {template_path}")
-        templates.append(template_file)
+        template_file = COMPOSE_SERVICES_ROOT / slug / f"{key}.yml"
+        if template_file.exists():
+            templates.append(template_file.resolve())
     return templates
 
 
