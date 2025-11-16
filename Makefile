@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log services-validate compose-sync add-service
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -9,6 +9,7 @@ COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_UNIT := COMPOSE_PROJECT_NAME=tests-unit
 COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
+PYTHON_TOOLING := $(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python
 
 ifeq ($(word 1,$(MAKECMDGOALS)),log)
 LOG_SERVICE := $(word 2,$(MAKECMDGOALS))
@@ -35,38 +36,29 @@ typecheck:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy apps tests
 
 tests:
-	@run_integration_tests() { \
-		$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests integration-tests; \
-		status=$$?; \
-		$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) down --volumes --remove-orphans; \
-		return $$status; \
-	}; \
+	@set -eu; \
 	target="$(if $(suite),$(suite),$(if $(service),$(service),$(TEST_TARGET)))"; \
-	case "$$target" in \
-		""|"all") \
-			set -e; \
-			$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm backend-tests-unit; \
-			$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tg-bot-tests-unit; \
-			run_integration_tests; \
-			;; \
-		"backend") \
-			$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm backend-tests-unit; \
-			;; \
-		"tg_bot") \
-			$(COMPOSE_ENV_UNIT) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tg-bot-tests-unit; \
-			;; \
-		"integration") \
-			run_integration_tests; \
-			;; \
-		"frontend") \
-			echo "Frontend tests are not configured yet. Skipping."; \
-			;; \
-		*) \
-			echo "Unknown test suite: $$target"; \
-			echo "Valid options: backend, tg_bot, integration, frontend, all"; \
-			exit 1; \
-			;; \
-	esac
+	tmp_file="$$(mktemp)"; \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
+		$(PYTHON_TOOLING) scripts/services_registry.py tests > "$$tmp_file"; \
+	else \
+		$(PYTHON_TOOLING) scripts/services_registry.py tests --suite "$$target" > "$$tmp_file"; \
+	fi; \
+	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
+	mv "$$tmp_file.filtered" "$$tmp_file"; \
+	while read -r suite compose_project compose_file compose_service mode; do \
+		[ -z "$$suite" ] && continue; \
+		echo ">> Running $$suite tests ($(basename $$compose_file))"; \
+		if [ "$$mode" = "up" ]; then \
+			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file up --build --abort-on-container-exit --exit-code-from $$compose_service $$compose_service; \
+			status=$$?; \
+			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file down --volumes --remove-orphans; \
+			if [ $$status -ne 0 ]; then exit $$status; fi; \
+		else \
+			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service; \
+		fi; \
+	done < "$$tmp_file"
 
 makemigrations:
 	@if [ -z "$(name)" ]; then \
@@ -82,7 +74,17 @@ log:
 		echo "       make log service=\"<service_name>\""; \
 		exit 1; \
 	fi; \
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs -f $$service
+	tmp_file="$$(mktemp)"; \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	$(PYTHON_TOOLING) scripts/services_registry.py logs --service $$service > "$$tmp_file"; \
+	target_line="$$(grep -E '^[[:alnum:]_]+ ' "$$tmp_file" | head -n 1)"; \
+	if [ -z "$$target_line" ]; then \
+		exit 1; \
+	fi; \
+	set -- $$target_line; \
+	compose_service="$$2"; \
+	echo ">> Streaming logs for $$service (compose service: $$compose_service)"; \
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs -f $$compose_service
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build
@@ -98,3 +100,9 @@ prod-stop:
 
 services-validate:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/services_registry.py validate
+
+compose-sync:
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/compose_sync.py
+
+add-service:
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm -e TERM=$${TERM:-xterm-256color} -e COLUMNS=$${COLUMNS:-80} -e LINES=$${LINES:-24} tooling python scripts/add_service.py

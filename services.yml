@@ -2,9 +2,7 @@ version: 1
 services:
   - name: backend
     display_name: Backend API
-    type: backend
-    language: python
-    template: python
+    type: python
     path: apps/backend
     description: >-
       FastAPI backend that exposes REST endpoints, owns the database, and
@@ -13,6 +11,9 @@ services:
       services:
         base: backend
         dev: backend
+      templates:
+        base: infra/compose.services/backend/base.yml
+        dev: infra/compose.services/backend/dev.yml
     logs:
       - backend
     tests:
@@ -21,14 +22,13 @@ services:
         compose_file: infra/compose.tests.unit.yml
         compose_project: tests-unit
         service: backend-tests-unit
+        mode: run
     tags:
       - api
       - critical
   - name: tg_bot
     display_name: Telegram Bot
-    type: bot
-    language: python
-    template: python
+    type: python
     path: apps/tg_bot
     description: >-
       Telegram bot used for user onboarding and backend notifications.
@@ -36,6 +36,8 @@ services:
       services:
         base: tg_bot
         dev: tg_bot
+      templates:
+        base: infra/compose.services/tg_bot/base.yml
     logs:
       - tg_bot
     tests:
@@ -44,19 +46,38 @@ services:
         compose_file: infra/compose.tests.unit.yml
         compose_project: tests-unit
         service: tg-bot-tests-unit
+        mode: run
     tags:
       - bot
   - name: frontend
     display_name: Frontend
-    type: frontend
-    language: node
-    template: default
+    type: default
     path: apps/frontend
     description: >-
       Static frontend placeholder served separately via infra/compose.frontend.yml.
     compose:
       services: {}
+      templates: {}
     logs: []
     tests: []
     tags:
       - frontend
+  - name: integration
+    display_name: Integration Suite
+    type: default
+    path: tests
+    description: >-
+      Shared integration tests executed via infra/compose.tests.integration.yml.
+    compose:
+      services: {}
+      templates: {}
+    logs: []
+    tests:
+      - name: integration
+        description: Backend + bot integration tests
+        compose_file: infra/compose.tests.integration.yml
+        compose_project: tests-integration
+        service: integration-tests
+        mode: up
+    tags:
+      - tests
