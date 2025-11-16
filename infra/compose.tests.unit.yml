@@ -50,9 +50,7 @@ services:
     image: ${TOOLING_IMAGE:-service-template-tooling:latest}
     build:
       context: ..
-      dockerfile: services/backend/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: "true"
+      dockerfile: tooling/Dockerfile
     working_dir: /workspace
     volumes:
       - ../:/workspace:delegated
