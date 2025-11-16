@@ -5,17 +5,16 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass, field
-from typing import Any
 
 from scripts.lib.compose_blocks import (
     COMPOSE_TARGETS,
     ROOT,
     build_service_block,
-    gather_templates,
     load_registry,
+    render_service_templates,
     replace_block,
 )
-from scripts.lib.service_scaffold import ServiceSpec, scaffold_service
+from scripts.lib.service_scaffold import ServiceSpec, build_service_specs, scaffold_service
 
 
 @dataclass
@@ -37,28 +36,6 @@ class AggregateReport:
         return bool(self.errors or self.missing)
 
 
-def build_specs(registry: dict[str, Any]) -> list[ServiceSpec]:
-    specs: list[ServiceSpec] = []
-    for entry in registry.get("services", []):
-        if not isinstance(entry, dict):
-            continue
-        slug = entry.get("name")
-        service_type = entry.get("type")
-        description = (entry.get("description") or "").strip()
-        create_dev = entry.get("dev_template", True)
-        if not isinstance(slug, str) or not isinstance(service_type, str):
-            continue
-        specs.append(
-            ServiceSpec(
-                slug=slug,
-                service_type=service_type,
-                description=description or f"{slug.replace('_', ' ').title()} service",
-                create_dev_template=bool(create_dev),
-            )
-        )
-    return specs
-
-
 def ensure_artifacts(specs: list[ServiceSpec], apply: bool) -> AggregateReport:
     report = AggregateReport()
     for spec in specs:
@@ -67,10 +44,10 @@ def ensure_artifacts(specs: list[ServiceSpec], apply: bool) -> AggregateReport:
     return report
 
 
-def sync_compose(registry: dict[str, Any], apply: bool) -> list[str]:
+def sync_compose(specs: list[ServiceSpec], apply: bool) -> list[str]:
     drift: list[str] = []
     for target in COMPOSE_TARGETS:
-        templates = gather_templates(registry, target.key)
+        templates = render_service_templates(specs, target.key)
         block_lines = build_service_block(templates, target.indent)
         compose_path = target.path
         lines = compose_path.read_text(encoding="utf-8").splitlines()
@@ -87,9 +64,9 @@ def sync_compose(registry: dict[str, Any], apply: bool) -> list[str]:
 
 def run_sync(apply: bool) -> int:
     registry = load_registry()
-    specs = build_specs(registry)
+    specs = build_service_specs(registry)
     report = ensure_artifacts(specs, apply=apply)
-    compose_drift = sync_compose(registry, apply=apply)
+    compose_drift = sync_compose(specs, apply=apply)
 
     if apply:
         if report.errors:
@@ -116,7 +93,7 @@ def run_sync(apply: bool) -> int:
             print(f"  - {path}")
         failed = True
     if failed:
-        print("Run `scripts/sync_services.py create` to generate missing files.")
+        print("Run `make sync-services create` to generate missing files.")
         return 1
     print("Everything is in sync.")
     return 0

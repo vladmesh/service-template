@@ -7,13 +7,17 @@ from pathlib import Path
 from tests.tooling.conftest import create_python_template
 
 
-def _write_services_file(root: Path, slug: str = "omega") -> None:
+def _write_services_file(root: Path, slug: str = "omega", dev_template: bool = True) -> None:
+    dev_line = (
+        f"    dev_template: {str(dev_template).lower()}\n" if dev_template is not None else ""
+    )
     (root / "services.yml").write_text(
         "version: 2\n"
         "services:\n"
         f"  - name: {slug}\n"
         "    type: python\n"
-        "    description: Test service\n",
+        "    description: Test service\n"
+        f"{dev_line}",
         encoding="utf-8",
     )
 
@@ -21,7 +25,7 @@ def _write_services_file(root: Path, slug: str = "omega") -> None:
 def test_sync_services_create_and_check_flow(fake_repo) -> None:
     root, _scaffold, _compose, sync_mod = fake_repo
     create_python_template(root)
-    _write_services_file(root, slug="omega")
+    _write_services_file(root, slug="omega", dev_template=True)
 
     check_result = sync_mod.run_sync(apply=False)
     assert check_result == 1
@@ -31,13 +35,16 @@ def test_sync_services_create_and_check_flow(fake_repo) -> None:
     create_result = sync_mod.run_sync(apply=True)
     assert create_result == 0
     assert service_dir.exists()
-    base_compose = root / "infra" / "compose.base.yml"
-    assert "omega" in base_compose.read_text(encoding="utf-8")
+    base_compose = (root / "infra" / "compose.base.yml").read_text(encoding="utf-8")
+    assert "omega" in base_compose
+    dev_compose = (root / "infra" / "compose.dev.yml").read_text(encoding="utf-8")
+    assert "omega" in dev_compose
 
     final_check = sync_mod.run_sync(apply=False)
     assert final_check == 0
 
-    base_template = root / "infra" / "compose.services" / "omega" / "base.yml"
-    dev_template = root / "infra" / "compose.services" / "omega" / "dev.yml"
-    assert base_template.exists()
-    assert dev_template.exists()
+    # rerun with dev_template disabled
+    _write_services_file(root, slug="omega", dev_template=False)
+    sync_mod.run_sync(apply=True)
+    dev_compose = (root / "infra" / "compose.dev.yml").read_text(encoding="utf-8")
+    assert "omega" not in dev_compose

@@ -11,9 +11,11 @@ from typing import Any
 
 import yaml
 
+from scripts.lib.compose_blocks import compose_template_for_spec
+from scripts.lib.service_scaffold import build_service_specs
+
 ROOT = Path(__file__).resolve().parent.parent
 SERVICES_ROOT = ROOT / "services"
-COMPOSE_SERVICES_ROOT = ROOT / "infra" / "compose.services"
 UNIT_COMPOSE_FILE = ROOT / "infra" / "compose.tests.unit.yml"
 INTEGRATION_COMPOSE_FILE = ROOT / "infra" / "compose.tests.integration.yml"
 SPECIAL_PATHS = {"integration": ROOT / "tests"}
@@ -44,13 +46,11 @@ def service_path(slug: str) -> Path:
 
 def gather_logs(registry: dict[str, Any]) -> dict[str, str]:
     mapping: dict[str, str] = {}
-    for service in iter_services(registry):
-        slug = service.get("name")
-        if not isinstance(slug, str):
+    for spec in build_service_specs(registry):
+        template = compose_template_for_spec(spec)
+        if not template or not template.base:
             continue
-        base_template = COMPOSE_SERVICES_ROOT / slug / "base.yml"
-        if base_template.exists():
-            mapping[slug] = slug
+        mapping[spec.slug] = spec.slug
     return mapping
 
 

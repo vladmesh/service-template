@@ -48,9 +48,9 @@ tests:
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
 		if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
-			$(PYTHON_TOOLING) scripts/service_info.py tests > "$$tmp_file"; \
+			$(PYTHON_TOOLING) -m scripts.service_info tests > "$$tmp_file"; \
 		else \
-			$(PYTHON_TOOLING) scripts/service_info.py tests --suite "$$target" > "$$tmp_file"; \
+				$(PYTHON_TOOLING) -m scripts.service_info tests --suite "$$target" > "$$tmp_file"; \
 		fi; \
 	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
 	mv "$$tmp_file.filtered" "$$tmp_file"; \
@@ -83,7 +83,7 @@ log:
 	fi; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
-		$(PYTHON_TOOLING) scripts/service_info.py logs --service $$service > "$$tmp_file"; \
+		$(PYTHON_TOOLING) -m scripts.service_info logs --service $$service > "$$tmp_file"; \
 	target_line="$$(grep -E '^[[:alnum:]_]+ ' "$$tmp_file" | head -n 1)"; \
 	if [ -z "$$target_line" ]; then \
 		exit 1; \
@@ -112,7 +112,7 @@ sync-services:
 		check|"") cmd="check" ;; \
 		*) echo "Unknown sync mode: $$mode (expected 'check' or 'create')" >&2; exit 1 ;; \
 	esac; \
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python scripts/sync_services.py $$cmd
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m scripts.sync_services $$cmd
 
 tooling-tests:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q tests/tooling

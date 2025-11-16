@@ -38,3 +38,5 @@ See [`AGENTS.md`](AGENTS.md) for workflow rules (always use `make`, never run co
 2. Run `make sync-services create` to scaffold the directory and Compose overlays inside containers.
 3. Fill in the generated `README.md`, `AGENTS.md`, Dockerfile, and stub code/tests manually.
 4. Commit the changes and run `make sync-services`, `make lint`, and `make tests` before opening a PR.
+
+Add `dev_template: true|false` to control whether `infra/compose.dev.yml` mounts the service container (defaults to `false` for new services).

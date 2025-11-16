@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
+from typing import Any
 
 from scripts.lib.env import get_repo_root
 
@@ -13,9 +14,7 @@ ROOT = get_repo_root()
 
 TEMPLATES_DIR = ROOT / "templates" / "services"
 SERVICES_ROOT = ROOT / "services"
-COMPOSE_SERVICES_ROOT = ROOT / "infra" / "compose.services"
 PLACEHOLDER = "__SERVICE_NAME__"
-DEFAULT_DEV_TEMPLATE = True
 
 
 @dataclass
@@ -26,6 +25,7 @@ class ServiceSpec:
     service_type: str
     description: str
     create_dev_template: bool = True
+    scaffold_enabled: bool = True
 
 
 @dataclass
@@ -54,16 +54,46 @@ class ScaffoldReport:
         self.errors.append(message)
 
 
+def build_service_specs(registry: dict[str, Any]) -> list[ServiceSpec]:
+    """Convert services.yml data into ServiceSpec objects."""
+
+    specs: list[ServiceSpec] = []
+    services = registry.get("services", [])
+    if not isinstance(services, list):
+        return specs
+    for entry in services:
+        if not isinstance(entry, dict):
+            continue
+        slug = entry.get("name")
+        service_type = entry.get("type")
+        description = (entry.get("description") or "").strip()
+        create_dev = entry.get("dev_template", True)
+        scaffold_enabled = entry.get("scaffold", True)
+        if not isinstance(slug, str) or not isinstance(service_type, str):
+            continue
+        specs.append(
+            ServiceSpec(
+                slug=slug,
+                service_type=service_type,
+                description=description or f"{slug.replace('_', ' ').title()} service",
+                create_dev_template=bool(create_dev),
+                scaffold_enabled=bool(scaffold_enabled),
+            )
+        )
+    return specs
+
+
 def scaffold_service(spec: ServiceSpec, *, apply: bool = True) -> ScaffoldReport:
     """Ensure the filesystem artifacts for the service exist."""
 
     report = ScaffoldReport()
+    if not spec.scaffold_enabled:
+        return report
     SERVICES_ROOT.mkdir(parents=True, exist_ok=True)
 
     dest = SERVICES_ROOT / spec.slug
     _ensure_service_tree(spec, dest, apply, report)
     _ensure_service_docs(spec, dest, apply, report)
-    _ensure_compose_templates(spec, apply, report)
     return report
 
 
@@ -129,24 +159,6 @@ def _ensure_service_docs(
     )
 
 
-def _ensure_compose_templates(spec: ServiceSpec, apply: bool, report: ScaffoldReport) -> None:
-    target_dir = COMPOSE_SERVICES_ROOT / spec.slug
-    base_path = target_dir / "base.yml"
-    dev_path = target_dir / "dev.yml"
-
-    def write_base(path: Path) -> None:
-        target_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(_render_base_compose(spec.slug), encoding="utf-8")
-
-    def write_dev(path: Path) -> None:
-        target_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(_render_dev_compose(spec.slug), encoding="utf-8")
-
-    _ensure_file(base_path, write_base, apply, report)
-    if spec.create_dev_template:
-        _ensure_file(dev_path, write_dev, apply, report)
-
-
 def _ensure_file(
     path: Path,
     create_fn: Callable[[Path], None],
@@ -162,46 +174,3 @@ def _ensure_file(
     path.parent.mkdir(parents=True, exist_ok=True)
     create_fn(path)
     report.add_created(path)
-
-
-def _compose_env_var(slug: str) -> str:
-    return f"{slug.upper()}_IMAGE"
-
-
-def _render_base_compose(slug: str) -> str:
-    dockerfile_path = f"services/{slug}/Dockerfile"
-    return (
-        f"{slug}:\n"
-        f"  image: ${{{_compose_env_var(slug)}:-service-template-{slug}:latest}}\n"
-        f"  build:\n"
-        f"    context: ..\n"
-        f"    dockerfile: {dockerfile_path}\n"
-        f"  env_file:\n"
-        f"    - ../.env\n"
-        f"  networks:\n"
-        f"    - internal\n"
-    )
-
-
-def _render_dev_compose(slug: str) -> str:
-    return (
-        f"{slug}:\n"
-        f"  extends:\n"
-        f"    file: compose.base.yml\n"
-        f"    service: {slug}\n"
-        f"  volumes:\n"
-        f"    - ../:/workspace:delegated\n"
-        f"  working_dir: /workspace\n"
-        f"  env_file:\n"
-        f"    - ../.env\n"
-    )
-
-
-def service_compose_template_paths(slug: str) -> dict[str, Path]:
-    """Return expected compose template paths for the service."""
-
-    target_dir = COMPOSE_SERVICES_ROOT / slug
-    return {
-        "base": target_dir / "base.yml",
-        "dev": target_dir / "dev.yml",
-    }

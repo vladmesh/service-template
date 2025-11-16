@@ -39,7 +39,8 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 - `sync_services` станет новой точкой входа:
   - `make sync-services` (`sync_services check`) — только детектирует расхождения между `services.yml` и артефактами (директории, compose-шаблоны, блоки в `infra/compose.*.yml`). Никаких автофиксов; non-zero exit в CI.
   - `make sync-services create` (`sync_services create-missing`) — создаёт отсутствующие артефакты из шаблонов, не правит существующие файлы.
-- Автоматически управляемые артефакты: `services/<slug>/` (шаблонная заготовка), `infra/compose.services/<slug>/base.yml` и `dev.yml`, а также секции между маркерами `# >>> services`/`# <<< services` в `infra/compose.base.yml` и `infra/compose.dev.yml`.
+- Автоматически управляемые артефакты: `services/<slug>/` (шаблонная заготовка) и секции между маркерами `# >>> services`/`# <<< services` в `infra/compose.base.yml` и `infra/compose.dev.yml`. Отдельных файлов в `infra/compose.services` больше нет.
+- Сервис может отключить dev-блок в compose через поле `dev_template: false` в `services.yml`.
 - README и AGENTS внутри сервиса заполняются вручную после генерации (никаких автотекстов) — sync лишь проверяет их наличие.
 - Новые сервисы создаются только через `services.yml` + `make sync-services create`; интерактивный `add-service` больше не поддерживается.
 

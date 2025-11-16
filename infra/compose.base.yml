@@ -35,6 +35,16 @@ services:
         condition: service_started
     networks:
       - internal
+
+  notifications_worker:
+    image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications-worker:latest}
+    build:
+      context: ..
+      dockerfile: services/notifications_worker/Dockerfile
+    env_file:
+      - ../.env
+    networks:
+      - internal
   # <<< services (auto-generated from services.yml)
 
   db:

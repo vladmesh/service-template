@@ -5,10 +5,12 @@ services:
     description: >
       FastAPI backend that exposes REST endpoints, owns the database, and powers the rest of the
       system.
+    dev_template: true
   - name: tg_bot
     type: python
     description: >
       Telegram bot used for user onboarding and backend notifications.
+    dev_template: false
   - name: frontend
     type: default
     description: >
@@ -17,7 +19,9 @@ services:
     type: default
     description: >
       Shared integration tests executed via infra/compose.tests.integration.yml.
+    scaffold: false
   - name: notifications_worker
     type: python
     description: >
       Service for notifications (email, telegram).
+    dev_template: false
