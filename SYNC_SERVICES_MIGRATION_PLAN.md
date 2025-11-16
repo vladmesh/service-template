@@ -3,14 +3,14 @@
 Пошаговый план перевода репозитория на новый spec-driven процесс, в котором `services.yml` хранит только базовые поля (`name`, `type`, `description`), а вся генерация происходит через `sync_services` с двумя режимами (создание отсутствующих артефактов и проверка расхождений без автофикса).
 
 ## Итерация 0 — Сбор требований и фиксация договорённостей
-- Утвердить, что каждая служба живёт в `services/<slug>/` и использует структуру из `template_service_spec.md` (Dockerfile + `src/`, `tests/`, `AGENTS.md`).
+- Утвердить, что каждая служба живёт в `services/<slug>/` и использует структуру из каталога `templates/services/<type>` (Dockerfile + `src/`, `tests/`, `AGENTS.md`).
 - Зафиксировать допустимые значения `type` (например, `python`, `default`) и ответственность за расширение списка.
 - Описать ожидаемые артефакты, которые будут генерироваться автоматически (`services/<slug>/...`, `infra/compose.services/<slug>/...`, блоки в `infra/compose.*.yml`).
 - Принять решение о CLI для двух режимов `sync_services`: `sync_services create-missing` и `sync_services check` (или аналогичные флаги).
 - Обновить `AGENTS.md` и `SERVICE_AUTOMATION_PLAN.md`, чтобы команда/агенты понимали новую модель перед началом миграции.
 
 ### Результат итерации 0
-- Canonical layout: `services/<slug>/` с шаблоном из `template_service_spec.md` (Dockerfile, `src/`, `tests/`, `AGENTS.md`, README). README/AGENTS остаются ручными.
+- Canonical layout: `services/<slug>/` с шаблонами из `templates/services/<type>` (Dockerfile, `src/`, `tests/`, `AGENTS.md`, README). README/AGENTS остаются ручными.
 - Единственный источник правды — `services.yml`, где для каждого сервиса хранятся ровно три поля: `name` (slug = название каталога), `type`, `description`.
 - Допустимые типы: `python` и `default`. Добавление новых типов требует отдельного RFC + обновления `templates/services/<type>`.
 - Автоматизация покрывает: каркас сервиса (`services/<slug>/`), compose-шаблоны (`infra/compose.services/<slug>/base.yml` и `dev.yml`), а также секции с маркерами `# >>> services`/`# <<< services` в `infra/compose.base.yml` и `infra/compose.dev.yml`.
@@ -18,7 +18,7 @@
 - Документация обновлена (`AGENTS.md`, этот план) — ссылка на rollout, список поддерживаемых типов, описание артефактов и режимов `sync_services`.
 
 ## Итерация 1 — Приведение текущих сервисов к целевой структуре
-- Для `backend`, `tg_bot`, `notifications_worker` (и любых других) перенести код и тесты под `services/<name>/src` и `services/<name>/tests` согласно шаблону из `template_service_spec.md`. Обновить импорты, Dockerfile-ы и Compose-файлы.
+- Для `backend`, `tg_bot`, `notifications_worker` (и любых других) перенести код и тесты под `services/<name>/src` и `services/<name>/tests` согласно шаблонам в `templates/services/<type>`. Обновить импорты, Dockerfile-ы и Compose-файлы.
 - Создать/обновить per-service `AGENTS.md` и README вручную (без автозаполнения), чтобы далее `sync_services` мог просто проверять их наличие.
 - Переложить интеграционные тесты в `tests/integration`, если ещё не соответствуют структуре.
 - Прогнать `make format`, `make lint`, `make tests` после каждого переноса.
@@ -52,7 +52,7 @@
 - Выделить переиспользуемые функции из `scripts/add_service.py` (копирование шаблонов, генерация compose-шаблонов) в новый модуль, например `scripts/lib/service_scaffold.py`.
 - Добавить генерацию недостающих файлов на основе имени:
   - директория `services/<name>` копируется из шаблона `templates/services/<type>`;
-  - `infra/compose.services/<name>/base.yml` и `dev.yml` формируются по правилам из `template_service_spec.md`;
+- `infra/compose.services/<name>/base.yml` и `dev.yml` формируются по правилам из шаблонов `templates/services/<type>`;
   - README/AGENTS создаются как заглушки (без автотекста).
 - В библиотеку включить проверку, что файлы уже существуют, и возврат диагностик вместо немедленных правок (это понадобится для режима `check`).
 
@@ -93,7 +93,7 @@
 ## Итерация 6 — Декомиссия старых инструментов и документация
 - Удалить `scripts/add_service.py`, цель `make add-service` и упоминания о ней в `AGENTS.md`, README и других доках.
 - Переписать разделы про добавление сервиса: теперь процесс — отредактировать `services.yml`, запустить `make sync-services create`, вручную заполнить README/AGENTS, закоммитить.
-- Обновить `template_service_spec.md` при необходимости, чтобы в нём явно описывалась связь с `sync_services`.
+- Поддерживать `templates/services/<type>` актуальными, чтобы они отражали требования `sync_services`.
 - Сообщить команде (и ботам), что любые новые сервисы должны начинаться с PR, где добавляется запись в `services.yml` и прогоняется `make sync-services`.
 
 ## Итерация 7 — Тестирование и контроль качества

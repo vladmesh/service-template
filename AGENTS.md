@@ -32,7 +32,7 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 
 ## Service Specs & Sync (rollout plan)
 
-- Каждый сервис переезжает в директорию `services/<slug>/` со структурой из [`template_service_spec.md`](template_service_spec.md) (`Dockerfile`, `src/`, `tests/`, `AGENTS.md`, README).
+- Каждый сервис переезжает в директорию `services/<slug>/` и использует базовый шаблон из `templates/services/<type>` (`Dockerfile`, `src/`, `tests/`, `AGENTS.md`, README).
 - `services.yml` остаётся единственным источником правды и будет содержать только три обязательных поля: `name` (slug = имя каталога), `type` и `description`.
 - Допустимые `type` значения: `python` и `default`. Расширения набора должны проходить код-ревью и сопровождаться обновлением шаблонов в `templates/services/<type>`.
 - `sync_services` станет новой точкой входа:

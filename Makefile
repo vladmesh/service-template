@@ -47,11 +47,11 @@ tests:
 	target="$(if $(suite),$(suite),$(if $(service),$(service),$(TEST_TARGET)))"; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
-	if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
-		$(PYTHON_TOOLING) scripts/services_registry.py tests > "$$tmp_file"; \
-	else \
-		$(PYTHON_TOOLING) scripts/services_registry.py tests --suite "$$target" > "$$tmp_file"; \
-	fi; \
+		if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
+			$(PYTHON_TOOLING) scripts/service_info.py tests > "$$tmp_file"; \
+		else \
+			$(PYTHON_TOOLING) scripts/service_info.py tests --suite "$$target" > "$$tmp_file"; \
+		fi; \
 	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
 	mv "$$tmp_file.filtered" "$$tmp_file"; \
 	while read -r suite compose_project compose_file compose_service mode; do \
@@ -83,7 +83,7 @@ log:
 	fi; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
-	$(PYTHON_TOOLING) scripts/services_registry.py logs --service $$service > "$$tmp_file"; \
+		$(PYTHON_TOOLING) scripts/service_info.py logs --service $$service > "$$tmp_file"; \
 	target_line="$$(grep -E '^[[:alnum:]_]+ ' "$$tmp_file" | head -n 1)"; \
 	if [ -z "$$target_line" ]; then \
 		exit 1; \
