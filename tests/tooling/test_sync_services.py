@@ -50,3 +50,21 @@ def test_sync_services_create_and_check_flow(fake_repo) -> None:
     sync_mod.run_sync(apply=True)
     dev_compose = (root / "infra" / "compose.dev.yml").read_text(encoding="utf-8")
     assert "omega" not in dev_compose
+
+
+def test_sync_services_flags_unscoped_dockerfile_copy(fake_repo, capsys) -> None:
+    root, _scaffold, _compose, sync_mod = fake_repo
+    create_python_template(root)
+    _write_services_file(root, slug="omega", dev_template=True)
+
+    sync_mod.run_sync(apply=True)
+    dockerfile = root / "services" / "omega" / "Dockerfile"
+    dockerfile.write_text(
+        "FROM python:3.12-slim\nCOPY services ./services\n",
+        encoding="utf-8",
+    )
+
+    exit_code = sync_mod.run_sync(apply=False)
+    captured = capsys.readouterr().out
+    assert exit_code == 1
+    assert "services/omega/Dockerfile" in captured

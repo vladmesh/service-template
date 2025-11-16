@@ -45,6 +45,14 @@ typecheck:
 tests:
 	@set -eu; \
 	target="$(if $(suite),$(suite),$(if $(service),$(service),$(TEST_TARGET)))"; \
+	if [ "$$target" = "tooling" ]; then \
+		$(MAKE) tooling-tests; \
+		exit 0; \
+	fi; \
+	run_tooling="0"; \
+	if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
+		run_tooling="1"; \
+	fi; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
 		if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
@@ -65,7 +73,10 @@ tests:
 		else \
 			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service; \
 		fi; \
-	done < "$$tmp_file"
+	done < "$$tmp_file"; \
+	if [ "$$run_tooling" = "1" ]; then \
+		$(MAKE) tooling-tests; \
+	fi
 
 makemigrations:
 	@if [ -z "$(name)" ]; then \

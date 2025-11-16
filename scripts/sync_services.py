@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+import shlex
 
 from scripts.lib.compose_blocks import (
     COMPOSE_TARGETS,
@@ -14,7 +16,12 @@ from scripts.lib.compose_blocks import (
     render_service_templates,
     replace_block,
 )
-from scripts.lib.service_scaffold import ServiceSpec, build_service_specs, scaffold_service
+from scripts.lib.service_scaffold import (
+    SERVICES_ROOT,
+    ServiceSpec,
+    build_service_specs,
+    scaffold_service,
+)
 
 
 @dataclass
@@ -62,11 +69,82 @@ def sync_compose(specs: list[ServiceSpec], apply: bool) -> list[str]:
     return drift
 
 
+def validate_dockerfiles(specs: list[ServiceSpec]) -> list[str]:
+    """Ensure Dockerfiles only copy in-service paths."""
+
+    errors: list[str] = []
+    for spec in specs:
+        if spec.service_type != "python" or not spec.scaffold_enabled:
+            continue
+        dockerfile = SERVICES_ROOT / spec.slug / "Dockerfile"
+        if not dockerfile.exists():
+            continue
+        try:
+            lines = dockerfile.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for idx, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if not stripped or not stripped.upper().startswith("COPY"):
+                continue
+            sources = tuple(_extract_copy_sources(stripped))
+            if not sources:
+                continue
+            invalid = [src for src in sources if not _is_allowed_copy_source(src, spec.slug)]
+            if invalid:
+                rel_path = dockerfile.relative_to(ROOT)
+                joined = ", ".join(invalid)
+                errors.append(
+                    f"{rel_path}:{idx} COPY sources [{joined}] must stay under services/{spec.slug}"
+                )
+    return errors
+
+
+def _extract_copy_sources(line: str) -> Iterable[str]:
+    """Yield COPY sources for host-context copies."""
+
+    try:
+        tokens = shlex.split(line, posix=True)
+    except ValueError:
+        return []
+    if not tokens or tokens[0].upper() != "COPY":
+        return []
+    idx = 1
+    has_stage_source = False
+    while idx < len(tokens) and tokens[idx].startswith("--"):
+        option = tokens[idx].lower()
+        if option.startswith("--from=") or option == "--from":
+            has_stage_source = True
+            break
+        idx += 1
+    if has_stage_source:
+        return []
+    if idx >= len(tokens) - 1:
+        return []
+    return tokens[idx:-1]
+
+
+def _is_allowed_copy_source(source: str, slug: str) -> bool:
+    """Return True if the source path stays within the service directory."""
+
+    if source.startswith("/"):
+        return True
+    stripped = source
+    while stripped.startswith("./"):
+        stripped = stripped[2:]
+    normalized = stripped
+    allowed = f"services/{slug}"
+    if normalized == allowed or normalized.startswith(f"{allowed}/"):
+        return True
+    return False
+
+
 def run_sync(apply: bool) -> int:
     registry = load_registry()
     specs = build_service_specs(registry)
     report = ensure_artifacts(specs, apply=apply)
     compose_drift = sync_compose(specs, apply=apply)
+    report.errors.extend(validate_dockerfiles(specs))
 
     if apply:
         if report.errors:

@@ -19,5 +19,6 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
 echo "[pre-push] Verifying push to main (${remote_name:-unknown} ${remote_url:-})..."
+make sync-services
 make lint
 make tests
