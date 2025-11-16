@@ -227,7 +227,7 @@ def main() -> int:
         if value in {"python", "default"}
         else "Type must be 'python' or 'default'.",
     )
-    default_path = f"apps/{slug}"
+    default_path = f"services/{slug}"
     service_path_str = prompt("Relative path", default_path, validator=path_validator)
     service_path = ROOT / service_path_str
     description = prompt_multiline("Service description")

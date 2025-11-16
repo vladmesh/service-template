@@ -23,17 +23,17 @@ jobs:
         include:
           - id: backend
             context: .
-            dockerfile: apps/backend/Dockerfile
+            dockerfile: services/backend/Dockerfile
             image-suffix: backend
             optional: false
           - id: frontend
             context: .
-            dockerfile: apps/frontend/Dockerfile
+            dockerfile: services/frontend/Dockerfile
             image-suffix: frontend
             optional: true
           - id: tg-bot
             context: .
-            dockerfile: apps/tg_bot/Dockerfile
+            dockerfile: services/tg_bot/Dockerfile
             image-suffix: tg-bot
             optional: true
     steps:

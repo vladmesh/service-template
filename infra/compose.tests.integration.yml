@@ -5,7 +5,7 @@ services:
       service: backend
     build:
       context: ..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     env_file:
@@ -30,7 +30,7 @@ services:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
     build:
       context: ..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     command: pytest -q tests/integration

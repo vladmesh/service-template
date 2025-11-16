@@ -8,4 +8,4 @@ export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH-}"
 
 "${SCRIPT_DIR}/migrate.sh"
 
-exec uvicorn apps.backend.src.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn services.backend.src.main:app --host 0.0.0.0 --port "${PORT:-8000}"

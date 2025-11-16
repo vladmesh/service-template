@@ -29,11 +29,11 @@ lint:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check .
 
 format:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'apps/**/migrations' --exclude '.venv' .
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check --fix --exclude 'apps/**/migrations' --exclude '.venv' .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'services/**/migrations' --exclude '.venv' .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' .
 
 typecheck:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy apps tests
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy services tests
 
 tests:
 	@set -eu; \
@@ -65,7 +65,7 @@ makemigrations:
 		echo "Usage: make makemigrations name=\"<description>\""; \
 		exit 1; \
 	fi
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c apps/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 
 log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \

@@ -18,13 +18,13 @@ TEST_DB_PATH = TESTS_DIR / ".tmp" / "test.db"
 TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("DATABASE_URL", f"sqlite+pysqlite:///{TEST_DB_PATH}")
 
-from apps.backend.src.core.settings import get_settings  # noqa: E402
+from services.backend.src.core.settings import get_settings  # noqa: E402
 
 get_settings.cache_clear()
 TEST_DB_PATH.unlink(missing_ok=True)
 
-from apps.backend.src.core.db import Base, engine, get_db  # noqa: E402  (after env setup)
-from apps.backend.src.main import create_app  # noqa: E402
+from services.backend.src.core.db import Base, engine, get_db  # noqa: E402  (after env setup)
+from services.backend.src.main import create_app  # noqa: E402
 
 
 @pytest.fixture(scope="session")

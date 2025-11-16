@@ -4,9 +4,9 @@ Container-first starter kit for building small and mid-sized backend services wi
 
 ## Services
 
-- **backend** (`apps/backend`) — FastAPI application with SQLAlchemy, Alembic, and REST endpoints.
-- **tg_bot** (`apps/tg_bot`) — optional Telegram bot that can talk to the backend.
-- **frontend** (`apps/frontend`) — placeholder for any web UI you may add later.
+- **backend** (`services/backend`) — FastAPI application with SQLAlchemy, Alembic, and REST endpoints.
+- **tg_bot** (`services/tg_bot`) — optional Telegram bot that can talk to the backend.
+- **frontend** (`services/frontend`) — placeholder for any web UI you may add later.
 - **tests** (`tests/`) — cross-service integration suites.
 
 ## Tech Stack
@@ -24,7 +24,7 @@ Container-first starter kit for building small and mid-sized backend services wi
 | `make dev-start` / `make dev-stop` | Bring the dev stack up/down (`infra/compose.dev.yml`). |
 | `make lint` | Run Ruff checks inside the tooling container. |
 | `make format` | Run Ruff formatter (also executed automatically by the pre-commit hook). |
-| `make typecheck` | Run Mypy across `apps` and `tests`. |
+| `make typecheck` | Run Mypy across `services` and `tests`. |
 | `make tests` | Execute backend + bot unit suites and shared integration tests (use `service=` or CLI args to scope). |
 | `make makemigrations name="add_users"` | Generate Alembic migrations inside Docker. |
 

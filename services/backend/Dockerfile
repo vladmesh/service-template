@@ -10,10 +10,10 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip poetry
 
-COPY apps/backend/pyproject.toml apps/backend/poetry.lock ./apps/backend/
+COPY services/backend/pyproject.toml services/backend/poetry.lock ./services/backend/
 
 ARG INSTALL_DEV_DEPS="false"
-RUN cd apps/backend \
+RUN cd services/backend \
     && poetry config virtualenvs.create false \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
         poetry install --with dev --no-root; \
@@ -21,9 +21,9 @@ RUN cd apps/backend \
         poetry install --without dev --no-root; \
     fi
 
-COPY README.md ./
-COPY apps ./apps
+COPY services/backend/README.md ./README.md
+COPY services ./services
 COPY tests ./tests
 
 EXPOSE 8000
-CMD ["uvicorn", "apps.backend.src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "services.backend.src.main:app", "--host", "0.0.0.0", "--port", "8000"]

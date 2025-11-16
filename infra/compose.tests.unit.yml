@@ -3,10 +3,10 @@ services:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
     build:
       context: ..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q apps/backend/tests/unit
+    command: pytest -q services/backend/tests/unit
     working_dir: /app
     env_file:
       - ../.env
@@ -14,16 +14,16 @@ services:
       PYTHONPATH: /app
       ENVIRONMENT: test
       APP_ENV: test
-      DATABASE_URL: sqlite+pysqlite:////app/apps/backend/tests/.tmp/test.db
+      DATABASE_URL: sqlite+pysqlite:////app/services/backend/tests/.tmp/test.db
 
   tg-bot-tests-unit:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
     build:
       context: ..
-      dockerfile: apps/tg_bot/Dockerfile
+      dockerfile: services/tg_bot/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q apps/tg_bot/tests/unit
+    command: pytest -q services/tg_bot/tests/unit
     working_dir: /app
     env_file:
       - ../.env
@@ -34,10 +34,10 @@ services:
     image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications_worker:latest}
     build:
       context: ..
-      dockerfile: apps/notifications_worker/Dockerfile
+      dockerfile: services/notifications_worker/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q apps/notifications_worker/tests
+    command: pytest -q services/notifications_worker/tests
     working_dir: /app
     env_file:
       - ../.env
@@ -48,7 +48,7 @@ services:
     image: ${TOOLING_IMAGE:-service-template-tooling:latest}
     build:
       context: ..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     working_dir: /workspace

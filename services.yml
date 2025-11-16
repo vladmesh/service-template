@@ -3,7 +3,7 @@ services:
 - name: backend
   display_name: Backend API
   type: python
-  path: apps/backend
+  path: services/backend
   description: FastAPI backend that exposes REST endpoints, owns the database, and
     powers the rest of the system.
   compose:
@@ -28,7 +28,7 @@ services:
 - name: tg_bot
   display_name: Telegram Bot
   type: python
-  path: apps/tg_bot
+  path: services/tg_bot
   description: Telegram bot used for user onboarding and backend notifications.
   compose:
     services:
@@ -50,7 +50,7 @@ services:
   - name: frontend
     display_name: Frontend
     type: default
-    path: apps/frontend
+    path: services/frontend
     description: >-
       Static frontend placeholder served separately via infra/compose.frontend.yml.
     compose:
@@ -82,7 +82,7 @@ services:
   - name: notifications_worker
     display_name: Notifications Worker
     type: python
-    path: apps/notifications_worker
+    path: services/notifications_worker
     description: >-
       Service for notifications (email, telegram).
     compose:

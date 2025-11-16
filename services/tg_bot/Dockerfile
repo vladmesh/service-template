@@ -7,9 +7,9 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip poetry
 
-COPY apps/tg_bot/pyproject.toml apps/tg_bot/poetry.lock ./apps/tg_bot/
+COPY services/tg_bot/pyproject.toml services/tg_bot/poetry.lock ./services/tg_bot/
 ARG INSTALL_DEV_DEPS="false"
-RUN cd apps/tg_bot \
+RUN cd services/tg_bot \
     && poetry config virtualenvs.create false \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
         poetry install --with dev --no-root; \
@@ -17,6 +17,6 @@ RUN cd apps/tg_bot \
         poetry install --without dev --no-root; \
     fi
 
-COPY apps/tg_bot ./apps/tg_bot
+COPY services/tg_bot ./services/tg_bot
 
-CMD ["python", "apps/tg_bot/src/main.py"]
+CMD ["python", "services/tg_bot/src/main.py"]

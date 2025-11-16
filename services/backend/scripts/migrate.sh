@@ -12,4 +12,4 @@ if [ -z "${DATABASE_URL-}" ]; then
   echo "[migrate] DATABASE_URL is not set explicitly. Falling back to Settings configuration." >&2
 fi
 
-alembic -c apps/backend/migrations/alembic.ini upgrade head
+alembic -c services/backend/migrations/alembic.ini upgrade head

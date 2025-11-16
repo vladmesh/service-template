@@ -2,7 +2,7 @@ notifications_worker:
   image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications_worker:latest}
   build:
     context: ..
-    dockerfile: apps/notifications_worker/Dockerfile
+    dockerfile: services/notifications_worker/Dockerfile
   env_file:
     - ../.env
   networks:

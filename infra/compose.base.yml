@@ -9,12 +9,12 @@ services:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
     build:
       context: ..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
     environment:
       <<: *backend-env
-    command: ["apps/backend/scripts/start.sh"]
+    command: ["services/backend/scripts/start.sh"]
     depends_on:
       db:
         condition: service_healthy
@@ -27,7 +27,7 @@ services:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
     build:
       context: ..
-      dockerfile: apps/tg_bot/Dockerfile
+      dockerfile: services/tg_bot/Dockerfile
     env_file:
       - ../.env
     depends_on:
