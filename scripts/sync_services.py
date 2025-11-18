@@ -134,6 +134,9 @@ def _is_allowed_copy_source(source: str, slug: str) -> bool:
     while stripped.startswith("./"):
         stripped = stripped[2:]
     normalized = stripped
+    # Allow shared directory (common code for all services)
+    if normalized == "shared" or normalized.startswith("shared/"):
+        return True
     allowed = f"services/{slug}"
     if normalized == allowed or normalized.startswith(f"{allowed}/"):
         return True

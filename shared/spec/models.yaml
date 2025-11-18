@@ -1,0 +1,22 @@
+models:
+  User:
+    fields:
+      id:
+        type: int
+      telegram_id:
+        type: int
+        ge: 0
+      is_admin:
+        type: bool
+        default: false
+      created_at:
+        type: datetime
+      updated_at:
+        type: datetime
+    variants:
+      Create:
+        exclude: [id, created_at, updated_at]
+      Update:
+        exclude: [id, created_at, updated_at]
+        optional: [telegram_id, is_admin]
+      Read: {}

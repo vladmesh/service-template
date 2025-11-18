@@ -1,0 +1,41 @@
+rest:
+  router:
+    prefix: "/users"
+    tags: ["users"]
+    async_handlers: true
+
+  handlers:
+    create_user:
+      method: POST
+      path: "/"
+      request:
+        model: User
+        variant: Create
+      response:
+        model: User
+        variant: Read
+        status_code: 201
+
+    get_user:
+      method: GET
+      path: "/{user_id}"
+      response:
+        model: User
+        variant: Read
+
+    update_user:
+      method: PUT
+      path: "/{user_id}"
+      request:
+        model: User
+        variant: Update
+      response:
+        model: User
+        variant: Read
+
+    delete_user:
+      method: DELETE
+      path: "/{user_id}"
+      response:
+        model: null
+        status_code: 204
