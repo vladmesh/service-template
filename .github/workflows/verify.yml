@@ -24,6 +24,12 @@ jobs:
             exit 1
           fi
 
+      - name: Generate from spec
+        run: make generate-from-spec
+
+      - name: Check generated files are up to date
+        run: git diff --exit-code shared/generated/
+
       - name: Run linters
         run: make lint
 

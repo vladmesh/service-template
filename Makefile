@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests generate-from-spec
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -127,3 +127,6 @@ sync-services:
 
 tooling-tests:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q tests/tooling
+
+generate-from-spec:
+	$(PYTHON_TOOLING) -m scripts.generate_from_spec

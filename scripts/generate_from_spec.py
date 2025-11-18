@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from scripts.lib.env import get_repo_root
+
 
 def load_yaml(file_path: Path) -> dict[str, Any]:
     """Load and parse YAML file."""
@@ -395,7 +397,7 @@ def generate_router(rest_spec: dict[str, Any], models_spec: dict[str, Any]) -> s
 
 def main() -> None:
     """Main entry point."""
-    project_root = Path(__file__).parent.parent
+    project_root = get_repo_root()
     spec_dir = project_root / "shared" / "spec"
     generated_dir = project_root / "shared" / "generated"
 
@@ -415,6 +417,9 @@ def main() -> None:
 
     schemas_file = generated_dir / "schemas.py"
     router_file = generated_dir / "routers" / "rest.py"
+
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    router_file.parent.mkdir(parents=True, exist_ok=True)
 
     schemas_file.write_text(schemas_content)
     router_file.write_text(router_content)

@@ -1,0 +1,180 @@
+"""Tests for generate_from_spec script."""
+
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+from types import ModuleType
+from typing import TypeAlias
+
+FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
+
+
+def _write_minimal_specs(root: Path) -> None:
+    """Create minimal models.yaml and rest.yaml for testing."""
+    spec_dir = root / "shared" / "spec"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+
+    models_yaml = """models:
+  TestModel:
+    fields:
+      id:
+        type: int
+      name:
+        type: string
+        min_length: 1
+        max_length: 100
+      is_active:
+        type: bool
+        default: false
+    variants:
+      Create:
+        exclude: [id]
+      Update:
+        exclude: [id]
+        optional: [name, is_active]
+      Read: {}
+"""
+
+    rest_yaml = """rest:
+  router:
+    prefix: "/test"
+    tags: ["test"]
+    async_handlers: true
+
+  handlers:
+    create_test:
+      method: POST
+      path: "/"
+      request:
+        model: TestModel
+        variant: Create
+      response:
+        model: TestModel
+        variant: Read
+        status_code: 201
+
+    get_test:
+      method: GET
+      path: "/{test_id}"
+      response:
+        model: TestModel
+        variant: Read
+"""
+
+    (spec_dir / "models.yaml").write_text(models_yaml, encoding="utf-8")
+    (spec_dir / "rest.yaml").write_text(rest_yaml, encoding="utf-8")
+
+
+def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
+    """Test that generator creates expected files."""
+    root, _scaffold, _compose, _sync = fake_repo
+    _write_minimal_specs(root)
+
+    # Import and reload generator module to pick up SERVICE_TEMPLATE_ROOT
+    import scripts.generate_from_spec as generate_mod
+
+    generate_mod = importlib.reload(generate_mod)
+
+    # Run generator
+    generate_mod.main()
+
+    # Check that files were created
+    generated_dir = root / "shared" / "generated"
+    schemas_file = generated_dir / "schemas.py"
+    router_file = generated_dir / "routers" / "rest.py"
+
+    assert schemas_file.exists(), "schemas.py should be generated"
+    assert router_file.exists(), "routers/rest.py should be generated"
+
+    # Check that schemas.py contains expected content
+    schemas_content = schemas_file.read_text(encoding="utf-8")
+    assert "# AUTO-GENERATED" in schemas_content
+    assert "class TestModel" in schemas_content
+    assert "class TestModelCreate" in schemas_content
+    assert "class TestModelUpdate" in schemas_content
+    assert "class TestModelRead" in schemas_content
+    assert "from pydantic import BaseModel" in schemas_content
+
+    # Check that routers/rest.py contains expected content
+    router_content = router_file.read_text(encoding="utf-8")
+    assert "# AUTO-GENERATED" in router_content
+    assert "from fastapi import APIRouter" in router_content
+    assert "router = APIRouter(" in router_content
+    assert 'prefix="/test"' in router_content
+    assert "async def create_test" in router_content
+    assert "async def get_test" in router_content
+    assert "from shared.generated.schemas import" in router_content
+
+
+def test_generate_from_spec_idempotent(fake_repo: FakeRepo) -> None:
+    """Test that running generator twice produces identical output."""
+    root, _scaffold, _compose, _sync = fake_repo
+    _write_minimal_specs(root)
+
+    import scripts.generate_from_spec as generate_mod
+
+    generate_mod = importlib.reload(generate_mod)
+
+    # First run
+    generate_mod.main()
+
+    generated_dir = root / "shared" / "generated"
+    schemas_file = generated_dir / "schemas.py"
+    router_file = generated_dir / "routers" / "rest.py"
+
+    first_schemas = schemas_file.read_text(encoding="utf-8")
+    first_router = router_file.read_text(encoding="utf-8")
+
+    # Second run
+    generate_mod.main()
+
+    second_schemas = schemas_file.read_text(encoding="utf-8")
+    second_router = router_file.read_text(encoding="utf-8")
+
+    assert first_schemas == second_schemas, "Schemas should be idempotent"
+    assert first_router == second_router, "Router should be idempotent"
+
+
+def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
+    """Test that generated code has correct structure."""
+    root, _scaffold, _compose, _sync = fake_repo
+    _write_minimal_specs(root)
+
+    import scripts.generate_from_spec as generate_mod
+
+    generate_mod = importlib.reload(generate_mod)
+    generate_mod.main()
+
+    schemas_file = root / "shared" / "generated" / "schemas.py"
+    schemas_content = schemas_file.read_text(encoding="utf-8")
+
+    # Check imports
+    assert "from __future__ import annotations" in schemas_content
+    assert "from typing import Optional" in schemas_content
+    assert "from pydantic import BaseModel, Field" in schemas_content
+
+    # Check base model structure
+    assert "class TestModel(BaseModel):" in schemas_content
+    assert "orm_mode = True" in schemas_content
+
+    # Check variant models
+    assert "class TestModelCreate" in schemas_content
+    assert "class TestModelUpdate" in schemas_content
+    assert "class TestModelRead" in schemas_content
+
+    router_file = root / "shared" / "generated" / "routers" / "rest.py"
+    router_content = router_file.read_text(encoding="utf-8")
+
+    # Check router structure
+    assert "from fastapi import APIRouter" in router_content
+    assert "router = APIRouter" in router_content
+    assert "async def create_test" in router_content
+    assert "async def get_test" in router_content
+    assert "raise NotImplementedError" in router_content
+
+    # Check that handlers have correct decorators
+    assert '@router.post("/"' in router_content
+    assert '@router.get("/{test_id}"' in router_content
+    assert "response_model=" in router_content
+    assert "status_code=201" in router_content
