@@ -30,6 +30,7 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 - `make makemigrations name="..."` — generates Alembic migrations via Docker (never run Alembic locally).
 - `make sync-services [create]` — сверяет `services.yml` с файловой системой (по умолчанию `check`, `create` дописывает отсутствующие каркасы и compose-шаблоны).
 - `make tooling-tests` — pytest-набор для `sync_services` и scaffolding-хелперов (в tooling-контейнере).
+- `make generate-from-spec` — генерирует Pydantic-модели и каркасы REST-роутеров из YAML-спецификаций в `shared/spec/`. После изменения `shared/spec/models.yaml` или `shared/spec/rest.yaml` обязательно запускайте эту команду перед коммитом. CI проверяет, что сгенерированные файлы в `shared/generated/` синхронизированы со спеками.
 
 ## Service Specs & Sync (rollout plan)
 
@@ -50,6 +51,17 @@ Guidelines for automation agents (or humans in "automation mode") working inside
 2. Запустите `make sync-services create`, чтобы получить заготовку каталога и compose-шаблонов.
 3. В сервисе заполните `README.md`, `AGENTS.md`, `Dockerfile` и минимальный код.
 4. Закоммитьте изменения и прогоните `make sync-services`, `make lint`, `make tests` перед PR.
+
+## Spec-First API Generation
+
+The project uses a spec-first approach for API models and REST endpoints:
+
+- **Source of truth**: YAML specifications in `shared/spec/` (`models.yaml` for Pydantic models, `rest.yaml` for REST endpoints).
+- **Generated code**: Pydantic models and FastAPI router stubs are generated into `shared/generated/`.
+- **Workflow**: After editing specs, run `make generate-from-spec` to regenerate code. CI will fail if `shared/generated/` is out of sync with `shared/spec/`.
+- **Usage**: Services import generated models and routers from `shared.generated.schemas` and `shared.generated.routers.rest`.
+
+Never edit files in `shared/generated/` manually — they are auto-generated and will be overwritten.
 
 ## Coding Standards
 

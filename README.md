@@ -29,6 +29,7 @@ Container-first starter kit for building small and mid-sized backend services wi
 | `make makemigrations name="add_users"` | Generate Alembic migrations inside Docker. |
 | `make sync-services [create]` | Ensure `services.yml` artifacts exist (default `check`, add `create` to scaffold missing files). |
 | `make tooling-tests` | Run sync-services/scaffolding pytest suites inside the tooling container. |
+| `make generate-from-spec` | Generate Pydantic models and REST router stubs from `shared/spec/` YAML files. |
 
 See [`AGENTS.md`](AGENTS.md) for workflow rules (always use `make`, never run code locally) and hook instructions.
 
