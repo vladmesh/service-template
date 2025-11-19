@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 import os
 from pathlib import Path
 
@@ -71,7 +71,12 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     application = create_app()
 
     async def _get_test_db() -> AsyncGenerator[AsyncSession, None]:
-        yield db_session
+        try:
+            yield db_session
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
     application.dependency_overrides[get_async_db] = _get_test_db
     try:
@@ -91,7 +96,7 @@ async def client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_test_db() -> AsyncGenerator[None, None]:
+def cleanup_test_db() -> Generator[None, None, None]:
     """Ensure the temporary SQLite database file is removed after tests."""
 
     yield

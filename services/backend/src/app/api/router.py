@@ -18,8 +18,10 @@ api_router = APIRouter()  # noqa: SPEC001
 api_router.include_router(health.router, tags=["health"])
 
 # Create and include users router with injected dependencies
+# Note: get_async_db is AsyncGenerator[AsyncSession, None],
+# but FastAPI's Depends handles it correctly
 users_router = create_users_router(
-    get_db=get_async_db,
+    get_db=get_async_db,  # type: ignore[arg-type]
     get_controller=get_users_controller_impl,
 )
 api_router.include_router(users_router)

@@ -26,7 +26,7 @@ class UserRepository:
     async def create(self, payload: UserCreate) -> User:
         user = User(**payload.model_dump())
         self.session.add(user)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
 
@@ -34,13 +34,12 @@ class UserRepository:
         data = payload.model_dump(exclude_unset=True)
         for field, value in data.items():
             setattr(user, field, value)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
 
     async def delete(self, user: User) -> None:
         await self.session.delete(user)
-        await self.session.commit()
 
 
 __all__ = ["UserRepository"]

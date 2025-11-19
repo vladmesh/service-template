@@ -36,10 +36,18 @@ class ORMBase(Base):
 
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
-    """Provide a transactional scope around a series of async operations."""
+    """Provide a transactional scope around a series of async operations.
+
+    Automatically commits transactions on successful request completion
+    and rolls back on exceptions.
+    """
 
     db = AsyncSessionLocal()
     try:
         yield db
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     finally:
         await db.close()
