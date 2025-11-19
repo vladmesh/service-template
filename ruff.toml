@@ -24,7 +24,7 @@ max-args = 8
 max-statements = 60
 
 [lint.per-file-ignores]
-"shared/generated/**" = ["PLR0915", "PLR0913", "C901"]
+"shared/shared/generated/**" = ["PLR0915", "PLR0913", "C901", "B008"]
 
 [lint.isort]
 combine-as-imports = true

@@ -6,14 +6,12 @@ Router for {{ module_name }}.
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated, Any, Callable
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Path, Body, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.orm import Session
 
-from services.backend.src.app.api.deps import get_db
 from shared.generated.protocols import {{ protocol_name }}
 
 {% if imports %}
@@ -23,44 +21,66 @@ from shared.generated.schemas import (
     {% endfor %}
 )
 {% endif %}
-# Import the controller implementation
-from services.backend.src.controllers.{{ module_name }} import {{ module_name.capitalize() }}Controller
 
-router = APIRouter(
-    {% if prefix %}prefix="{{ prefix }}",{% endif %}
-    {% if tags %}tags={{ tags }},{% endif %}
-)
 
-def get_controller() -> {{ protocol_name }}:
-    """Dependency to get the controller implementation."""
-    return {{ module_name.capitalize() }}Controller()
+def create_router(
+    get_db: Callable[[], Session],
+    get_controller: Callable[[], {{ protocol_name }}],
+) -> APIRouter:
+    """
+    Create and configure the {{ module_name }} router.
 
-{% for handler in handlers %}
-@router.{{ handler.method|lower }}(
-    "{{ handler.path }}",
-    {% if handler.response_model %}response_model={{ handler.response_model }},{% endif %}
-    status_code={{ handler.status_code }},
-    {% if handler.tags %}tags={{ handler.tags }},{% endif %}
-)
-{% if async_handlers %}async {% endif %}def {{ handler.name }}(
-    session: Annotated[Session, Depends(get_db)],
-    controller: Annotated[{{ protocol_name }}, Depends(get_controller)],
-    {% for param in handler.params %}
-    {{ param.name }}: Annotated[{{ param.type }}, {{ param.source }}],
-    {% endfor %}
-    {% if handler.request_model %}
-    payload: Annotated[{{ handler.request_model }}, Body(...)],
-    {% endif %}
-) -> {{ handler.return_type }}:
-    """{{ handler.docstring }}"""
-    return await controller.{{ handler.name }}(
-        session=session,
-        {% for param in handler.params %}
-        {{ param.name }}={{ param.name }},
-        {% endfor %}
-        {% if handler.request_model %}
-        payload=payload,
+    Args:
+        get_db: Dependency to get DB session
+        get_controller: Dependency to get controller implementation
+
+    Returns:
+        Configured APIRouter instance
+    """
+    router = APIRouter(
+        {% if prefix %}
+        prefix="{{ prefix }}",
+        {% endif %}
+        {% if tags %}
+        tags={{ tags }},
         {% endif %}
     )
 
-{% endfor %}
+    {% for handler in handlers %}
+    @router.{{ handler.method|lower }}(
+        "{{ handler.path }}",
+        {% if handler.response_model %}
+        response_model={{ handler.response_model }},
+        {% endif %}
+        status_code={{ handler.status_code }},
+        {% if handler.tags %}
+        tags={{ handler.tags }},
+        {% endif %}
+    )
+    {% if async_handlers %}
+    async def {{ handler.name }}(
+    {% else %}
+    def {{ handler.name }}(
+    {% endif %}
+        {% for param in handler.params %}
+        {{ param.name }}: {{ param.type }} = {{ param.source }},
+        {% endfor %}
+        {% if handler.request_model %}
+        payload: {{ handler.request_model }} = Body(...),
+        {% endif %}
+        session: Session = Depends(get_db),
+        controller: {{ protocol_name }} = Depends(get_controller),
+    ) -> {{ handler.return_type }}:
+        """{{ handler.docstring }}"""
+        return await controller.{{ handler.name }}(
+            session=session,
+            {% for param in handler.params %}
+            {{ param.name }}={{ param.name }},
+            {% endfor %}
+            {% if handler.request_model %}
+            payload=payload,
+            {% endif %}
+        )
+
+    {% endfor %}
+    return router
