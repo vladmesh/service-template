@@ -28,7 +28,7 @@ jobs:
         run: make generate-from-spec
 
       - name: Check generated files are up to date
-        run: git diff --exit-code shared/generated/
+        run: git diff --exit-code -- shared/shared/generated/
 
       - name: Run linters
         run: make lint
