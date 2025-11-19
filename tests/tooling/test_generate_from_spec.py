@@ -83,7 +83,7 @@ def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
     generate_mod.main()
 
     # Check that files were created
-    generated_dir = root / "shared" / "generated"
+    generated_dir = root / "shared" / "shared" / "generated"
     schemas_file = generated_dir / "schemas.py"
     router_file = generated_dir / "routers" / "rest.py"
     controller_file = root / "services" / "backend" / "src" / "controllers" / "rest.py"
@@ -110,7 +110,7 @@ def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
     assert "async def create_test" in router_content
     assert "async def get_test" in router_content
     assert "from shared.generated.schemas import" in router_content
-    assert "from services.backend.src.controllers import rest as controller" in router_content
+    assert "from services.backend.src.controllers.rest import RestController" in router_content
 
 
 def test_generate_from_spec_idempotent(fake_repo: FakeRepo) -> None:
@@ -125,7 +125,7 @@ def test_generate_from_spec_idempotent(fake_repo: FakeRepo) -> None:
     # First run
     generate_mod.main()
 
-    generated_dir = root / "shared" / "generated"
+    generated_dir = root / "shared" / "shared" / "generated"
     schemas_file = generated_dir / "schemas.py"
     router_file = generated_dir / "routers" / "rest.py"
     controller_file = root / "services" / "backend" / "src" / "controllers" / "rest.py"
@@ -162,7 +162,7 @@ def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
     generate_mod = importlib.reload(generate_mod)
     generate_mod.main()
 
-    schemas_file = root / "shared" / "generated" / "schemas.py"
+    schemas_file = root / "shared" / "shared" / "generated" / "schemas.py"
     schemas_content = schemas_file.read_text(encoding="utf-8")
 
     # Check imports
@@ -181,7 +181,7 @@ def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
     assert "class TestModelUpdate" in schemas_content
     assert "class TestModelRead" in schemas_content
 
-    router_file = root / "shared" / "generated" / "routers" / "rest.py"
+    router_file = root / "shared" / "shared" / "generated" / "routers" / "rest.py"
     router_content = router_file.read_text(encoding="utf-8")
 
     # Check router structure

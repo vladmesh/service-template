@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from services.backend.src.app.api.deps import get_db
+from shared.generated.protocols import {{ protocol_name }}
 
 {% if imports %}
 from shared.generated.schemas import (
@@ -22,15 +23,17 @@ from shared.generated.schemas import (
     {% endfor %}
 )
 {% endif %}
-# Import the controller. 
-# Note: We assume the controller module is named after the router but located in
-# services.backend.src.controllers. This might need adjustment if we support multiple services.
-from services.backend.src.controllers import {{ module_name }} as controller
+# Import the controller implementation
+from services.backend.src.controllers.{{ module_name }} import {{ module_name.capitalize() }}Controller
 
 router = APIRouter(
     {% if prefix %}prefix="{{ prefix }}",{% endif %}
     {% if tags %}tags={{ tags }},{% endif %}
 )
+
+def get_controller() -> {{ protocol_name }}:
+    """Dependency to get the controller implementation."""
+    return {{ module_name.capitalize() }}Controller()
 
 {% for handler in handlers %}
 @router.{{ handler.method|lower }}(
@@ -41,6 +44,7 @@ router = APIRouter(
 )
 {% if async_handlers %}async {% endif %}def {{ handler.name }}(
     session: Annotated[Session, Depends(get_db)],
+    controller: Annotated[{{ protocol_name }}, Depends(get_controller)],
     {% for param in handler.params %}
     {{ param.name }}: Annotated[{{ param.type }}, {{ param.source }}],
     {% endfor %}

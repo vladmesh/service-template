@@ -21,8 +21,10 @@ RUN pip install --no-cache-dir \
     jinja2 \
     poetry
 
+COPY shared /shared
 COPY services/backend/pyproject.toml services/backend/poetry.lock /tmp/backend/
 RUN cd /tmp/backend \
+    && poetry lock \
     && poetry install --with dev --no-root
 
 COPY services/tg_bot/pyproject.toml services/tg_bot/poetry.lock /tmp/tg_bot/

@@ -15,13 +15,15 @@ RUN pip install --no-cache-dir --upgrade pip
 FROM base AS deps
 ARG INSTALL_DEV_DEPS
 RUN pip install --no-cache-dir poetry
+COPY shared ./shared
 COPY services/backend/pyproject.toml services/backend/poetry.lock ./services/backend/
 RUN cd services/backend \
     && poetry config virtualenvs.create false \
+    && poetry lock \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
-        poetry install --with dev --no-root; \
+    poetry install --with dev --no-root; \
     else \
-        poetry install --without dev --no-root; \
+    poetry install --without dev --no-root; \
     fi
 
 FROM base AS runtime

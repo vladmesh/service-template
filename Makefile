@@ -138,4 +138,4 @@ tooling-tests:
 
 generate-from-spec:
 	$(PYTHON_TOOLING) -m scripts.generate_from_spec
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services/backend/src shared/generated
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services/backend/src shared/shared/generated

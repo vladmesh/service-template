@@ -240,6 +240,39 @@ def prepare_router_context(
     return context
 
 
+def generate_protocols(routers_dir: Path, models_file: Path, output_file: Path) -> None:
+    """Generate protocols for all routers."""
+    models_spec = load_yaml(models_file)
+
+    routers_context = []
+    all_imports = set()
+
+    for router_file in sorted(routers_dir.glob("*.yaml")):
+        rest_spec = load_yaml(router_file)
+        module_name = router_file.stem
+        # Capitalize first letter for Protocol name (e.g. users -> UsersControllerProtocol)
+        protocol_name = f"{module_name.capitalize()}ControllerProtocol"
+
+        context = prepare_router_context(rest_spec, models_spec, module_name)
+        context["name"] = module_name
+        context["protocol_name"] = protocol_name
+
+        routers_context.append(context)
+        all_imports.update(context["imports"])
+
+    env = Environment(
+        loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,  # Generating Python code, not HTML  # noqa: S701
+    )
+    template = env.get_template("protocols.py.j2")
+
+    content = template.render(routers=routers_context, imports=all_imports, async_handlers=True)
+    output_file.write_text(content)
+    print(f"Generated protocols: {output_file}")
+
+
 def generate_router(rest_file: Path, models_file: Path, output_file: Path) -> None:
     """Generate FastAPI router using Jinja2."""
     rest_spec = load_yaml(rest_file)
@@ -247,6 +280,7 @@ def generate_router(rest_file: Path, models_file: Path, output_file: Path) -> No
     module_name = rest_file.stem
 
     context = prepare_router_context(rest_spec, models_spec, module_name)
+    context["protocol_name"] = f"{module_name.capitalize()}ControllerProtocol"
 
     env = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
@@ -271,6 +305,7 @@ def generate_controller(rest_file: Path, models_file: Path, output_file: Path) -
     module_name = rest_file.stem
 
     context = prepare_router_context(rest_spec, models_spec, module_name)
+    context["protocol_name"] = f"{module_name.capitalize()}ControllerProtocol"
 
     env = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
@@ -292,7 +327,7 @@ def main() -> None:
     project_root = get_repo_root()
     spec_dir = project_root / "shared" / "spec"
     routers_spec_dir = spec_dir / "routers"
-    generated_dir = project_root / "shared" / "generated"
+    generated_dir = project_root / "shared" / "shared" / "generated"
 
     # Controllers location
     controllers_dir = project_root / "services" / "backend" / "src" / "controllers"
@@ -311,6 +346,9 @@ def main() -> None:
     generate_schemas(models_file, generated_dir / "schemas.py")
 
     if routers_spec_dir.exists():
+        print("Generating protocols...")
+        generate_protocols(routers_spec_dir, models_file, generated_dir / "protocols.py")
+
         for router_file in routers_spec_dir.glob("*.yaml"):
             print(f"Processing {router_file.stem}...")
 
