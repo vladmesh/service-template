@@ -15,7 +15,10 @@ RUN pip install --no-cache-dir --upgrade pip
 FROM base AS deps
 ARG INSTALL_DEV_DEPS
 RUN pip install --no-cache-dir poetry
-COPY shared ./shared
+# Copy only shared metadata and create minimal package structure for editable install
+COPY shared/pyproject.toml ./shared/pyproject.toml
+# Create minimal package structure so poetry can install in editable mode
+RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
 COPY services/backend/pyproject.toml services/backend/poetry.lock ./services/backend/
 RUN cd services/backend \
     && poetry config virtualenvs.create false \
@@ -25,6 +28,8 @@ RUN cd services/backend \
     else \
     poetry install --without dev --no-root; \
     fi
+# Copy actual shared code after dependency installation (changes won't invalidate poetry install cache)
+COPY shared/shared ./shared/shared
 
 FROM base AS runtime
 COPY --from=deps /usr/local /usr/local
