@@ -1,16 +1,19 @@
 """Database engine and session management."""
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from datetime import datetime
 
-from sqlalchemy import DateTime, create_engine, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy import DateTime, func
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from .settings import get_settings
 
 settings = get_settings()
-engine = create_engine(settings.sync_database_url, future=True, echo=False)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+async_engine = create_async_engine(settings.async_database_url, future=True, echo=False)
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine, autoflush=False, autocommit=False, class_=AsyncSession
+)
 
 
 class Base(DeclarativeBase):
@@ -32,11 +35,11 @@ class ORMBase(Base):
     )
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Provide a transactional scope around a series of operations."""
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a transactional scope around a series of async operations."""
 
-    db = SessionLocal()
+    db = AsyncSessionLocal()
     try:
         yield db
     finally:
-        db.close()
+        await db.close()

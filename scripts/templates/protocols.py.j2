@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Protocol, Optional, List, Any
 from uuid import UUID
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 {% if imports %}
 from shared.generated.schemas import (
@@ -24,7 +24,7 @@ class {{ router.protocol_name }}(Protocol):
     {% for handler in router.handlers %}
     {% if async_handlers %}async {% endif %}def {{ handler.name }}(
         self,
-        session: Session,
+        session: AsyncSession,
         {% for param in handler.params %}
         {{ param.name }}: {{ param.type }},
         {% endfor %}

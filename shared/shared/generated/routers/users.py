@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fastapi import APIRouter, Body, Depends, Path
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.generated.protocols import UsersControllerProtocol
 from shared.generated.schemas import (
@@ -20,7 +20,7 @@ from shared.generated.schemas import (
 
 
 def create_router(
-    get_db: Callable[[], Session],
+    get_db: Callable[[], AsyncSession],
     get_controller: Callable[[], UsersControllerProtocol],
 ) -> APIRouter:
     """
@@ -45,7 +45,7 @@ def create_router(
     )
     async def create_user(
         payload: UserCreate = Body(...),
-        session: Session = Depends(get_db),
+        session: AsyncSession = Depends(get_db),
         controller: UsersControllerProtocol = Depends(get_controller),
     ) -> UserRead:
         """Handler for create_user"""
@@ -61,7 +61,7 @@ def create_router(
     )
     async def get_user(
         user_id: int = Path(...),
-        session: Session = Depends(get_db),
+        session: AsyncSession = Depends(get_db),
         controller: UsersControllerProtocol = Depends(get_controller),
     ) -> UserRead:
         """Handler for get_user"""
@@ -78,7 +78,7 @@ def create_router(
     async def update_user(
         user_id: int = Path(...),
         payload: UserUpdate = Body(...),
-        session: Session = Depends(get_db),
+        session: AsyncSession = Depends(get_db),
         controller: UsersControllerProtocol = Depends(get_controller),
     ) -> UserRead:
         """Handler for update_user"""
@@ -94,7 +94,7 @@ def create_router(
     )
     async def delete_user(
         user_id: int = Path(...),
-        session: Session = Depends(get_db),
+        session: AsyncSession = Depends(get_db),
         controller: UsersControllerProtocol = Depends(get_controller),
     ) -> None:
         """Handler for delete_user"""

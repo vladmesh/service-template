@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import User
 from ..schemas import UserCreate, UserUpdate
@@ -12,34 +12,35 @@ from ..schemas import UserCreate, UserUpdate
 class UserRepository:
     """Data access methods for users."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def get(self, user_id: int) -> User | None:
-        return self.session.get(User, user_id)
+    async def get(self, user_id: int) -> User | None:
+        return await self.session.get(User, user_id)
 
-    def get_by_telegram_id(self, telegram_id: int) -> User | None:
+    async def get_by_telegram_id(self, telegram_id: int) -> User | None:
         stmt = select(User).where(User.telegram_id == telegram_id)
-        return self.session.execute(stmt).scalar_one_or_none()
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
-    def create(self, payload: UserCreate) -> User:
+    async def create(self, payload: UserCreate) -> User:
         user = User(**payload.model_dump())
         self.session.add(user)
-        self.session.commit()
-        self.session.refresh(user)
+        await self.session.commit()
+        await self.session.refresh(user)
         return user
 
-    def update(self, user: User, payload: UserUpdate) -> User:
+    async def update(self, user: User, payload: UserUpdate) -> User:
         data = payload.model_dump(exclude_unset=True)
         for field, value in data.items():
             setattr(user, field, value)
-        self.session.commit()
-        self.session.refresh(user)
+        await self.session.commit()
+        await self.session.refresh(user)
         return user
 
-    def delete(self, user: User) -> None:
-        self.session.delete(user)
-        self.session.commit()
+    async def delete(self, user: User) -> None:
+        await self.session.delete(user)
+        await self.session.commit()
 
 
 __all__ = ["UserRepository"]

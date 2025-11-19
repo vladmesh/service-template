@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.generated.schemas import (
     UserCreate,
@@ -22,21 +22,21 @@ class UsersControllerProtocol(Protocol):
 
 async def create_user(
     self,
-    session: Session,
+    session: AsyncSession,
     payload: UserCreate,
 ) -> UserRead: ...
 
 
 async def get_user(
     self,
-    session: Session,
+    session: AsyncSession,
     user_id: int,
 ) -> UserRead: ...
 
 
 async def update_user(
     self,
-    session: Session,
+    session: AsyncSession,
     user_id: int,
     payload: UserUpdate,
 ) -> UserRead: ...
@@ -44,6 +44,6 @@ async def update_user(
 
 async def delete_user(
     self,
-    session: Session,
+    session: AsyncSession,
     user_id: int,
 ) -> None: ...

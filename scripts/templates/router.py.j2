@@ -10,7 +10,7 @@ from typing import Annotated, Any, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Path, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.generated.protocols import {{ protocol_name }}
 
@@ -24,7 +24,7 @@ from shared.generated.schemas import (
 
 
 def create_router(
-    get_db: Callable[[], Session],
+    get_db: Callable[[], AsyncSession],
     get_controller: Callable[[], {{ protocol_name }}],
 ) -> APIRouter:
     """
@@ -68,7 +68,7 @@ def create_router(
         {% if handler.request_model %}
         payload: {{ handler.request_model }} = Body(...),
         {% endif %}
-        session: Session = Depends(get_db),
+        session: AsyncSession = Depends(get_db),
         controller: {{ protocol_name }} = Depends(get_controller),
     ) -> {{ handler.return_type }}:
         """{{ handler.docstring }}"""
