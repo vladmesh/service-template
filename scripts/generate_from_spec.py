@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 import subprocess
-import tempfile
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
@@ -131,16 +130,17 @@ def generate_schemas(models_file: Path, output_file: Path) -> None:
     models_spec = load_yaml(models_file)
     json_schema = convert_to_json_schema(models_spec)
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-        json.dump(json_schema, tmp, indent=2)
-        tmp.flush()
-        tmp_path = tmp.name
+    # Use fixed filename to ensure stable filename comment in generated code
+    tmp_path = output_file.parent / "models_schema.json"
 
     try:
+        with tmp_path.open("w") as tmp:
+            json.dump(json_schema, tmp, indent=2)
+
         cmd = [
             "datamodel-codegen",
             "--input",
-            tmp_path,
+            str(tmp_path),
             "--input-file-type",
             "jsonschema",
             "--output",
@@ -155,19 +155,9 @@ def generate_schemas(models_file: Path, output_file: Path) -> None:
         ]
 
         subprocess.run(cmd, check=True)  # noqa: S603
-
-        # Remove filename comment line to avoid diff on each generation
-        if output_file.exists():
-            content = output_file.read_text(encoding="utf-8")
-            lines = content.splitlines()
-            # Remove line with filename comment if present
-            filtered_lines = [
-                line for line in lines if not line.strip().startswith("#   filename:")
-            ]
-            output_file.write_text("\n".join(filtered_lines) + "\n", encoding="utf-8")
     finally:
         # Clean up temporary file
-        Path(tmp_path).unlink(missing_ok=True)
+        tmp_path.unlink(missing_ok=True)
 
 
 def get_python_type_for_param(param_type: str) -> str:
