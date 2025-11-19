@@ -5,30 +5,35 @@ from __future__ import annotations
 from functools import lru_cache
 from urllib.parse import quote_plus
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Base settings for the backend application."""
 
-    app_name: str = Field(default="Service Template Backend", env="APP_NAME")
-    environment: str = Field(default="development", env="APP_ENV")
-    app_secret_key: str = Field(default="please-change-me", env="APP_SECRET_KEY")
-    enabled_modules_raw: str = Field(default="", env="ENABLED_MODULES")
+    app_name: str = Field(default="Service Template Backend", validation_alias="APP_NAME")
+    environment: str = Field(default="development", validation_alias="APP_ENV")
+    app_secret_key: str = Field(default="please-change-me", validation_alias="APP_SECRET_KEY")
+    enabled_modules_raw: str = Field(default="", validation_alias="ENABLED_MODULES")
 
-    postgres_host: str = Field(default="localhost", env="POSTGRES_HOST")
-    postgres_port: int = Field(default=5432, env="POSTGRES_PORT")
-    postgres_db: str = Field(default="service_template", env="POSTGRES_DB")
-    postgres_user: str = Field(default="postgres", env="POSTGRES_USER")
-    postgres_password: str = Field(default="postgres", env="POSTGRES_PASSWORD")
-    postgres_require_ssl: bool = Field(default=False, env="POSTGRES_REQUIRE_SSL")
+    postgres_host: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
+    postgres_port: int = Field(default=5432, validation_alias="POSTGRES_PORT")
+    postgres_db: str = Field(default="service_template", validation_alias="POSTGRES_DB")
+    postgres_user: str = Field(default="postgres", validation_alias="POSTGRES_USER")
+    postgres_password: str = Field(default="postgres", validation_alias="POSTGRES_PASSWORD")
+    postgres_require_ssl: bool = Field(default=False, validation_alias="POSTGRES_REQUIRE_SSL")
 
-    sqlalchemy_sync_driver: str = Field(default="postgresql+psycopg", env="SQLALCHEMY_SYNC_DRIVER")
-    sqlalchemy_async_driver: str = Field(
-        default="postgresql+asyncpg", env="SQLALCHEMY_ASYNC_DRIVER"
+    sqlalchemy_sync_driver: str = Field(
+        default="postgresql+psycopg", validation_alias="SQLALCHEMY_SYNC_DRIVER"
     )
-    database_url_override: str | None = Field(default=None, env="DATABASE_URL")
-    async_database_url_override: str | None = Field(default=None, env="ASYNC_DATABASE_URL")
+    sqlalchemy_async_driver: str = Field(
+        default="postgresql+asyncpg", validation_alias="SQLALCHEMY_ASYNC_DRIVER"
+    )
+    database_url_override: str | None = Field(default=None, validation_alias="DATABASE_URL")
+    async_database_url_override: str | None = Field(
+        default=None, validation_alias="ASYNC_DATABASE_URL"
+    )
 
     class Config:
         env_file = ".env"

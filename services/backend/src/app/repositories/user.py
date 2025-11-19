@@ -23,14 +23,14 @@ class UserRepository:
         return self.session.execute(stmt).scalar_one_or_none()
 
     def create(self, payload: UserCreate) -> User:
-        user = User(**payload.dict())
+        user = User(**payload.model_dump())
         self.session.add(user)
         self.session.commit()
         self.session.refresh(user)
         return user
 
     def update(self, user: User, payload: UserUpdate) -> User:
-        data = payload.dict(exclude_unset=True)
+        data = payload.model_dump(exclude_unset=True)
         for field, value in data.items():
             setattr(user, field, value)
         self.session.commit()

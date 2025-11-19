@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
 
+from fastapi import APIRouter, Body, Depends, Path
+from sqlalchemy.orm import Session
+
+from services.backend.src.app.api.deps import get_db
+
+# Import the controller.
+# Note: We assume the controller module is named after the router but located in
+# services.backend.src.controllers. This might need adjustment if we support multiple services.
+from services.backend.src.controllers import users as controller
 from shared.generated.schemas import (
     UserCreate,
     UserRead,
@@ -22,11 +31,14 @@ router = APIRouter(
     status_code=201,
 )
 async def create_user(
-    payload: UserCreate,
+    session: Annotated[Session, Depends(get_db)],
+    payload: Annotated[UserCreate, Body(...)],
 ) -> UserRead:
     """Handler for create_user"""
-    # TODO: implement
-    raise NotImplementedError
+    return await controller.create_user(
+        session=session,
+        payload=payload,
+    )
 
 
 @router.get(
@@ -35,11 +47,14 @@ async def create_user(
     status_code=200,
 )
 async def get_user(
-    user_id: int,
+    session: Annotated[Session, Depends(get_db)],
+    user_id: Annotated[int, Path(...)],
 ) -> UserRead:
     """Handler for get_user"""
-    # TODO: implement
-    raise NotImplementedError
+    return await controller.get_user(
+        session=session,
+        user_id=user_id,
+    )
 
 
 @router.put(
@@ -48,12 +63,16 @@ async def get_user(
     status_code=200,
 )
 async def update_user(
-    user_id: int,
-    payload: UserUpdate,
+    session: Annotated[Session, Depends(get_db)],
+    user_id: Annotated[int, Path(...)],
+    payload: Annotated[UserUpdate, Body(...)],
 ) -> UserRead:
     """Handler for update_user"""
-    # TODO: implement
-    raise NotImplementedError
+    return await controller.update_user(
+        session=session,
+        user_id=user_id,
+        payload=payload,
+    )
 
 
 @router.delete(
@@ -61,8 +80,11 @@ async def update_user(
     status_code=204,
 )
 async def delete_user(
-    user_id: int,
+    session: Annotated[Session, Depends(get_db)],
+    user_id: Annotated[int, Path(...)],
 ) -> None:
     """Handler for delete_user"""
-    # TODO: implement
-    raise NotImplementedError
+    return await controller.delete_user(
+        session=session,
+        user_id=user_id,
+    )

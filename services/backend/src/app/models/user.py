@@ -5,10 +5,10 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ...core import BaseModel
+from ...core import ORMBase
 
 
-class User(BaseModel):
+class User(ORMBase):
     """Represents an authenticated Telegram user."""
 
     __tablename__ = "users"

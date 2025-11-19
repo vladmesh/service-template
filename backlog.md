@@ -19,8 +19,15 @@
 
 ### Custom Linter for Spec Enforcement
 
-**Status**: TODO
+**Status**: DONE
 
-**Description**: Create a custom linter (e.g., Ruff plugin or AST script) to prevent agents/developers from bypassing the spec.
-- Forbid defining Pydantic models in services (must use `shared.generated`).
+**Description**: We need to ensure that agents (and devs) don't bypass the spec. A custom linter/AST script should run in CI/pre-commit to forbid:
+1. Defining `BaseModel` subclasses inside `services/` (except migrations/tests).
+2. Instantiating `APIRouter` manually inside `services/` (except the main app composition).
+
+### Implement Controller Pattern for Generated Routers
+
+**Status**: IN PROGRESS
+
+**Description**: Currently, generated routers contain `raise NotImplementedError`. We need a pattern (e.g., Controller injection or Protocol) to allow implementing logic without editing the generated file, while still satisfying the linter.
 - Forbid manual `APIRouter` definitions that don't match spec interfaces.

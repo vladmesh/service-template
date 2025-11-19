@@ -34,6 +34,10 @@ endif
 
 lint:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check .
+	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
+
+lint-specs:
+	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
 
 format:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'services/**/migrations' --exclude '.venv' .
@@ -130,3 +134,4 @@ tooling-tests:
 
 generate-from-spec:
 	$(PYTHON_TOOLING) -m scripts.generate_from_spec
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services/backend/src shared/generated

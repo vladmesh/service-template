@@ -169,7 +169,7 @@ def get_python_type_for_param(param_type: str) -> str:
 
 
 def prepare_router_context(
-    rest_spec: dict[str, Any], models_spec: dict[str, Any]
+    rest_spec: dict[str, Any], models_spec: dict[str, Any], module_name: str
 ) -> dict[str, Any]:
     """Prepare context for Jinja2 template."""
     rest = rest_spec.get("rest", {})
@@ -177,6 +177,7 @@ def prepare_router_context(
     handlers_spec = rest.get("handlers", {})
 
     context = {
+        "module_name": module_name,
         "prefix": router_config.get("prefix", ""),
         "tags": router_config.get("tags", []),
         "async_handlers": router_config.get("async_handlers", True),
@@ -208,12 +209,10 @@ def prepare_router_context(
 
         path_params = re.findall(r"\{(\w+)\}", handler["path"])
         for param in path_params:
-            # We assume path params are int by default if not specified (legacy behavior?)
-            # Or we should look at some definition. The original script assumed 'int'.
-            # Let's stick to 'int' for now as per original script, or maybe 'str' is safer?
-            # Original: return [(match, "int") for match in matches]
-            handler["params"].append({"name": param, "type": "int"})
-
+            # Infer type based on name (heuristic)
+            # Default to int for IDs as per project convention
+            param_type = "int" if param.endswith("_id") else "str"
+            handler["params"].append({"name": param, "type": param_type, "source": "Path(...)"})
         # Request model
         req_def = def_.get("request")
         if req_def:
@@ -245,8 +244,9 @@ def generate_router(rest_file: Path, models_file: Path, output_file: Path) -> No
     """Generate FastAPI router using Jinja2."""
     rest_spec = load_yaml(rest_file)
     models_spec = load_yaml(models_file)
+    module_name = rest_file.stem
 
-    context = prepare_router_context(rest_spec, models_spec)
+    context = prepare_router_context(rest_spec, models_spec, module_name)
 
     env = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
@@ -260,12 +260,42 @@ def generate_router(rest_file: Path, models_file: Path, output_file: Path) -> No
     output_file.write_text(content)
 
 
+def generate_controller(rest_file: Path, models_file: Path, output_file: Path) -> None:
+    """Generate FastAPI controller stub using Jinja2 (only if not exists)."""
+    if output_file.exists():
+        print(f"Controller {output_file.name} already exists, skipping.")
+        return
+
+    rest_spec = load_yaml(rest_file)
+    models_spec = load_yaml(models_file)
+    module_name = rest_file.stem
+
+    context = prepare_router_context(rest_spec, models_spec, module_name)
+
+    env = Environment(
+        loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,  # Generating Python code, not HTML  # noqa: S701
+    )
+    template = env.get_template("controller.py.j2")
+
+    content = template.render(**context)
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(content)
+    print(f"Generated controller: {output_file}")
+
+
 def main() -> None:
     """Main entry point."""
     project_root = get_repo_root()
     spec_dir = project_root / "shared" / "spec"
     routers_spec_dir = spec_dir / "routers"
     generated_dir = project_root / "shared" / "generated"
+
+    # Controllers location
+    controllers_dir = project_root / "services" / "backend" / "src" / "controllers"
 
     models_file = spec_dir / "models.yaml"
 
@@ -275,23 +305,24 @@ def main() -> None:
 
     generated_dir.mkdir(parents=True, exist_ok=True)
     (generated_dir / "routers").mkdir(parents=True, exist_ok=True)
+    controllers_dir.mkdir(parents=True, exist_ok=True)
 
     print("Generating schemas...")
     generate_schemas(models_file, generated_dir / "schemas.py")
 
     if routers_spec_dir.exists():
         for router_file in routers_spec_dir.glob("*.yaml"):
-            print(f"Generating router for {router_file.stem}...")
-            output_file = generated_dir / "routers" / f"{router_file.stem}.py"
-            generate_router(router_file, models_file, output_file)
+            print(f"Processing {router_file.stem}...")
+
+            # Generate Router
+            router_output = generated_dir / "routers" / f"{router_file.stem}.py"
+            generate_router(router_file, models_file, router_output)
+
+            # Generate Controller
+            controller_output = controllers_dir / f"{router_file.stem}.py"
+            generate_controller(router_file, models_file, controller_output)
     else:
         print("No routers directory found, skipping router generation.")
-
-    # Clean up old rest.py if it exists (optional, but good for hygiene)
-    old_rest = generated_dir / "routers" / "rest.py"
-    if old_rest.exists():
-        print("Removing obsolete routers/rest.py")
-        old_rest.unlink()
 
     print("Done.")
 

@@ -19,7 +19,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class BaseModel(Base):
+class ORMBase(Base):
     """Common columns shared by all persisted models."""
 
     __abstract__ = True
