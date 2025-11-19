@@ -64,9 +64,8 @@ def sync_compose(specs: list[ServiceSpec], apply: bool) -> list[str]:
             if new_lines != lines:
                 compose_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
                 print(f"Updated {compose_path.relative_to(ROOT)}")
-        else:
-            if new_lines != lines:
-                drift.append(str(compose_path.relative_to(ROOT)))
+        elif new_lines != lines:
+            drift.append(str(compose_path.relative_to(ROOT)))
     return drift
 
 
@@ -143,7 +142,7 @@ def _is_allowed_copy_source(source: str, slug: str) -> bool:
     return False
 
 
-def run_sync(apply: bool) -> int:
+def run_sync(apply: bool) -> int:  # noqa: C901
     registry = load_registry()
     specs = build_service_specs(registry)
     report = ensure_artifacts(specs, apply=apply)

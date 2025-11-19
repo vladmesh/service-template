@@ -11,8 +11,20 @@ select = [
     "B",
     "C4",
     "S",
+    "PLR",
+    "C901",
 ]
 ignore = ["S101"]
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pylint]
+max-args = 8
+max-statements = 60
+
+[lint.per-file-ignores]
+"shared/generated/**" = ["PLR0915", "PLR0913", "C901"]
 
 [lint.isort]
 combine-as-imports = true

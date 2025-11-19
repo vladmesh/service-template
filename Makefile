@@ -35,6 +35,10 @@ endif
 lint:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check .
 	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
+	$(MAKE) lint-complexity
+
+lint-complexity:
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "scripts/*,tests/*" .
 
 lint-specs:
 	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance

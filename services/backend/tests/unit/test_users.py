@@ -25,12 +25,12 @@ def test_user_crud_flow(client: TestClient) -> None:
 
     fetched = client.get(f"/users/{user_id}")
     assert fetched.status_code == status.HTTP_200_OK
-    assert fetched.json()["telegram_id"] == 123456789
+    assert fetched.json()["telegram_id"] == 123456789  # noqa: PLR2004
 
     update_payload = {"telegram_id": 987654321, "is_admin": True}
     updated = client.put(f"/users/{user_id}", json=update_payload)
     assert updated.status_code == status.HTTP_200_OK
-    assert updated.json()["telegram_id"] == 987654321
+    assert updated.json()["telegram_id"] == 987654321  # noqa: PLR2004
     assert updated.json()["is_admin"] is True
 
     deleted = client.delete(f"/users/{user_id}")

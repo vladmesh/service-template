@@ -11,7 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace
 
 RUN pip install --no-cache-dir \
-    ruff==0.1.6 \
+    ruff==0.4.4 \
+    xenon==0.9.1 \
     mypy==1.7.1 \
     pytest==7.4.3 \
     types-PyYAML \
