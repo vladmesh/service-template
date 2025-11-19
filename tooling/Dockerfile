@@ -10,7 +10,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /workspace
 
-RUN pip install --no-cache-dir --upgrade pip poetry
+RUN pip install --no-cache-dir \
+    ruff==0.1.6 \
+    mypy==1.7.1 \
+    pytest==7.4.3 \
+    types-PyYAML \
+    PyYAML \
+    datamodel-code-generator[http] \
+    jinja2 \
+    poetry
 
 COPY services/backend/pyproject.toml services/backend/poetry.lock /tmp/backend/
 RUN cd /tmp/backend \

@@ -1,0 +1,43 @@
+# AUTO-GENERATED FROM shared/spec/rest.yaml – DO NOT EDIT MANUALLY
+
+from __future__ import annotations
+
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Query, Path, Body
+from pydantic import BaseModel
+
+{% if imports %}
+from shared.generated.schemas import (
+    {% for model in imports|sort %}
+    {{ model }},
+    {% endfor %}
+)
+{% endif %}
+
+router = APIRouter(
+    {% if prefix %}prefix="{{ prefix }}",{% endif %}
+    {% if tags %}tags={{ tags }},{% endif %}
+)
+
+{% for handler in handlers %}
+@router.{{ handler.method|lower }}(
+    "{{ handler.path }}",
+    {% if handler.response_model %}response_model={{ handler.response_model }},{% endif %}
+    status_code={{ handler.status_code }},
+    {% if handler.tags %}tags={{ handler.tags }},{% endif %}
+)
+{% if async_handlers %}async {% endif %}def {{ handler.name }}(
+    {% for param in handler.params %}
+    {{ param.name }}: {{ param.type }},
+    {% endfor %}
+    {% if handler.request_model %}
+    payload: {{ handler.request_model }},
+    {% endif %}
+) -> {{ handler.return_type }}:
+    """{{ handler.docstring }}"""
+    # TODO: implement
+    raise NotImplementedError
+
+{% endfor %}
