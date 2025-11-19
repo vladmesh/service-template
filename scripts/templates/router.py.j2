@@ -6,8 +6,7 @@ Router for {{ module_name }}.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Callable
-from uuid import UUID
+from collections.abc import Callable
 
 from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
