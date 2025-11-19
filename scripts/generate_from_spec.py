@@ -265,10 +265,12 @@ def generate_protocols(routers_dir: Path, models_file: Path, output_file: Path) 
         routers_context.append(context)
         all_imports.update(context["imports"])
 
+    # Use separate environment without lstrip_blocks to preserve indentation
+    # for protocol methods inside class
     env = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
         trim_blocks=True,
-        lstrip_blocks=True,
+        lstrip_blocks=False,  # Keep indentation for protocol methods inside class
         autoescape=False,  # Generating Python code, not HTML  # noqa: S701
     )
     template = env.get_template("protocols.py.j2")

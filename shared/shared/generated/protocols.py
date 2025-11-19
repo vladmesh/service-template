@@ -19,31 +19,27 @@ from shared.generated.schemas import (
 class UsersControllerProtocol(Protocol):
     """Protocol for users controller."""
 
+    async def create_user(
+        self,
+        session: AsyncSession,
+        payload: UserCreate,
+    ) -> UserRead: ...
 
-async def create_user(
-    self,
-    session: AsyncSession,
-    payload: UserCreate,
-) -> UserRead: ...
+    async def get_user(
+        self,
+        session: AsyncSession,
+        user_id: int,
+    ) -> UserRead: ...
 
+    async def update_user(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        payload: UserUpdate,
+    ) -> UserRead: ...
 
-async def get_user(
-    self,
-    session: AsyncSession,
-    user_id: int,
-) -> UserRead: ...
-
-
-async def update_user(
-    self,
-    session: AsyncSession,
-    user_id: int,
-    payload: UserUpdate,
-) -> UserRead: ...
-
-
-async def delete_user(
-    self,
-    session: AsyncSession,
-    user_id: int,
-) -> None: ...
+    async def delete_user(
+        self,
+        session: AsyncSession,
+        user_id: int,
+    ) -> None: ...

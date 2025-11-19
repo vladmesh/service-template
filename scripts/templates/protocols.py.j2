@@ -21,7 +21,7 @@ from shared.generated.schemas import (
 class {{ router.protocol_name }}(Protocol):
     """Protocol for {{ router.name }} controller."""
 
-    {% for handler in router.handlers %}
+{% for handler in router.handlers %}
     {% if async_handlers %}async {% endif %}def {{ handler.name }}(
         self,
         session: AsyncSession,
@@ -34,5 +34,5 @@ class {{ router.protocol_name }}(Protocol):
     ) -> {{ handler.return_type }}:
         ...
 
-    {% endfor %}
+{% endfor %}
 {% endfor %}
