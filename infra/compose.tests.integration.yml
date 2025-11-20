@@ -13,10 +13,13 @@ services:
       - ./.env.test
     environment:
       PYTHONPATH: /workspace
+      ASYNC_DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-service}
     volumes:
       - ../:/workspace:delegated
     working_dir: /workspace
     stop_grace_period: 2s
+    networks:
+      - internal
 
   db:
     extends:
@@ -25,6 +28,8 @@ services:
     volumes:
       - type: tmpfs
         target: /var/lib/postgresql/data
+    networks:
+      - internal
 
   integration-tests:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
@@ -47,6 +52,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    networks:
+      - internal
 
 networks:
   internal:
