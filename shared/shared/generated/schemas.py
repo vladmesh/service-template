@@ -48,3 +48,12 @@ class UserRead(BaseModel):
     is_admin: bool | None = False
     created_at: AwareDatetime
     updated_at: AwareDatetime
+
+
+class UserRegisteredEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    user_id: int
+    email: str
+    timestamp: AwareDatetime

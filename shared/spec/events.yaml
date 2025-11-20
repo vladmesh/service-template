@@ -1,0 +1,5 @@
+events:
+  user_registered:
+    message: UserRegisteredEvent
+    publish: true
+    subscribe: false

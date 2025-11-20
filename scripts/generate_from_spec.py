@@ -373,7 +373,46 @@ def main() -> None:
     else:
         print("No routers directory found, skipping router generation.")
 
+    events_file = spec_dir / "events.yaml"
+    generate_events(events_file, generated_dir / "events.py")
+
     print("Done.")
+
+
+def generate_events(events_file: Path, output_file: Path) -> None:
+    """Generate FastStream events module."""
+    if not events_file.exists():
+        print("No events.yaml found, skipping event generation.")
+        return
+
+    events_spec = load_yaml(events_file)
+    events = []
+    imports = set()
+
+    for name, def_ in events_spec.get("events", {}).items():
+        msg_type = def_.get("message")
+        events.append(
+            {
+                "name": name,
+                "message": msg_type,
+                "publish": def_.get("publish", False),
+                "subscribe": def_.get("subscribe", False),
+            }
+        )
+        if msg_type:
+            imports.add(msg_type)
+
+    env = Environment(
+        loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=False,  # noqa: S701
+    )
+    template = env.get_template("events.py.j2")
+
+    content = template.render(events=events, imports=imports)
+    output_file.write_text(content)
+    print(f"Generated events: {output_file}")
 
 
 if __name__ == "__main__":

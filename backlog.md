@@ -36,11 +36,13 @@
 
 ### Spec-First Async Messaging (Queues)
 
-**Status**: IDEA
+**Status**: IN PROGRESS
 
-**Description**: Support asynchronous messaging via queues (Kafka, RabbitMQ, or Redis) using the spec-first approach.
-- **Goal**: Define topics/events in YAML (similar to AsyncAPI).
-- **Generation**: Auto-generate consumers and producer wrappers.
+**Description**: Support asynchronous messaging via queues.
+- **Decision**: We chose **Redis** (Streams) + **FastStream**.
+    - **Why**: Fits "Rigidity is Freedom". Single container, strongly typed, spec-first.
+- **Goal**: Define topics/events in YAML.
+- **Generation**: Auto-generate consumers and producer wrappers using FastStream.
 - **Validation**: Ensure messages conform to schemas defined in `models.yaml`.
 
 ### Celery Worker Support
