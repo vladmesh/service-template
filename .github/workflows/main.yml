@@ -25,8 +25,8 @@ jobs:
             image-suffix: backend
             optional: false
           - id: frontend
-            context: .
-            dockerfile: services/frontend/Dockerfile
+            context: services/frontend
+            dockerfile: Dockerfile
             image-suffix: frontend
             optional: true
           - id: tg-bot
