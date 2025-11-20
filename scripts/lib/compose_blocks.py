@@ -109,6 +109,8 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
                 args:
                   INSTALL_DEV_DEPS: ${__INSTALL_DEV_ENV__:-false}
+              env_file:
+                - ../.env
               environment:
                 <<: *backend-env
               command: ["services/__SLUG__/scripts/start.sh"]
