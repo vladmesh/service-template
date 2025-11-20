@@ -25,3 +25,8 @@ services:
     description: >
       Service for notifications (email, telegram).
     dev_template: false
+  - name: test_service
+    type: python
+    description: >
+      Test service for verifying event flow.
+    dev_template: false

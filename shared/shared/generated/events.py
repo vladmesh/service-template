@@ -4,7 +4,7 @@ from typing import Any
 
 from faststream.redis import RedisBroker
 
-from shared.generated.schemas import UserRegisteredEvent
+from shared.generated.schemas import CommandReceived, UserRegisteredEvent
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 broker = RedisBroker(redis_url)
@@ -15,3 +15,11 @@ _publisher_user_registered = broker.publisher("user_registered")
 async def publish_user_registered(message: UserRegisteredEvent) -> Any:
     """Publish UserRegisteredEvent to channel 'user_registered'."""
     return await _publisher_user_registered.publish(message)
+
+
+_publisher_command_received = broker.publisher("command_received")
+
+
+async def publish_command_received(message: CommandReceived) -> Any:
+    """Publish CommandReceived to channel 'command_received'."""
+    return await _publisher_command_received.publish(message)

@@ -57,3 +57,13 @@ class UserRegisteredEvent(BaseModel):
     user_id: int
     email: str
     timestamp: AwareDatetime
+
+
+class CommandReceived(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    command: str
+    args: list[str]
+    user_id: int
+    timestamp: AwareDatetime

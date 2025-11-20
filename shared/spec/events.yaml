@@ -3,3 +3,8 @@ events:
     message: UserRegisteredEvent
     publish: true
     subscribe: false
+
+  command_received:
+    message: CommandReceived
+    publish: true
+    subscribe: true

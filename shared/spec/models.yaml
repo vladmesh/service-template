@@ -30,3 +30,14 @@ models:
         type: string
       timestamp:
         type: datetime
+
+  CommandReceived:
+    fields:
+      command:
+        type: string
+      args:
+        type: list[string]
+      user_id:
+        type: int
+      timestamp:
+        type: datetime

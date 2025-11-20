@@ -90,11 +90,41 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     LOGGER.info("Handled /start for user_id=%s", telegram_user.id)
 
 
+DEBUG_ENDPOINT: Final[str] = f"{API_BASE_URL}/debug/command"
+
+
+async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /command and trigger backend event."""
+    telegram_user = update.effective_user
+    if telegram_user is None:
+        return
+
+    command = update.message.text or "/command"
+    args = context.args or []
+
+    # We pass telegram_id as user_id for simplicity in this test
+    payload = {
+        "command": command,
+        "args": args,
+        "user_id": telegram_user.id,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(DEBUG_ENDPOINT, json=payload)
+            resp.raise_for_status()
+        await update.message.reply_text("Command sent to backend!")
+    except Exception:
+        LOGGER.exception("Failed to send command to backend")
+        await update.message.reply_text("Failed to send command to backend.")
+
+
 def build_application() -> Application:
     """Create the telegram bot application with all handlers wired in."""
 
     application = ApplicationBuilder().token(_get_token()).build()
     application.add_handler(CommandHandler("start", handle_start))
+    application.add_handler(CommandHandler("command", handle_command))
     return application
 
 

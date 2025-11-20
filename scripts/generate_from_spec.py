@@ -27,6 +27,12 @@ def map_type_to_json_schema(field_type: str) -> dict[str, Any]:
         "datetime": {"type": "string", "format": "date-time"},
         "uuid": {"type": "string", "format": "uuid"},
     }
+    if field_type.startswith("list[") and field_type.endswith("]"):
+        inner_type = field_type[5:-1]
+        return {
+            "type": "array",
+            "items": map_type_to_json_schema(inner_type),
+        }
     return mapping.get(field_type, {"type": "string"})
 
 

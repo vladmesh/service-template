@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1.7
+ARG INSTALL_DEV_DEPS="false"
+
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=off \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip
+
+FROM base AS deps
+ARG INSTALL_DEV_DEPS
+RUN pip install --no-cache-dir poetry
+# Copy only shared metadata and create minimal package structure for editable install
+COPY shared/pyproject.toml ./shared/pyproject.toml
+# Create minimal package structure so poetry can install in editable mode
+RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
+COPY services/test_service/pyproject.toml services/test_service/poetry.lock* ./services/test_service/
+RUN cd services/test_service \
+    && poetry config virtualenvs.create false \
+    && if [ -f poetry.lock ]; then poetry lock; fi \
+    && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
+    poetry install --with dev --no-root; \
+    else \
+    poetry install --without dev --no-root; \
+    fi
+# Copy actual shared code after dependency installation
+COPY shared/shared ./shared/shared
+
+FROM base AS runtime
+COPY --from=deps /usr/local /usr/local
+COPY services/test_service ./services/test_service
+COPY shared ./shared
+
+CMD ["python", "-m", "services.test_service.src.main"]

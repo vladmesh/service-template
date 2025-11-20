@@ -1,16 +1,18 @@
-"""Application lifespan hooks."""
+"""Application lifespan events."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from shared.generated.events import broker
 
-from ..core import configure_logging
+from ..core.logging import configure_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover - side effect heavy
-    """Configure resources for the application lifespan."""
-
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan context manager."""
     configure_logging()
+    await broker.connect()
     yield
+    await broker.close()

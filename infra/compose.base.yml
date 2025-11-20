@@ -45,6 +45,16 @@ services:
       - ../.env
     networks:
       - internal
+
+  test_service:
+    image: ${TEST_SERVICE_IMAGE:-service-template-test-service:latest}
+    build:
+      context: ..
+      dockerfile: services/test_service/Dockerfile
+    env_file:
+      - ../.env
+    networks:
+      - internal
   # <<< services (auto-generated from services.yml)
 
   db:
