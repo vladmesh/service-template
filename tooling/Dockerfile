@@ -21,21 +21,4 @@ RUN pip install --no-cache-dir \
     jinja2 \
     poetry
 
-# Copy only shared metadata and create minimal package structure for editable install
-COPY shared/pyproject.toml /shared/pyproject.toml
-# Create minimal package structure so poetry can install in editable mode
-RUN mkdir -p /shared/shared && touch /shared/shared/__init__.py
-
-COPY services/backend/pyproject.toml services/backend/poetry.lock /tmp/backend/
-RUN cd /tmp/backend \
-    && poetry lock \
-    && poetry install --with dev --no-root
-
-COPY services/tg_bot/pyproject.toml services/tg_bot/poetry.lock /tmp/tg_bot/
-RUN cd /tmp/tg_bot \
-    && poetry install --with dev --no-root
-
-# Copy actual shared code after all dependency installations (changes won't invalidate poetry install cache)
-COPY shared/shared /shared/shared
-
 CMD ["bash"]

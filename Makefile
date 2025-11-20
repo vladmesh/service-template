@@ -33,9 +33,7 @@ endif
 endif
 
 lint:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check .
-	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
-	$(MAKE) lint-complexity
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'scripts/*,tests/*' . && python -m scripts.enforce_spec_compliance"
 
 lint-complexity:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "scripts/*,tests/*" .
@@ -44,11 +42,22 @@ lint-specs:
 	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
 
 format:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff format --exclude 'services/**/migrations' --exclude '.venv' .
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff format --exclude 'services/**/migrations' --exclude '.venv' . && ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' ."
 
 typecheck:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy services tests
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling mypy tests
+	@set -eu; \
+	tmp_file="$$(mktemp)"; \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	$(PYTHON_TOOLING) -m scripts.service_info tests > "$$tmp_file"; \
+	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
+	mv "$$tmp_file.filtered" "$$tmp_file"; \
+	while read -r suite compose_project compose_file compose_service mode; do \
+		if [ "$$mode" = "run" ]; then \
+			echo ">> Typechecking $$suite ($$compose_service)"; \
+			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service poetry run mypy .; \
+		fi; \
+	done < "$$tmp_file"
 
 tests:
 	@set -eu; \
