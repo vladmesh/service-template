@@ -54,13 +54,14 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
 
     connection = await db_engine.connect()
     transaction = await connection.begin()
-    session_maker = async_sessionmaker(bind=connection, class_=AsyncSession)
+    session_maker = async_sessionmaker(bind=connection, class_=AsyncSession, expire_on_commit=False)
     session = session_maker()
     try:
         yield session
     finally:
         await session.close()
-        await transaction.rollback()
+        if transaction.is_active:
+            await transaction.rollback()
         await connection.close()
 
 
@@ -71,12 +72,10 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     application = create_app()
 
     async def _get_test_db() -> AsyncGenerator[AsyncSession, None]:
-        try:
+        # Use savepoint to make changes visible within the test transaction
+        async with db_session.begin_nested():
             yield db_session
-            await db_session.commit()
-        except Exception:
-            await db_session.rollback()
-            raise
+            await db_session.flush()
 
     application.dependency_overrides[get_async_db] = _get_test_db
     try:
