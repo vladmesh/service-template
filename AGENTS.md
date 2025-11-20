@@ -9,6 +9,22 @@ This file serves as the entry point for AI Agents exploring the repository. Use 
 - **Rules & Standards:** `CONTRIBUTING.md` (Strict rules for coding)
 - **Service Registry:** `services.yml` (List of all active services)
 
+## ⚠️ CRITICAL: Environment Variables
+
+**STRICT RULE: NO DEFAULT VALUES FOR ENVIRONMENT VARIABLES**
+
+- **NEVER** use default values in `os.getenv("VAR", "default")` or similar patterns
+- If a required environment variable is missing, the application **MUST FAIL IMMEDIATELY** with a clear error
+- Use this pattern:
+  ```python
+  value = os.getenv("REQUIRED_VAR")
+  if not value:
+      raise RuntimeError("REQUIRED_VAR is not set; please add it to your environment variables")
+  ```
+- **Rationale:** Default values hide configuration errors and cause silent failures in production
+- **Example:** `REDIS_URL`, `API_BASE_URL`, `DATABASE_URL` must all be explicitly configured
+- All required environment variables must be documented in `.env.example`
+
 ## 📂 Service Modules
 
 Detailed documentation for each service can be found in its respective directory. Only load these if you are working on that specific service.

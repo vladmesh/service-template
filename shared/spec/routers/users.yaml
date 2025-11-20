@@ -7,7 +7,7 @@ rest:
   handlers:
     create_user:
       method: POST
-      path: "/"
+      path: ""
       request:
         model: User
         variant: Create

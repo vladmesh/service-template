@@ -18,16 +18,16 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = Field(default="Service Template Backend", validation_alias="APP_NAME")
-    environment: str = Field(default="development", validation_alias="APP_ENV")
-    app_secret_key: str = Field(default="please-change-me", validation_alias="APP_SECRET_KEY")
+    app_name: str = Field(validation_alias="APP_NAME")
+    environment: str = Field(validation_alias="APP_ENV")
+    app_secret_key: str = Field(validation_alias="APP_SECRET_KEY")
     enabled_modules_raw: str = Field(default="", validation_alias="ENABLED_MODULES")
 
-    postgres_host: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
-    postgres_port: int = Field(default=5432, validation_alias="POSTGRES_PORT")
-    postgres_db: str = Field(default="service_template", validation_alias="POSTGRES_DB")
-    postgres_user: str = Field(default="postgres", validation_alias="POSTGRES_USER")
-    postgres_password: str = Field(default="postgres", validation_alias="POSTGRES_PASSWORD")
+    postgres_host: str = Field(validation_alias="POSTGRES_HOST")
+    postgres_port: int = Field(validation_alias="POSTGRES_PORT")
+    postgres_db: str = Field(validation_alias="POSTGRES_DB")
+    postgres_user: str = Field(validation_alias="POSTGRES_USER")
+    postgres_password: str = Field(validation_alias="POSTGRES_PASSWORD")
     postgres_require_ssl: bool = Field(default=False, validation_alias="POSTGRES_REQUIRE_SSL")
 
     sqlalchemy_sync_driver: str = Field(

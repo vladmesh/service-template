@@ -3,9 +3,14 @@ import os
 from typing import Any
 
 from faststream.redis import RedisBroker
-from shared.generated.schemas import {{ imports | sort | join(", ") }}
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+{% if imports %}
+from shared.generated.schemas import {{ imports | join(', ') }}
+{% endif %}
+
+redis_url = os.getenv("REDIS_URL")
+if not redis_url:
+    raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
 broker = RedisBroker(redis_url)
 
 {% for event in events %}

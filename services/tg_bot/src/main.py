@@ -29,7 +29,11 @@ REGISTRATION_ERROR: Final[str] = (
     "Не получилось зарегистрировать вас в сервисе, попробуйте ещё раз позже."
 )
 
-API_BASE_URL: Final[str] = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+
+_api_base_url = os.getenv("API_BASE_URL")
+if not _api_base_url:
+    raise RuntimeError("API_BASE_URL is not set; please add it to your environment variables")
+API_BASE_URL: Final[str] = _api_base_url.rstrip("/")
 USERS_ENDPOINT: Final[str] = f"{API_BASE_URL}/users"
 
 

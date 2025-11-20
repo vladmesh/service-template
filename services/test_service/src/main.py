@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    redis_url = os.getenv("REDIS_URL")
+    if not redis_url:
+        raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
     broker = RedisBroker(redis_url)
 
     broker.include_router(router)

@@ -39,7 +39,7 @@ def create_router(
     )
 
     @router.post(
-        "/",
+        "",
         response_model=UserRead,
         status_code=201,
     )

@@ -6,7 +6,9 @@ from faststream.redis import RedisBroker
 
 from shared.generated.schemas import CommandReceived, UserRegisteredEvent
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+redis_url = os.getenv("REDIS_URL")
+if not redis_url:
+    raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
 broker = RedisBroker(redis_url)
 
 _publisher_user_registered = broker.publisher("user_registered")
