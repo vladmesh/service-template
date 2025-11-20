@@ -6,11 +6,17 @@ from functools import lru_cache
 from urllib.parse import quote_plus
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Base settings for the backend application."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = Field(default="Service Template Backend", validation_alias="APP_NAME")
     environment: str = Field(default="development", validation_alias="APP_ENV")
@@ -34,10 +40,6 @@ class Settings(BaseSettings):
     async_database_url_override: str | None = Field(
         default=None, validation_alias="ASYNC_DATABASE_URL"
     )
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
     @property
     def enabled_modules(self) -> list[str]:
