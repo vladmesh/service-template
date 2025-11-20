@@ -8,6 +8,7 @@ on:
 
 env:
   DOCKER_BUILDKIT: "1"
+  REGISTRY: ghcr.io
 
 jobs:
   build-and-push:
@@ -15,8 +16,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE_PREFIX: ${{ secrets.REGISTRY_IMAGE_PREFIX }}
     strategy:
       matrix:
         include:
@@ -45,12 +44,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image-suffix }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha
 
       - name: Build and push ${{ matrix.id }}
         if: ${{ matrix.optional == false || hashFiles(matrix.dockerfile) != '' }}
@@ -60,9 +68,8 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           provenance: false
-          tags: |
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.image-suffix }}:latest
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.image-suffix }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -84,5 +91,6 @@ jobs:
             for file in $compose_files; do
               compose_args="$compose_args -f $file"
             done
+            # Pull latest images (authenticated via server-side docker login or public access)
             docker compose $compose_args pull
             docker compose $compose_args up -d --remove-orphans
