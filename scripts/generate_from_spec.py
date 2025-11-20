@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 import subprocess
-import tempfile
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
@@ -131,14 +130,17 @@ def generate_schemas(models_file: Path, output_file: Path) -> None:
     models_spec = load_yaml(models_file)
     json_schema = convert_to_json_schema(models_spec)
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as tmp:
-        json.dump(json_schema, tmp, indent=2)
-        tmp.flush()
+    # Use fixed filename to ensure stable filename comment in generated code
+    tmp_path = output_file.parent / "models_schema.json"
+
+    try:
+        with tmp_path.open("w") as tmp:
+            json.dump(json_schema, tmp, indent=2)
 
         cmd = [
             "datamodel-codegen",
             "--input",
-            tmp.name,
+            str(tmp_path),
             "--input-file-type",
             "jsonschema",
             "--output",
@@ -153,6 +155,9 @@ def generate_schemas(models_file: Path, output_file: Path) -> None:
         ]
 
         subprocess.run(cmd, check=True)  # noqa: S603
+    finally:
+        # Clean up temporary file
+        tmp_path.unlink(missing_ok=True)
 
 
 def get_python_type_for_param(param_type: str) -> str:
@@ -260,10 +265,12 @@ def generate_protocols(routers_dir: Path, models_file: Path, output_file: Path) 
         routers_context.append(context)
         all_imports.update(context["imports"])
 
+    # Use separate environment without lstrip_blocks to preserve indentation
+    # for protocol methods inside class
     env = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
         trim_blocks=True,
-        lstrip_blocks=True,
+        lstrip_blocks=False,  # Keep indentation for protocol methods inside class
         autoescape=False,  # Generating Python code, not HTML  # noqa: S701
     )
     template = env.get_template("protocols.py.j2")

@@ -4,9 +4,7 @@ Protocols for service controllers.
 """
 from __future__ import annotations
 
-from typing import Protocol, Optional, List, Any
-from uuid import UUID
-from datetime import datetime
+from typing import Protocol
 from sqlalchemy.ext.asyncio import AsyncSession
 
 {% if imports %}
@@ -21,7 +19,7 @@ from shared.generated.schemas import (
 class {{ router.protocol_name }}(Protocol):
     """Protocol for {{ router.name }} controller."""
 
-    {% for handler in router.handlers %}
+{% for handler in router.handlers %}
     {% if async_handlers %}async {% endif %}def {{ handler.name }}(
         self,
         session: AsyncSession,
@@ -34,5 +32,5 @@ class {{ router.protocol_name }}(Protocol):
     ) -> {{ handler.return_type }}:
         ...
 
-    {% endfor %}
+{% endfor %}
 {% endfor %}

@@ -220,3 +220,65 @@ def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
 
     # Check int type inference for _id
     assert "test_id: int" in controller_content
+
+
+def _find_protocol_class_line(lines: list[str]) -> int:
+    """Find line index of Protocol class definition."""
+    for i, line in enumerate(lines):
+        if "class" in line and "Protocol(Protocol):" in line:
+            return i
+    raise AssertionError("Protocol class should be found")
+
+
+def _find_first_method_line(lines: list[str], start_idx: int) -> int:
+    """Find first method definition after class definition (skip docstring)."""
+    for i in range(start_idx + 1, len(lines)):
+        stripped = lines[i].strip()
+        if not stripped or stripped.startswith('"""') or stripped.startswith("'''"):
+            continue
+        if stripped.startswith("async def ") or stripped.startswith("def "):
+            return i
+    raise AssertionError("Should have at least one method in Protocol class")
+
+
+def test_protocol_methods_inside_class(fake_repo: FakeRepo) -> None:
+    """Test that protocol handler methods remain inside Protocol class."""
+    root, _scaffold, _compose, _sync = fake_repo
+    _write_minimal_specs(root)
+
+    import scripts.generate_from_spec as generate_mod
+
+    generate_mod = importlib.reload(generate_mod)
+    generate_mod.main()
+
+    protocols_file = root / "shared" / "shared" / "generated" / "protocols.py"
+    assert protocols_file.exists(), "protocols.py should be generated"
+
+    lines = protocols_file.read_text(encoding="utf-8").splitlines()
+    class_idx = _find_protocol_class_line(lines)
+    method_idx = _find_first_method_line(lines, class_idx)
+
+    # Check that first method starts with 4 spaces (inside class)
+    assert lines[method_idx].startswith("    "), (
+        f"First method should start with 4 spaces, got: {repr(lines[method_idx])}"
+    )
+
+    # Verify all handler methods are inside the class
+    in_protocol_class = False
+    for i, line in enumerate(lines):
+        if "class" in line and "Protocol(Protocol):" in line:
+            in_protocol_class = True
+            continue
+
+        if not in_protocol_class:
+            continue
+
+        stripped = line.strip()
+        if not stripped or stripped.startswith("class "):
+            if stripped.startswith("class "):
+                break
+            continue
+
+        is_method = stripped.startswith("async def ") or stripped.startswith("def ")
+        if is_method and not line.startswith("    "):
+            raise AssertionError(f"Handler method at line {i + 1} is at module level: {repr(line)}")

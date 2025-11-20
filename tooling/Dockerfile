@@ -11,10 +11,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace
 
 RUN pip install --no-cache-dir \
-    ruff==0.4.4 \
+    ruff==0.14.5 \
     xenon==0.9.1 \
-    mypy==1.7.1 \
-    pytest==7.4.3 \
+    mypy==1.10.0 \
+    pytest==8.2.0 \
     types-PyYAML \
     PyYAML \
     datamodel-code-generator[http] \
