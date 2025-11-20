@@ -48,6 +48,20 @@ def map_validations(field_def: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def process_field_schema(field_name: str, field_def: dict[str, Any]) -> dict[str, Any]:
+    """Process a single field definition into JSON Schema."""
+    field_schema = map_type_to_json_schema(field_def.get("type", "string"))
+    field_schema.update(map_validations(field_def))
+
+    if "default" in field_def:
+        field_schema["default"] = field_def["default"]
+
+    if field_def.get("readonly", False):
+        field_schema["readOnly"] = True
+
+    return field_schema
+
+
 def convert_to_json_schema(models_spec: dict[str, Any]) -> dict[str, Any]:
     """Convert custom models.yaml format to JSON Schema definitions."""
     definitions = {}
@@ -68,12 +82,7 @@ def convert_to_json_schema(models_spec: dict[str, Any]) -> dict[str, Any]:
         }
 
         for field_name, field_def in fields.items():
-            field_schema = map_type_to_json_schema(field_def.get("type", "string"))
-            field_schema.update(map_validations(field_def))
-
-            if "default" in field_def:
-                field_schema["default"] = field_def["default"]
-
+            field_schema = process_field_schema(field_name, field_def)
             base_schema["properties"][field_name] = field_schema
 
             # In the base model, we assume fields are required unless they have a default
@@ -102,16 +111,11 @@ def convert_to_json_schema(models_spec: dict[str, Any]) -> dict[str, Any]:
                 if field_name in exclude:
                     continue
 
-                field_schema = map_type_to_json_schema(field_def.get("type", "string"))
-                field_schema.update(map_validations(field_def))
+                # Auto-exclude readonly fields from Create/Update variants
+                if field_def.get("readonly", False) and variant_name in ("Create", "Update"):
+                    continue
 
-                # If it's optional in variant, we don't add to required
-                # We also strip 'default' if we want to force it to be passed?
-                # Usually 'optional' means it can be omitted.
-
-                if "default" in field_def:
-                    field_schema["default"] = field_def["default"]
-
+                field_schema = process_field_schema(field_name, field_def)
                 variant_schema["properties"][field_name] = field_schema
 
                 is_optional = field_name in optional

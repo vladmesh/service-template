@@ -3,6 +3,7 @@ models:
     fields:
       id:
         type: int
+        readonly: true
       telegram_id:
         type: int
         ge: 0
@@ -11,12 +12,12 @@ models:
         default: false
       created_at:
         type: datetime
+        readonly: true
       updated_at:
         type: datetime
+        readonly: true
     variants:
-      Create:
-        exclude: [id, created_at, updated_at]
+      Create: {}
       Update:
-        exclude: [id, created_at, updated_at]
         optional: [telegram_id, is_admin]
       Read: {}
