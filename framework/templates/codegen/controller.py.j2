@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from shared.generated.protocols import {{ protocol_name }}
+from ..generated.protocols import {{ protocol_name }}
 
 {% if imports %}
 from shared.generated.schemas import (

@@ -11,7 +11,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.generated.protocols import {{ protocol_name }}
+from ..protocols import {{ protocol_name }}
 
 {% if imports %}
 from shared.generated.schemas import (
@@ -65,10 +65,10 @@ def create_router(
         {{ param.name }}: {{ param.type }} = {{ param.source }},
         {% endfor %}
         {% if handler.request_model %}
-        payload: {{ handler.request_model }} = Body(...),
+        payload: {{ handler.request_model }} = Body(...),  # noqa: B008
         {% endif %}
-        session: AsyncSession = Depends(get_db),
-        controller: {{ protocol_name }} = Depends(get_controller),
+        session: AsyncSession = Depends(get_db),  # noqa: B008
+        controller: {{ protocol_name }} = Depends(get_controller),  # noqa: B008
     ) -> {{ handler.return_type }}:
         """{{ handler.docstring }}"""
         return await controller.{{ handler.name }}(

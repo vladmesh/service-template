@@ -33,13 +33,13 @@ endif
 endif
 
 lint:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'scripts/*,tests/*' . && python -m scripts.enforce_spec_compliance"
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'framework/*,tests/*' . && python -m framework.enforce_spec_compliance"
 
 lint-complexity:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "scripts/*,tests/*" .
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "framework/*,tests/*" .
 
 lint-specs:
-	$(PYTHON_TOOLING) -m scripts.enforce_spec_compliance
+	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
 
 format:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff format --exclude 'services/**/migrations' --exclude '.venv' . && ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' ."
@@ -49,7 +49,7 @@ typecheck:
 	@set -eu; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
-	$(PYTHON_TOOLING) -m scripts.service_info tests > "$$tmp_file"; \
+	$(PYTHON_TOOLING) -m framework.service_info tests > "$$tmp_file"; \
 	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
 	mv "$$tmp_file.filtered" "$$tmp_file"; \
 	while read -r suite compose_project compose_file compose_service mode; do \
@@ -73,9 +73,9 @@ tests:
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
 		if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
-			$(PYTHON_TOOLING) -m scripts.service_info tests > "$$tmp_file"; \
+			$(PYTHON_TOOLING) -m framework.service_info tests > "$$tmp_file"; \
 		else \
-				$(PYTHON_TOOLING) -m scripts.service_info tests --suite "$$target" > "$$tmp_file"; \
+				$(PYTHON_TOOLING) -m framework.service_info tests --suite "$$target" > "$$tmp_file"; \
 		fi; \
 	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
 	mv "$$tmp_file.filtered" "$$tmp_file"; \
@@ -111,7 +111,7 @@ log:
 	fi; \
 	tmp_file="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_file"' EXIT; \
-		$(PYTHON_TOOLING) -m scripts.service_info logs --service $$service > "$$tmp_file"; \
+		$(PYTHON_TOOLING) -m framework.service_info logs --service $$service > "$$tmp_file"; \
 	target_line="$$(grep -E '^[[:alnum:]_]+ ' "$$tmp_file" | head -n 1)"; \
 	if [ -z "$$target_line" ]; then \
 		exit 1; \
@@ -140,13 +140,13 @@ sync-services:
 		check|"") cmd="check" ;; \
 		*) echo "Unknown sync mode: $$mode (expected 'check' or 'create')" >&2; exit 1 ;; \
 	esac; \
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m scripts.sync_services $$cmd
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m framework.sync_services $$cmd
 
 tooling-tests:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q tests/tooling
 
 generate-from-spec:
-	$(PYTHON_TOOLING) -m scripts.generate_from_spec
+	$(PYTHON_TOOLING) -m framework.generate_from_spec
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff format {} +'
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff check --fix {} +'
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services/backend/src shared/shared/generated
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services shared/shared/generated

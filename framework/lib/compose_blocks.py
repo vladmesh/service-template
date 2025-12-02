@@ -9,8 +9,8 @@ from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
-from scripts.lib.env import get_repo_root
-from scripts.lib.service_scaffold import ServiceSpec
+from framework.lib.env import get_repo_root
+from framework.lib.service_scaffold import ServiceSpec
 
 ROOT = get_repo_root()
 REGISTRY_PATH = ROOT / "services.yml"

@@ -8,7 +8,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 import shlex
 
-from scripts.lib.compose_blocks import (
+from jinja2 import Environment, FileSystemLoader
+
+from framework.lib.compose_blocks import (
     COMPOSE_TARGETS,
     ROOT,
     build_service_block,
@@ -16,7 +18,7 @@ from scripts.lib.compose_blocks import (
     render_service_templates,
     replace_block,
 )
-from scripts.lib.service_scaffold import (
+from framework.lib.service_scaffold import (
     SERVICES_ROOT,
     ScaffoldReport,
     ServiceSpec,
@@ -66,6 +68,45 @@ def sync_compose(specs: list[ServiceSpec], apply: bool) -> list[str]:
                 print(f"Updated {compose_path.relative_to(ROOT)}")
         elif new_lines != lines:
             drift.append(str(compose_path.relative_to(ROOT)))
+    return drift
+
+
+def sync_dockerfiles(specs: list[ServiceSpec], apply: bool) -> list[str]:
+    """Generate Dockerfiles for python services."""
+    drift: list[str] = []
+
+    env = Environment(
+        loader=FileSystemLoader(str(ROOT / "framework" / "templates" / "docker")),
+        autoescape=True,
+    )
+    template = env.get_template("python.Dockerfile.j2")
+
+    for spec in specs:
+        if spec.service_type != "python" or not spec.scaffold_enabled:
+            continue
+
+        dockerfile_path = SERVICES_ROOT / spec.slug / "Dockerfile"
+        # Ensure directory exists
+        dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
+
+        content = template.render(service_name=spec.slug)
+
+        if not dockerfile_path.exists():
+            if apply:
+                dockerfile_path.write_text(content, encoding="utf-8")
+                print(f"Created {dockerfile_path.relative_to(ROOT)}")
+            else:
+                drift.append(str(dockerfile_path.relative_to(ROOT)))
+            continue
+
+        current_content = dockerfile_path.read_text(encoding="utf-8")
+        if current_content != content:
+            if apply:
+                dockerfile_path.write_text(content, encoding="utf-8")
+                print(f"Updated {dockerfile_path.relative_to(ROOT)}")
+            else:
+                drift.append(str(dockerfile_path.relative_to(ROOT)))
+
     return drift
 
 
@@ -146,7 +187,10 @@ def run_sync(apply: bool) -> int:  # noqa: C901
     registry = load_registry()
     specs = build_service_specs(registry)
     report = ensure_artifacts(specs, apply=apply)
+
+    docker_drift = sync_dockerfiles(specs, apply=apply)
     compose_drift = sync_compose(specs, apply=apply)
+
     report.errors.extend(validate_dockerfiles(specs))
 
     if apply:
@@ -171,6 +215,11 @@ def run_sync(apply: bool) -> int:  # noqa: C901
     if compose_drift:
         print("Compose files out of sync:")
         for path in compose_drift:
+            print(f"  - {path}")
+        failed = True
+    if docker_drift:
+        print("Dockerfiles out of sync:")
+        for path in docker_drift:
             print(f"  - {path}")
         failed = True
     if failed:

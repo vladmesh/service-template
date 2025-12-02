@@ -11,8 +11,8 @@ from typing import Any
 
 import yaml
 
-from scripts.lib.compose_blocks import compose_template_for_spec
-from scripts.lib.service_scaffold import build_service_specs
+from framework.lib.compose_blocks import compose_template_for_spec
+from framework.lib.service_scaffold import build_service_specs
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVICES_ROOT = ROOT / "services"

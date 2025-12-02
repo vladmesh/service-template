@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 import sys
 
-from scripts.lib.env import get_repo_root
+from framework.lib.env import get_repo_root
 
 
 def is_violation(node: ast.AST, content: str) -> bool:

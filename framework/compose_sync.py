@@ -3,18 +3,20 @@
 
 from __future__ import annotations
 
-from scripts.lib.compose_blocks import (
+from framework.lib.compose_blocks import (
     COMPOSE_TARGETS,
     ROOT,
     build_service_block,
-    gather_templates,
     load_registry,
+    render_service_templates,
     replace_block,
 )
+from framework.lib.service_scaffold import build_service_specs
 
 
 def sync_target(target, registry) -> None:
-    templates = gather_templates(registry, target.key)
+    specs = build_service_specs(registry)
+    templates = render_service_templates(specs, target.key)
     block_lines = build_service_block(templates, target.indent)
     compose_path = target.path
     lines = compose_path.read_text(encoding="utf-8").splitlines()

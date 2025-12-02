@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC
 
 from fastapi import HTTPException, status
-from shared.generated.protocols import UsersControllerProtocol
 from shared.generated.schemas import (
     UserCreate,
     UserRead,
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.backend.src.app.models import User
 from services.backend.src.app.repositories import UserRepository
+from services.backend.src.generated.protocols import UsersControllerProtocol
 
 
 def _get_repo(session: AsyncSession) -> UserRepository:

@@ -1,10 +1,10 @@
 """Top-level API router composition."""
 
 from fastapi import APIRouter
-from shared.generated.routers.users import create_router as create_users_router
 
 from services.backend.src.controllers.users import UsersController
 from services.backend.src.core.db import get_async_db
+from services.backend.src.generated.routers.users import create_router as create_users_router
 
 from .v1 import health
 
