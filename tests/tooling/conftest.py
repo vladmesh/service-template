@@ -39,8 +39,20 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     _write_compose(infra_dir / "compose.dev.yml")
     _write_compose(infra_dir / "compose.tests.unit.yml")
 
-    templates_root = root / "templates" / "services"
-    templates_root.mkdir(parents=True, exist_ok=True)
+    # Mock the templates directory structure
+    # 1. Scaffold templates
+    scaffold_templates_root = root / "framework" / "templates" / "scaffold" / "services"
+    scaffold_templates_root.mkdir(parents=True, exist_ok=True)
+
+    # 2. Docker templates (needed for sync_services)
+    docker_templates_root = root / "framework" / "templates" / "docker"
+    docker_templates_root.mkdir(parents=True, exist_ok=True)
+    (docker_templates_root / "python.Dockerfile.j2").write_text(
+        "FROM python:3.11-slim\nLABEL service={{ service_name }}\n", encoding="utf-8"
+    )
+
+    # Create minimal specs for services that need them
+    (root / "services").mkdir(exist_ok=True)
 
     yield root, scaffold_mod, compose_mod, sync_mod
 
@@ -53,7 +65,7 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
 def create_python_template(root: Path, include_docs: bool = False) -> Path:
     """Create a minimal python template under templates/services/python."""
 
-    template_dir = root / "templates" / "services" / "python"
+    template_dir = root / "framework" / "templates" / "scaffold" / "services" / "python"
     template_dir.mkdir(parents=True, exist_ok=True)
     (template_dir / "src").mkdir(parents=True, exist_ok=True)
     (template_dir / "tests").mkdir(parents=True, exist_ok=True)

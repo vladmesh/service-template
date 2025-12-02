@@ -64,9 +64,10 @@ def _write_minimal_specs(root: Path) -> None:
 
     (spec_dir / "models.yaml").write_text(models_yaml, encoding="utf-8")
 
-    routers_dir = spec_dir / "routers"
-    routers_dir.mkdir(exist_ok=True)
-    (routers_dir / "rest.yaml").write_text(rest_yaml, encoding="utf-8")
+    # Add local spec for backend service
+    backend_spec_dir = root / "services" / "backend" / "spec"
+    backend_spec_dir.mkdir(parents=True, exist_ok=True)
+    (backend_spec_dir / "rest.yaml").write_text(rest_yaml, encoding="utf-8")
 
 
 def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
@@ -75,9 +76,12 @@ def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
     _write_minimal_specs(root)
 
     # Import and reload generator module to pick up SERVICE_TEMPLATE_ROOT
-    import scripts.generate_from_spec as generate_mod
+    import framework.generate_from_spec as generate_mod
 
     generate_mod = importlib.reload(generate_mod)
+
+    # Mock services directory if it doesn't exist
+    (root / "services").mkdir(parents=True, exist_ok=True)
 
     # Run generator
     generate_mod.main()
@@ -85,8 +89,10 @@ def test_generate_from_spec_creates_files(fake_repo: FakeRepo) -> None:
     # Check that files were created
     generated_dir = root / "shared" / "shared" / "generated"
     schemas_file = generated_dir / "schemas.py"
-    router_file = generated_dir / "routers" / "rest.py"
-    controller_file = root / "services" / "backend" / "src" / "controllers" / "rest.py"
+
+    backend_src = root / "services" / "backend" / "src"
+    router_file = backend_src / "generated" / "routers" / "rest.py"
+    controller_file = backend_src / "controllers" / "rest.py"
 
     assert schemas_file.exists(), "schemas.py should be generated"
     assert router_file.exists(), "routers/rest.py should be generated"
@@ -123,17 +129,22 @@ def test_generate_from_spec_idempotent(fake_repo: FakeRepo) -> None:
     root, _scaffold, _compose, _sync = fake_repo
     _write_minimal_specs(root)
 
-    import scripts.generate_from_spec as generate_mod
+    import framework.generate_from_spec as generate_mod
 
     generate_mod = importlib.reload(generate_mod)
+
+    # Mock services directory if it doesn't exist
+    (root / "services").mkdir(parents=True, exist_ok=True)
 
     # First run
     generate_mod.main()
 
     generated_dir = root / "shared" / "shared" / "generated"
     schemas_file = generated_dir / "schemas.py"
-    router_file = generated_dir / "routers" / "rest.py"
-    controller_file = root / "services" / "backend" / "src" / "controllers" / "rest.py"
+
+    backend_src = root / "services" / "backend" / "src"
+    router_file = backend_src / "generated" / "routers" / "rest.py"
+    controller_file = backend_src / "controllers" / "rest.py"
 
     first_schemas = schemas_file.read_text(encoding="utf-8")
     first_router = router_file.read_text(encoding="utf-8")
@@ -162,9 +173,13 @@ def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
     root, _scaffold, _compose, _sync = fake_repo
     _write_minimal_specs(root)
 
-    import scripts.generate_from_spec as generate_mod
+    import framework.generate_from_spec as generate_mod
 
     generate_mod = importlib.reload(generate_mod)
+
+    # Mock services directory if it doesn't exist
+    (root / "services").mkdir(parents=True, exist_ok=True)
+
     generate_mod.main()
 
     schemas_file = root / "shared" / "shared" / "generated" / "schemas.py"
@@ -186,7 +201,7 @@ def test_generate_from_spec_structure(fake_repo: FakeRepo) -> None:
     assert "class TestModelUpdate" in schemas_content
     assert "class TestModelRead" in schemas_content
 
-    router_file = root / "shared" / "shared" / "generated" / "routers" / "rest.py"
+    router_file = root / "services" / "backend" / "src" / "generated" / "routers" / "rest.py"
     router_content = router_file.read_text(encoding="utf-8")
 
     # Check router structure
@@ -246,12 +261,16 @@ def test_protocol_methods_inside_class(fake_repo: FakeRepo) -> None:
     root, _scaffold, _compose, _sync = fake_repo
     _write_minimal_specs(root)
 
-    import scripts.generate_from_spec as generate_mod
+    import framework.generate_from_spec as generate_mod
 
     generate_mod = importlib.reload(generate_mod)
+
+    # Mock services directory if it doesn't exist
+    (root / "services").mkdir(parents=True, exist_ok=True)
+
     generate_mod.main()
 
-    protocols_file = root / "shared" / "shared" / "generated" / "protocols.py"
+    protocols_file = root / "services" / "backend" / "src" / "generated" / "protocols.py"
     assert protocols_file.exists(), "protocols.py should be generated"
 
     lines = protocols_file.read_text(encoding="utf-8").splitlines()

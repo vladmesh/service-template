@@ -67,6 +67,7 @@ def test_sync_services_flags_unscoped_dockerfile_copy(
 
     sync_mod.run_sync(apply=True)
     dockerfile = root / "services" / "omega" / "Dockerfile"
+    # We must overwrite the generated Dockerfile with a bad one to trigger the violation
     dockerfile.write_text(
         "FROM python:3.11-slim\nCOPY services ./services\n",
         encoding="utf-8",

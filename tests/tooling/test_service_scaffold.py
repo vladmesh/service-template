@@ -25,7 +25,9 @@ def test_scaffold_creates_expected_artifacts(fake_repo: FakeRepo) -> None:
     service_dir = root / "services" / "alpha"
     assert service_dir.exists()
     dockerfile = (service_dir / "Dockerfile").read_text(encoding="utf-8")
-    assert "alpha" in dockerfile and "__SERVICE_NAME__" not in dockerfile
+    assert "python:3.11-slim" in dockerfile and "__SERVICE_NAME__" not in dockerfile
+    # Placeholder should be replaced with service name
+    assert 'LABEL service="alpha"' in dockerfile
     assert (service_dir / "README.md").read_text(encoding="utf-8").startswith("# Alpha")
     assert (service_dir / "AGENTS.md").exists()
 
@@ -91,6 +93,5 @@ def test_scaffold_reports_unknown_template(fake_repo: FakeRepo) -> None:
 
     report = scaffold_mod.scaffold_service(spec, apply=True)
 
-    assert report.errors == [
-        f"Template for type 'missing' not found ({root / 'templates' / 'services' / 'missing'})"
-    ]
+    expected_path = root / "framework" / "templates" / "scaffold" / "services" / "missing"
+    assert report.errors == [f"Template for type 'missing' not found ({expected_path})"]

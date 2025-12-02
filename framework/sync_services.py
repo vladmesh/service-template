@@ -86,13 +86,13 @@ def sync_dockerfiles(specs: list[ServiceSpec], apply: bool) -> list[str]:
             continue
 
         dockerfile_path = SERVICES_ROOT / spec.slug / "Dockerfile"
-        # Ensure directory exists
-        dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = template.render(service_name=spec.slug)
 
         if not dockerfile_path.exists():
             if apply:
+                # Ensure directory exists only when applying
+                dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
                 dockerfile_path.write_text(content, encoding="utf-8")
                 print(f"Created {dockerfile_path.relative_to(ROOT)}")
             else:
