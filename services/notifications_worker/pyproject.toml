@@ -1,17 +1,18 @@
 [tool.poetry]
 name = "notifications-worker"
 version = "0.1.0"
-description = "Notifications worker"
+description = "Service for notifications (email, telegram)"
 authors = ["Example <example@example.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.121.2"
-uvicorn = "^0.38.0"
+faststream = {extras = ["redis"], version = "^0.5.0"}
+shared = {path = "../../shared", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
+pytest-asyncio = "^0.23.0"
 pytest-cov = "^4.1.0"
 mypy = "^1.10.0"
 types-PyYAML = "^6.0"

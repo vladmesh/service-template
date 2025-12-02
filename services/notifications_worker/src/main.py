@@ -1,34 +1,42 @@
+"""Entry point for the notifications worker service.
+
+This service listens for events and sends notifications (email, telegram, etc.).
+Uses FastStream with Redis for event-driven architecture.
+"""
+
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any
+import os
 
-from fastapi import FastAPI
+from faststream import FastStream
+from faststream.redis import RedisBroker
+from faststream.redis.parser import BinaryMessageFormatV1
 
-from .app import run_worker
+from services.notifications_worker.src.handlers import router
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Notifications Worker")
+
+async def main() -> None:
+    """Run the notifications worker."""
+    redis_url = os.getenv("REDIS_URL")
+    if not redis_url:
+        raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
+
+    broker = RedisBroker(redis_url, message_format=BinaryMessageFormatV1)
+    broker.include_router(router)
+
+    app = FastStream(broker)
+
+    logger.info("Starting notifications_worker...")
+    await app.run()
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """
-    Start background worker on application startup.
-
-    Replace this with a proper task manager (e.g., anyio.create_task_group)
-    once real notification logic is added.
-    """
-
-    logger.info("Starting notifications worker stub")
-    import asyncio
-
-    asyncio.create_task(run_worker())
-
-
-@app.get("/health")
-async def health() -> dict[str, Any]:
-    """Liveness probe endpoint."""
-
-    return {"status": "ok"}
+if __name__ == "__main__":
+    asyncio.run(main())

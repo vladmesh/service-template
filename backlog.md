@@ -91,6 +91,25 @@
     - `consumes: [auth-service.v1.verify_token]`
 - **Outcome**: Generate explicit typed clients ("SDKs") for internal services and firewall rules/network policies in Docker Compose.
 
+### Direct Event Publishing for Services
+
+**Status**: TODO
+
+**Description**: Enable services to publish events directly to message broker instead of using REST API intermediaries.
+- **Problem**: Currently, Telegram bot makes REST calls to backend's debug endpoint to publish commands, violating event-driven architecture principles and creating unnecessary dependencies.
+- **Solution**: Give all services direct access to Redis broker for publishing events, remove debug REST endpoint as unnecessary intermediary.
+- **Details**:
+  - Update shared events module to be available to all services
+  - Modify Telegram bot to publish `command_received` events directly to Redis Streams
+  - Remove debug REST endpoint from backend
+  - Update event specifications to define which services can publish which events
+  - Ensure proper broker connection lifecycle in all services that publish events
+- **Benefits**:
+  - True decoupling: Services don't depend on each other through REST
+  - Improved reliability: No single point of failure through backend API
+  - Better performance: Direct Redis operations instead of HTTP round-trips
+  - Architectural consistency: Events as primary communication pattern
+
 ## Quality Assurance & Observability
 
 ### Auto-fuzzing and Contract Testing

@@ -193,6 +193,42 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
         ),
         tests_unit=DEFAULT_TEMPLATES["python"].tests_unit,
     ),
+    "notifications_worker": ServiceComposeTemplate(
+        base=textwrap.dedent(
+            """\
+            __SLUG__:
+              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              build:
+                context: ..
+                dockerfile: services/__SLUG__/Dockerfile
+              env_file:
+                - ../.env
+              depends_on:
+                redis:
+                  condition: service_healthy
+              networks:
+                - internal
+            """
+        ),
+    ),
+    "test_service": ServiceComposeTemplate(
+        base=textwrap.dedent(
+            """\
+            __SLUG__:
+              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              build:
+                context: ..
+                dockerfile: services/__SLUG__/Dockerfile
+              env_file:
+                - ../.env
+              depends_on:
+                redis:
+                  condition: service_healthy
+              networks:
+                - internal
+            """
+        ),
+    ),
 }
 
 
