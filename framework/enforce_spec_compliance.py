@@ -76,8 +76,12 @@ def main() -> None:
     violations_found = False
 
     for file_path in services_dir.rglob("*.py"):
-        # Skip migrations and tests
-        if "migrations" in file_path.parts or "tests" in file_path.parts:
+        # Skip migrations, tests, and generated code
+        if (
+            "migrations" in file_path.parts
+            or "tests" in file_path.parts
+            or "generated" in file_path.parts
+        ):
             continue
 
         # Skip __init__.py files (usually safe)

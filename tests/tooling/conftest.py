@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts import sync_services
-from scripts.lib import compose_blocks, service_scaffold
+from framework import sync_services
+from framework.lib import compose_blocks, service_scaffold
 
 
 @pytest.fixture

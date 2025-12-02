@@ -11,8 +11,6 @@ from collections.abc import Callable
 from fastapi import APIRouter, Body, Depends, Path, Query  # noqa: F401
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..protocols import {{ protocol_name }}
-
 {% if imports %}
 from shared.generated.schemas import (
     {% for model in imports|sort %}
@@ -20,6 +18,7 @@ from shared.generated.schemas import (
     {% endfor %}
 )
 {% endif %}
+from ..protocols import {{ protocol_name }}
 
 
 def create_router(

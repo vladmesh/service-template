@@ -149,4 +149,6 @@ generate-from-spec:
 	$(PYTHON_TOOLING) -m framework.generate_from_spec
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff format {} +'
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff check --fix {} +'
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find services/*/src/generated -name "*.py" -type f -exec ruff format {} +'
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find services/*/src/generated -name "*.py" -type f -exec ruff check --fix {} +'
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services shared/shared/generated
