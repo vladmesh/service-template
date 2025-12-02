@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import APIRouter, Body, Depends, Path, Query
+from fastapi import APIRouter, Body, Depends, Path, Query  # noqa: F401
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..protocols import {{ protocol_name }}
