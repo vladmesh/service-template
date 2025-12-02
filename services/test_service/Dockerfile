@@ -43,4 +43,4 @@ COPY services/test_service/README.md ./README.md
 COPY shared ./shared
 
 EXPOSE 8000
-CMD ["uvicorn", "services.test_service.src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "services/test_service/src/main.py"]

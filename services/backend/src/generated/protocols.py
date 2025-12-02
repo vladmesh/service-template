@@ -12,11 +12,23 @@ from __future__ import annotations
 from typing import Protocol
 
 from shared.generated.schemas import (
+    CommandReceived,
+    CommandReceivedCreate,
     UserCreate,
     UserRead,
     UserUpdate,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class DebugControllerProtocol(Protocol):
+    """Protocol for debug controller."""
+
+    async def command(
+        self,
+        session: AsyncSession,
+        payload: CommandReceivedCreate,
+    ) -> CommandReceived: ...
 
 
 class UsersControllerProtocol(Protocol):

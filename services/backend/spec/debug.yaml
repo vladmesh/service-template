@@ -1,0 +1,16 @@
+rest:
+  router:
+    prefix: "/debug"
+    tags: ["debug"]
+    async_handlers: true
+
+  handlers:
+    command:
+      method: POST
+      path: "/command"
+      request:
+        model: CommandReceived
+        variant: Create
+      response:
+        model: CommandReceived
+        status_code: 202

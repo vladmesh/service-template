@@ -71,3 +71,13 @@ class CommandReceived(BaseModel):
     args: list[str]
     user_id: int
     timestamp: AwareDatetime
+
+
+class CommandReceivedCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    command: str
+    args: list[str]
+    user_id: int
+    timestamp: AwareDatetime | None = None

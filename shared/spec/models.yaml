@@ -41,3 +41,6 @@ models:
         type: int
       timestamp:
         type: datetime
+    variants:
+      Create:
+        optional: [timestamp]
