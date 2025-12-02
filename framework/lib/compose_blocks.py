@@ -86,7 +86,10 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
                 args:
                   INSTALL_DEV_DEPS: "true"
-              command: pytest -q __UNIT_TEST_TARGET__
+              command: >-
+                pytest -q --cov=__COV_SOURCE__
+                --cov-report=term-missing --cov-fail-under=70
+                __UNIT_TEST_TARGET__
               working_dir: /app
               env_file:
                 - ../.env
@@ -155,7 +158,10 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
                 args:
                   INSTALL_DEV_DEPS: "true"
-              command: pytest -q __UNIT_TEST_TARGET__
+              command: >-
+                pytest -q --cov=__COV_SOURCE__
+                --cov-report=term-missing --cov-fail-under=70
+                __UNIT_TEST_TARGET__
               working_dir: /app
               env_file:
                 - ../.env
@@ -226,6 +232,11 @@ def _unit_test_target(spec: ServiceSpec) -> str:
     return f"services/{spec.slug}/tests/unit"
 
 
+def _cov_source(spec: ServiceSpec) -> str:
+    """Return coverage source path for a service."""
+    return f"services/{spec.slug}/src"
+
+
 def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
     image_slug = IMAGE_SLUG_OVERRIDES.get(spec.slug, spec.slug.replace("_", "-"))
     replacements = {
@@ -235,6 +246,7 @@ def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
         "__INSTALL_DEV_ENV__": f"{spec.slug.upper()}_INSTALL_DEV_DEPS",
         "__IMAGE_SLUG__": image_slug,
         "__UNIT_TEST_TARGET__": _unit_test_target(spec),
+        "__COV_SOURCE__": _cov_source(spec),
     }
     rendered = template
     for key, value in replacements.items():

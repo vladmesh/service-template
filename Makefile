@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests generate-from-spec
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests generate-from-spec validate-specs
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -33,10 +33,13 @@ endif
 endif
 
 lint:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'framework/*,tests/*' . && python -m framework.enforce_spec_compliance"
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'framework/*,tests/*' . && python -m framework.validate_specs && python -m framework.enforce_spec_compliance"
 
 lint-complexity:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "framework/*,tests/*" .
+
+validate-specs:
+	$(PYTHON_TOOLING) -m framework.validate_specs
 
 lint-specs:
 	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
@@ -143,7 +146,7 @@ sync-services:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m framework.sync_services $$cmd
 
 tooling-tests:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q tests/tooling
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 tests/tooling
 
 generate-from-spec:
 	$(PYTHON_TOOLING) -m framework.generate_from_spec

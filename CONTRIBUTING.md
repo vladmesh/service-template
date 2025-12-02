@@ -4,10 +4,12 @@ We adhere to a strict set of rules to maintain quality and consistency. These ru
 
 ## 1. The Golden Rule: Use the Makefile
 Never run tools directly. Always use the `make` target.
-- `make lint`: Runs all linters.
+- `make lint`: Runs all linters (ruff, xenon, spec validation, spec compliance).
 - `make format`: Runs auto-formatters.
 - `make tests`: Runs the test suite.
 - `make sync-services`: Scaffolds new services.
+- `make validate-specs`: Validates YAML specs before code generation.
+- `make generate-from-spec`: Generates code from YAML specs.
 
 ## 2. Code Style & Standards
 We use `ruff` for linting and formatting, and `mypy` for static typing.
@@ -30,9 +32,10 @@ We use `ruff` for linting and formatting, and `mypy` for static typing.
 3.  Implement the business logic in the generated `services/<name>/` directory.
 
 ### Modifying the API
-1.  Edit `shared/spec/models.yaml` or `shared/spec/rest.yaml`.
-2.  Run `make generate-from-spec`.
-3.  Update service code to use the new generated models/routers.
+1.  Edit `shared/spec/models.yaml` or service-level `services/<name>/spec/*.yaml`.
+2.  Run `make validate-specs` to catch errors early (also runs automatically as part of `make lint`).
+3.  Run `make generate-from-spec`.
+4.  Update service code to use the new generated models/routers.
 
 ### Testing
 - **Unit Tests:** Each service has its own `tests/` folder.

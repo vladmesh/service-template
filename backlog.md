@@ -25,6 +25,18 @@
 1. Defining `BaseModel` subclasses inside `services/` (except migrations/tests).
 2. Instantiating `APIRouter` manually inside `services/` (except the main app composition).
 
+### Spec Validation Before Code Generation
+
+**Status**: DONE
+
+**Description**: Validate YAML specifications before code generation to catch errors early.
+- **Implementation**: `framework/validate_specs.py` validates:
+  - `models.yaml`: field types, constraints, variant references (exclude/optional)
+  - `routers/*.yaml`: HTTP methods, model/variant existence
+  - `events.yaml`: message type existence
+- **Integration**: Runs as part of `make lint` and available separately via `make validate-specs`.
+- **Benefit**: Clear error messages like "Unknown variant 'Patch' for model 'User'" instead of cryptic generation failures.
+
 ### Implement Controller Pattern for Generated Routers
 
 **Status**: IN PROGRESS

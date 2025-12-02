@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir \
     xenon==0.9.1 \
     mypy==1.10.0 \
     pytest==8.2.0 \
+    pytest-cov==4.1.0 \
     types-PyYAML \
     PyYAML \
     datamodel-code-generator[http] \

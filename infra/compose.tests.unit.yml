@@ -7,7 +7,10 @@ services:
       dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q services/backend/tests/unit
+    command: >-
+      pytest -q --cov=services/backend/src
+      --cov-report=term-missing --cov-fail-under=70
+      services/backend/tests/unit
     working_dir: /app
     env_file:
       - ../.env
@@ -24,7 +27,10 @@ services:
       dockerfile: services/tg_bot/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q services/tg_bot/tests/unit
+    command: >-
+      pytest -q --cov=services/tg_bot/src
+      --cov-report=term-missing --cov-fail-under=70
+      services/tg_bot/tests/unit
     working_dir: /app
     env_file:
       - ../.env
@@ -38,7 +44,10 @@ services:
       dockerfile: services/notifications_worker/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q services/notifications_worker/tests
+    command: >-
+      pytest -q --cov=services/notifications_worker/src
+      --cov-report=term-missing --cov-fail-under=70
+      services/notifications_worker/tests
     working_dir: /app
     env_file:
       - ../.env
@@ -52,7 +61,10 @@ services:
       dockerfile: services/test_service/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
-    command: pytest -q services/test_service/tests
+    command: >-
+      pytest -q --cov=services/test_service/src
+      --cov-report=term-missing --cov-fail-under=70
+      services/test_service/tests
     working_dir: /app
     env_file:
       - ../.env
