@@ -7,13 +7,14 @@ import os
 from typing import Any
 
 from faststream.redis import RedisBroker
+from faststream.redis.parser import BinaryMessageFormatV1
 
 from shared.generated.schemas import CommandReceived, UserRegisteredEvent
 
 redis_url = os.getenv("REDIS_URL")
 if not redis_url:
     raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
-broker = RedisBroker(redis_url)
+broker = RedisBroker(redis_url, message_format=BinaryMessageFormatV1)
 
 _publisher_user_registered = broker.publisher("user_registered")
 
