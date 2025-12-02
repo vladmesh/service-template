@@ -25,6 +25,16 @@ TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{TEST_DB_PATH}")
 os.environ.setdefault("ASYNC_DATABASE_URL", f"sqlite+aiosqlite:///{TEST_DB_PATH}")
 
+# Set required environment variables for tests
+os.environ.setdefault("APP_NAME", "test-backend")
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("APP_SECRET_KEY", "test-secret-key")
+os.environ.setdefault("POSTGRES_HOST", "localhost")
+os.environ.setdefault("POSTGRES_PORT", "5432")
+os.environ.setdefault("POSTGRES_DB", "test_db")
+os.environ.setdefault("POSTGRES_USER", "test_user")
+os.environ.setdefault("POSTGRES_PASSWORD", "test_password")
+
 from services.backend.src.core.settings import get_settings  # noqa: E402
 
 get_settings.cache_clear()

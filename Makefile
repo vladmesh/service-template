@@ -105,7 +105,7 @@ makemigrations:
 	fi
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 
-log:
+	log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
 	if [ -z "$$service" ]; then \
 		echo "Usage: make log <service_name>"; \
@@ -121,8 +121,8 @@ log:
 	fi; \
 	set -- $$target_line; \
 	compose_service="$$2"; \
-	echo ">> Streaming logs for $$service (compose service: $$compose_service)"; \
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs -f $$compose_service
+	echo ">> Showing logs for $$service (compose service: $$compose_service)"; \
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$compose_service
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build

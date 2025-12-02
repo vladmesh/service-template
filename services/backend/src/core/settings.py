@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from urllib.parse import quote_plus
 
 from pydantic import Field
@@ -17,6 +18,29 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    def _validate_required_env_vars(self) -> None:
+        """Validate that all required environment variables are set."""
+        required_vars = [
+            "APP_NAME",
+            "APP_ENV",
+            "APP_SECRET_KEY",
+            "POSTGRES_HOST",
+            "POSTGRES_PORT",
+            "POSTGRES_DB",
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+        ]
+        missing_vars = []
+        for var_name in required_vars:
+            value = os.getenv(var_name)
+            if not value:
+                missing_vars.append(var_name)
+        if missing_vars:
+            raise RuntimeError(
+                f"Required environment variables are not set: {', '.join(missing_vars)}. "
+                "Please add them to your environment variables."
+            )
 
     app_name: str = Field(validation_alias="APP_NAME")
     environment: str = Field(validation_alias="APP_ENV")
@@ -89,4 +113,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a cached instance of the application settings."""
 
-    return Settings()
+    settings = Settings()
+    settings._validate_required_env_vars()
+    return settings

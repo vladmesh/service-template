@@ -46,6 +46,19 @@
 
 ## Infrastructure & Inter-Service Communication
 
+### Retry Logic for Telegram Bot Backend Communication
+
+**Status**: TODO
+
+**Description**: Add retry logic to Telegram bot's `handle_command` function to handle temporary backend unavailability.
+- **Problem**: When backend is reloading (dev mode with `--reload`), it becomes temporarily unavailable, causing command sending to fail.
+- **Solution**: Implement exponential backoff retry mechanism in `services/tg_bot/src/main.py` for `handle_command` function.
+- **Details**: 
+  - Retry on `httpx.ConnectError` and `httpx.HTTPStatusError` (5xx errors)
+  - Use exponential backoff (e.g., 1s, 2s, 4s) with max 3 retries
+  - Log retry attempts for debugging
+  - Only retry transient errors, not client errors (4xx)
+
 ### Spec-First Async Messaging (Queues)
 
 **Status**: IN PROGRESS
