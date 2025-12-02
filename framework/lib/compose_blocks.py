@@ -188,6 +188,7 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                   condition: service_started
               networks:
                 - internal
+              profiles: ["tg"]
             """
         ),
         tests_unit=DEFAULT_TEMPLATES["python"].tests_unit,

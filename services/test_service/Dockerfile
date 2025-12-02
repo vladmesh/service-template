@@ -43,4 +43,5 @@ COPY services/test_service/README.md ./README.md
 COPY shared ./shared
 
 EXPOSE 8000
+
 CMD ["python", "services/test_service/src/main.py"]

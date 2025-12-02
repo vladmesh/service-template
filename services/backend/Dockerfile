@@ -43,4 +43,5 @@ COPY services/backend/README.md ./README.md
 COPY shared ./shared
 
 EXPOSE 8000
+
 CMD ["uvicorn", "services.backend.src.main:app", "--host", "0.0.0.0", "--port", "8000"]

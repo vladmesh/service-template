@@ -43,4 +43,5 @@ COPY services/tg_bot/README.md ./README.md
 COPY shared ./shared
 
 EXPOSE 8000
+
 CMD ["python", "services/tg_bot/src/main.py"]
