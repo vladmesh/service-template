@@ -21,7 +21,7 @@ def get_debug_controller_impl() -> DebugController:
     return DebugController()
 
 
-api_router = APIRouter()
+api_router = APIRouter()  # noqa
 api_router.include_router(health.router, tags=["health"])
 
 # Create and include users router with injected dependencies
