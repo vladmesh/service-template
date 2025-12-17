@@ -13,7 +13,12 @@ from tests.tooling.conftest import create_python_template
 FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
 
 
-def _write_services_file(root: Path, slug: str = "omega", dev_template: bool = True) -> None:
+def _write_services_file(
+    root: Path,
+    slug: str = "omega",
+    dev_template: bool = True,
+    service_type: str = "python-fastapi",
+) -> None:
     dev_line = (
         f"    dev_template: {str(dev_template).lower()}\n" if dev_template is not None else ""
     )
@@ -21,7 +26,7 @@ def _write_services_file(root: Path, slug: str = "omega", dev_template: bool = T
         "version: 2\n"
         "services:\n"
         f"  - name: {slug}\n"
-        "    type: python\n"
+        f"    type: {service_type}\n"
         "    description: Test service\n"
         f"{dev_line}",
         encoding="utf-8",

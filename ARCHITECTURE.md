@@ -25,8 +25,11 @@ The project is a collection of modular services defined in `services.yml`.
 - **Scaffolding:** The `make sync-services` command ensures that for every entry in `services.yml`, a corresponding directory exists in `services/` with the correct boilerplate.
 - **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure (DB, Queue).
 - **Types:**
-    - `python`: Standard Python service (FastAPI/Aiogram).
-    - `default`: Generic container.
+    - `python-fastapi`: HTTP API service using FastAPI with uvicorn (exposes port 8000).
+    - `python-faststream`: Event-driven worker using FastStream (no HTTP, consumes from message broker).
+    - `node`: Node.js service (exposes port 4321).
+    - `default`: Generic container placeholder.
+- **Compose Options:** Services can specify `depends_on` and `profiles` in `services.yml` to customize Docker Compose behavior.
 
 ## Containerization Strategy
 

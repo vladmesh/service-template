@@ -106,13 +106,26 @@ The `shared/` directory contains generated code and shared models used by ALL se
 
 ### Service Creation Pattern
 
-1. **Add to Registry:** Define in `services.yml`
-2. **Scaffold:** Run `make sync-services create` to generate:
+1. **Add to Registry:** Define in `services.yml` with appropriate type:
+   - `python-fastapi` - HTTP API with FastAPI/uvicorn (exposes port 8000)
+   - `python-faststream` - Event-driven worker with FastStream (no HTTP port)
+   - `node` - Node.js service (exposes port 4321)
+   - `default` - Generic container placeholder
+2. **Optional Compose Options:** Add `depends_on` and `profiles` in `services.yml`:
+   ```yaml
+   - name: my_service
+     type: python-faststream
+     description: My event worker
+     depends_on:
+       redis: service_healthy
+     profiles:
+       - workers
+   ```
+3. **Scaffold:** Run `make sync-services create` to generate:
    - Service directory structure
-   - Dockerfile (basic template - may need customization)
-   - Docker Compose integration
-3. **Customize:** Update Dockerfile for actual dependencies (e.g., Poetry setup)
-4. **Development Setup:** Add volume mounts in `infra/compose.dev.yml` for live code
+   - Dockerfile (generated from type-specific template)
+   - Docker Compose integration (auto-generated blocks in compose files)
+4. **Development Setup:** Volume mounts are auto-configured in `infra/compose.dev.yml`
 
 ### Common Pitfalls
 

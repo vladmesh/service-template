@@ -42,6 +42,4 @@ COPY services/tg_bot ./services/tg_bot
 COPY services/tg_bot/README.md ./README.md
 COPY shared ./shared
 
-
-
 CMD ["python", "services/tg_bot/src/main.py"]

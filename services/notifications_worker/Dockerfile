@@ -42,6 +42,4 @@ COPY services/notifications_worker ./services/notifications_worker
 COPY services/notifications_worker/README.md ./README.md
 COPY shared ./shared
 
-
-
 CMD ["python", "services/notifications_worker/src/main.py"]

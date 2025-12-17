@@ -71,27 +71,34 @@ def sync_compose(specs: list[ServiceSpec], apply: bool) -> list[str]:
     return drift
 
 
+DOCKERFILE_TEMPLATES: dict[str, str] = {
+    "python-fastapi": "python-fastapi.Dockerfile.j2",
+    "python-faststream": "python-faststream.Dockerfile.j2",
+    "node": "node.Dockerfile.j2",
+}
+
+
 def sync_dockerfiles(specs: list[ServiceSpec], apply: bool) -> list[str]:
-    """Generate Dockerfiles for python services."""
+    """Generate Dockerfiles for services with known templates."""
     drift: list[str] = []
 
     env = Environment(
         loader=FileSystemLoader(str(ROOT / "framework" / "templates" / "docker")),
         autoescape=True,
     )
-    template = env.get_template("python.Dockerfile.j2")
 
     for spec in specs:
-        if spec.service_type != "python" or not spec.scaffold_enabled:
+        template_name = DOCKERFILE_TEMPLATES.get(spec.service_type)
+        if not template_name or not spec.scaffold_enabled:
             continue
 
+        template = env.get_template(template_name)
         dockerfile_path = SERVICES_ROOT / spec.slug / "Dockerfile"
 
         content = template.render(service_name=spec.slug)
 
         if not dockerfile_path.exists():
             if apply:
-                # Ensure directory exists only when applying
                 dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
                 dockerfile_path.write_text(content, encoding="utf-8")
                 print(f"Created {dockerfile_path.relative_to(ROOT)}")
@@ -115,7 +122,7 @@ def validate_dockerfiles(specs: list[ServiceSpec]) -> list[str]:
 
     errors: list[str] = []
     for spec in specs:
-        if spec.service_type != "python" or not spec.scaffold_enabled:
+        if spec.service_type not in DOCKERFILE_TEMPLATES or not spec.scaffold_enabled:
             continue
         dockerfile = SERVICES_ROOT / spec.slug / "Dockerfile"
         if not dockerfile.exists():

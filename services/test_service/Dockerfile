@@ -42,6 +42,4 @@ COPY services/test_service ./services/test_service
 COPY services/test_service/README.md ./README.md
 COPY shared ./shared
 
-
-
 CMD ["python", "services/test_service/src/main.py"]

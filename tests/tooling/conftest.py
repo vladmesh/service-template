@@ -47,8 +47,14 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     # 2. Docker templates (needed for sync_services)
     docker_templates_root = root / "framework" / "templates" / "docker"
     docker_templates_root.mkdir(parents=True, exist_ok=True)
-    (docker_templates_root / "python.Dockerfile.j2").write_text(
+    (docker_templates_root / "python-fastapi.Dockerfile.j2").write_text(
+        "FROM python:3.11-slim\nEXPOSE 8000\nLABEL service={{ service_name }}\n", encoding="utf-8"
+    )
+    (docker_templates_root / "python-faststream.Dockerfile.j2").write_text(
         "FROM python:3.11-slim\nLABEL service={{ service_name }}\n", encoding="utf-8"
+    )
+    (docker_templates_root / "node.Dockerfile.j2").write_text(
+        "FROM node:20-alpine\nEXPOSE 4321\nLABEL service={{ service_name }}\n", encoding="utf-8"
     )
 
     # Create minimal specs for services that need them
@@ -62,15 +68,39 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     importlib.reload(sync_services)
 
 
-def create_python_template(root: Path, include_docs: bool = False) -> Path:
-    """Create a minimal python template under templates/services/python."""
+def create_python_template(
+    root: Path,
+    include_docs: bool = False,
+    service_type: str = "python-fastapi",
+) -> Path:
+    """Create a minimal python template under templates/services/{service_type}."""
 
-    template_dir = root / "framework" / "templates" / "scaffold" / "services" / "python"
+    template_dir = root / "framework" / "templates" / "scaffold" / "services" / service_type
     template_dir.mkdir(parents=True, exist_ok=True)
     (template_dir / "src").mkdir(parents=True, exist_ok=True)
     (template_dir / "tests").mkdir(parents=True, exist_ok=True)
     (template_dir / "Dockerfile").write_text(
         'FROM python:3.11-slim\nLABEL service="__SERVICE_NAME__"\n',
+        encoding="utf-8",
+    )
+    if include_docs:
+        (template_dir / "README.md").write_text("Template README", encoding="utf-8")
+        (template_dir / "AGENTS.md").write_text("Template AGENTS", encoding="utf-8")
+    return template_dir
+
+
+def create_node_template(root: Path, include_docs: bool = False) -> Path:
+    """Create a minimal node template under templates/services/node."""
+
+    template_dir = root / "framework" / "templates" / "scaffold" / "services" / "node"
+    template_dir.mkdir(parents=True, exist_ok=True)
+    (template_dir / "src").mkdir(parents=True, exist_ok=True)
+    (template_dir / "Dockerfile").write_text(
+        'FROM node:20-alpine\nLABEL service="__SERVICE_NAME__"\n',
+        encoding="utf-8",
+    )
+    (template_dir / "package.json").write_text(
+        '{"name": "__SERVICE_NAME__"}',
         encoding="utf-8",
     )
     if include_docs:

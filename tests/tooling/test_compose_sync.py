@@ -13,12 +13,14 @@ from tests.tooling.conftest import create_python_template
 FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
 
 
-def _write_services_file(root: Path, slug: str = "test_service") -> None:
+def _write_services_file(
+    root: Path, slug: str = "test_service", service_type: str = "python-fastapi"
+) -> None:
     (root / "services.yml").write_text(
         "version: 2\n"
         "services:\n"
         f"  - name: {slug}\n"
-        "    type: python\n"
+        f"    type: {service_type}\n"
         "    description: Test service\n",
         encoding="utf-8",
     )

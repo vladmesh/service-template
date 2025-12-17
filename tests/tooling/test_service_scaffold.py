@@ -13,10 +13,10 @@ FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
 
 def test_scaffold_creates_expected_artifacts(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
-    create_python_template(root, include_docs=False)
+    create_python_template(root, include_docs=False, service_type="python-fastapi")
     spec = scaffold_mod.ServiceSpec(
         slug="alpha",
-        service_type="python",
+        service_type="python-fastapi",
         description="Alpha service",
     )
 
@@ -42,10 +42,10 @@ def test_scaffold_creates_expected_artifacts(fake_repo: FakeRepo) -> None:
 
 def test_scaffold_reports_missing_when_dry_run(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
-    create_python_template(root, include_docs=False)
+    create_python_template(root, include_docs=False, service_type="python-fastapi")
     spec = scaffold_mod.ServiceSpec(
         slug="beta",
-        service_type="python",
+        service_type="python-fastapi",
         description="Beta service",
     )
 
@@ -59,10 +59,10 @@ def test_scaffold_reports_missing_when_dry_run(fake_repo: FakeRepo) -> None:
 
 def test_scaffold_preserves_existing_files(fake_repo: FakeRepo) -> None:
     root, scaffold_mod, _compose, _sync = fake_repo
-    create_python_template(root, include_docs=False)
+    create_python_template(root, include_docs=False, service_type="python-fastapi")
     spec = scaffold_mod.ServiceSpec(
         slug="gamma",
-        service_type="python",
+        service_type="python-fastapi",
         description="Gamma service",
     )
     # Initial creation

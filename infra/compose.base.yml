@@ -36,9 +36,21 @@ services:
     depends_on:
       backend:
         condition: service_started
+    profiles: ["tg"]
     networks:
       - internal
-    profiles: ["tg"]
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-service-template-frontend:latest}
+    build:
+      context: ..
+      dockerfile: services/frontend/Dockerfile
+    env_file:
+      - ../.env
+    networks:
+      - edge
+    expose:
+      - "4321"
 
   notifications_worker:
     image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications-worker:latest}

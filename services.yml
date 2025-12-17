@@ -1,18 +1,22 @@
 version: 2
 services:
   - name: backend
-    type: python
+    type: python-fastapi
     description: >
       FastAPI backend that exposes REST endpoints, owns the database, and powers the rest of the
       system.
     dev_template: true
   - name: tg_bot
-    type: python
+    type: python-faststream
     description: >
       Telegram bot used for user onboarding and backend notifications.
     dev_template: false
+    depends_on:
+      backend: service_started
+    profiles:
+      - tg
   - name: frontend
-    type: default
+    type: node
     description: >
       Static frontend placeholder served separately via infra/compose.frontend.yml.
   - name: integration
@@ -21,12 +25,16 @@ services:
       Shared integration tests executed via infra/compose.tests.integration.yml.
     scaffold: false
   - name: notifications_worker
-    type: python
+    type: python-faststream
     description: >
       Service for notifications (email, telegram).
     dev_template: false
+    depends_on:
+      redis: service_healthy
   - name: test_service
-    type: python
+    type: python-faststream
     description: >
       Test service for verifying event flow.
     dev_template: false
+    depends_on:
+      redis: service_healthy

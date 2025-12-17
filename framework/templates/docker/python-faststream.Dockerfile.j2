@@ -42,11 +42,4 @@ COPY services/{{ service_name }} ./services/{{ service_name }}
 COPY services/{{ service_name }}/README.md ./README.md
 COPY shared ./shared
 
-{# Event-driven services (FastStream workers) don't need HTTP port #}
-{% if service_name in ["tg_bot", "test_service", "notifications_worker"] %}
 CMD ["python", "services/{{ service_name }}/src/main.py"]
-{% else %}
-EXPOSE 8000
-
-CMD ["uvicorn", "services.{{ service_name }}.src.main:app", "--host", "0.0.0.0", "--port", "8000"]
-{% endif %}

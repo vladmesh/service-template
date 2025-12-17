@@ -50,59 +50,7 @@ IMAGE_SLUG_OVERRIDES = {
 
 
 DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
-    "python": ServiceComposeTemplate(
-        base=textwrap.dedent(
-            """\
-            __SLUG__:
-              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
-              build:
-                context: ..
-                dockerfile: services/__SLUG__/Dockerfile
-              env_file:
-                - ../.env
-              networks:
-                - internal
-            """
-        ),
-        dev=textwrap.dedent(
-            """\
-            __SLUG__:
-              extends:
-                file: compose.base.yml
-                service: __SLUG__
-              volumes:
-                - ../:/workspace:delegated
-              working_dir: /workspace
-              env_file:
-                - ../.env
-            """
-        ),
-        tests_unit=textwrap.dedent(
-            """\
-            __SLUG_DASH__-tests-unit:
-              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
-              build:
-                context: ..
-                dockerfile: services/__SLUG__/Dockerfile
-                args:
-                  INSTALL_DEV_DEPS: "true"
-              command: >-
-                pytest -q --cov=__COV_SOURCE__
-                --cov-report=term-missing --cov-fail-under=70
-                __UNIT_TEST_TARGET__
-              working_dir: /app
-              env_file:
-                - ../.env
-              environment:
-                PYTHONPATH: /app
-            """
-        ),
-    ),
-}
-
-
-SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
-    "backend": ServiceComposeTemplate(
+    "python-fastapi": ServiceComposeTemplate(
         base=textwrap.dedent(
             """\
             __SLUG__:
@@ -139,7 +87,7 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                   INSTALL_DEV_DEPS: ${__INSTALL_DEV_ENV__:-false}
               command: >-
                 bash -lc "./services/__SLUG__/scripts/migrate.sh &&
-                uvicorn services.backend.src.main:app --host 0.0.0.0 --port 8000 --reload"
+                uvicorn services.__SLUG__.src.main:app --host 0.0.0.0 --port 8000 --reload"
               volumes:
                 - ../:/workspace:delegated
               working_dir: /workspace
@@ -173,7 +121,7 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
             """
         ),
     ),
-    "tg_bot": ServiceComposeTemplate(
+    "python-faststream": ServiceComposeTemplate(
         base=textwrap.dedent(
             """\
             __SLUG__:
@@ -183,35 +131,45 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
               env_file:
                 - ../.env
-              depends_on:
-                backend:
-                  condition: service_started
-              networks:
-                - internal
-              profiles: ["tg"]
-            """
-        ),
-        tests_unit=DEFAULT_TEMPLATES["python"].tests_unit,
-    ),
-    "notifications_worker": ServiceComposeTemplate(
-        base=textwrap.dedent(
-            """\
-            __SLUG__:
-              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
-              build:
-                context: ..
-                dockerfile: services/__SLUG__/Dockerfile
-              env_file:
-                - ../.env
-              depends_on:
-                redis:
-                  condition: service_healthy
               networks:
                 - internal
             """
         ),
+        dev=textwrap.dedent(
+            """\
+            __SLUG__:
+              extends:
+                file: compose.base.yml
+                service: __SLUG__
+              volumes:
+                - ../:/workspace:delegated
+              working_dir: /workspace
+              env_file:
+                - ../.env
+            """
+        ),
+        tests_unit=textwrap.dedent(
+            """\
+            __SLUG_DASH__-tests-unit:
+              image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              build:
+                context: ..
+                dockerfile: services/__SLUG__/Dockerfile
+                args:
+                  INSTALL_DEV_DEPS: "true"
+              command: >-
+                pytest -q --cov=__COV_SOURCE__
+                --cov-report=term-missing --cov-fail-under=70
+                __UNIT_TEST_TARGET__
+              working_dir: /app
+              env_file:
+                - ../.env
+              environment:
+                PYTHONPATH: /app
+            """
+        ),
     ),
-    "test_service": ServiceComposeTemplate(
+    "node": ServiceComposeTemplate(
         base=textwrap.dedent(
             """\
             __SLUG__:
@@ -221,11 +179,23 @@ SERVICE_OVERRIDES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
               env_file:
                 - ../.env
-              depends_on:
-                redis:
-                  condition: service_healthy
               networks:
-                - internal
+                - edge
+              expose:
+                - "4321"
+            """
+        ),
+        dev=textwrap.dedent(
+            """\
+            __SLUG__:
+              extends:
+                file: compose.base.yml
+                service: __SLUG__
+              command: npm run dev -- --host 0.0.0.0 --port 4321
+              volumes:
+                - ../services/__SLUG__:/app:delegated
+              env_file:
+                - ../.env
             """
         ),
     ),
@@ -243,19 +213,7 @@ def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
 
 
 def compose_template_for_spec(spec: ServiceSpec) -> ServiceComposeTemplate | None:
-    override = SERVICE_OVERRIDES.get(spec.slug)
-    default_template = DEFAULT_TEMPLATES.get(spec.service_type)
-    if not override:
-        return default_template
-    if not default_template:
-        return override
-    return ServiceComposeTemplate(
-        base=override.base if override.base is not None else default_template.base,
-        dev=override.dev if override.dev is not None else default_template.dev,
-        tests_unit=(
-            override.tests_unit if override.tests_unit is not None else default_template.tests_unit
-        ),
-    )
+    return DEFAULT_TEMPLATES.get(spec.service_type)
 
 
 def _unit_test_target(spec: ServiceSpec) -> str:
@@ -274,7 +232,26 @@ def _cov_source(spec: ServiceSpec) -> str:
     return f"services/{spec.slug}/src"
 
 
-def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
+def _render_depends_on(spec: ServiceSpec) -> str:
+    """Render depends_on block from spec if present."""
+    if not spec.depends_on:
+        return ""
+    lines = ["depends_on:"]
+    for service, condition in spec.depends_on.items():
+        lines.append(f"  {service}:")
+        lines.append(f"    condition: {condition}")
+    return "\n".join(f"  {line}" for line in lines) + "\n"
+
+
+def _render_profiles(spec: ServiceSpec) -> str:
+    """Render profiles line from spec if present."""
+    if not spec.profiles:
+        return ""
+    profiles_str = ", ".join(f'"{p}"' for p in spec.profiles)
+    return f"  profiles: [{profiles_str}]\n"
+
+
+def _apply_placeholders(template: str, spec: ServiceSpec, key: str = "base") -> str:
     image_slug = IMAGE_SLUG_OVERRIDES.get(spec.slug, spec.slug.replace("_", "-"))
     replacements = {
         "__SLUG__": spec.slug,
@@ -286,8 +263,29 @@ def _apply_placeholders(template: str, spec: ServiceSpec) -> str:
         "__COV_SOURCE__": _cov_source(spec),
     }
     rendered = template
-    for key, value in replacements.items():
-        rendered = rendered.replace(key, value)
+    for key_placeholder, value in replacements.items():
+        rendered = rendered.replace(key_placeholder, value)
+
+    # Insert depends_on and profiles from spec (for base template only)
+    if key == "base" and (spec.depends_on or spec.profiles):
+        lines = rendered.splitlines()
+        insert_idx = len(lines)
+        for i, line in enumerate(lines):
+            if line.strip().startswith("networks:"):
+                insert_idx = i
+                break
+        extra_lines: list[str] = []
+        if spec.depends_on:
+            extra_lines.append("  depends_on:")
+            for service, condition in spec.depends_on.items():
+                extra_lines.append(f"    {service}:")
+                extra_lines.append(f"      condition: {condition}")
+        if spec.profiles:
+            profiles_str = ", ".join(f'"{p}"' for p in spec.profiles)
+            extra_lines.append(f"  profiles: [{profiles_str}]")
+        lines = lines[:insert_idx] + extra_lines + lines[insert_idx:]
+        rendered = "\n".join(lines)
+
     return rendered.rstrip("\n") + "\n"
 
 
@@ -302,7 +300,7 @@ def render_service_templates(specs: list[ServiceSpec], key: str) -> list[str]:
         snippet = getattr(template, key, None)
         if not snippet:
             continue
-        templates.append(_apply_placeholders(snippet, spec))
+        templates.append(_apply_placeholders(snippet, spec, key))
     return templates
 
 

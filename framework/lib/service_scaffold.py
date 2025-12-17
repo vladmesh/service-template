@@ -26,6 +26,8 @@ class ServiceSpec:
     description: str
     create_dev_template: bool = True
     scaffold_enabled: bool = True
+    depends_on: dict[str, str] | None = None
+    profiles: list[str] | None = None
 
 
 @dataclass
@@ -69,6 +71,8 @@ def build_service_specs(registry: dict[str, Any]) -> list[ServiceSpec]:
         description = (entry.get("description") or "").strip()
         create_dev = entry.get("dev_template", True)
         scaffold_enabled = entry.get("scaffold", True)
+        depends_on = entry.get("depends_on")
+        profiles = entry.get("profiles")
         if not isinstance(slug, str) or not isinstance(service_type, str):
             continue
         specs.append(
@@ -78,6 +82,8 @@ def build_service_specs(registry: dict[str, Any]) -> list[ServiceSpec]:
                 description=description or f"{slug.replace('_', ' ').title()} service",
                 create_dev_template=bool(create_dev),
                 scaffold_enabled=bool(scaffold_enabled),
+                depends_on=depends_on if isinstance(depends_on, dict) else None,
+                profiles=profiles if isinstance(profiles, list) else None,
             )
         )
     return specs
