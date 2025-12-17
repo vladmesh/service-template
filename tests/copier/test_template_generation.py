@@ -213,3 +213,68 @@ class TestEnvExample:
         assert "POSTGRES" in env_content
         assert "REDIS" in env_content
         assert "TELEGRAM" in env_content
+
+
+@pytest.mark.usefixtures("copier_available")
+class TestModuleExclusion:
+    """Test that unselected modules are properly excluded."""
+
+    def test_notifications_excluded_when_not_selected(self, tmp_path: Path):
+        """notifications_worker should not exist when not in modules."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+
+        assert not (output / "services" / "notifications_worker").exists()
+        services_yml = (output / "services.yml").read_text()
+        assert "notifications_worker" not in services_yml
+
+    def test_frontend_excluded_when_not_selected(self, tmp_path: Path):
+        """frontend should not exist when not in modules."""
+        output = run_copier(tmp_path, "backend,notifications")
+
+        assert not (output / "services" / "frontend").exists()
+        services_yml = (output / "services.yml").read_text()
+        assert "frontend" not in services_yml
+
+    def test_tg_bot_excluded_when_not_selected(self, tmp_path: Path):
+        """tg_bot should not exist when not in modules."""
+        output = run_copier(tmp_path, "backend,frontend")
+
+        assert not (output / "services" / "tg_bot").exists()
+        services_yml = (output / "services.yml").read_text()
+        assert "tg_bot" not in services_yml
+
+
+@pytest.mark.usefixtures("copier_available")
+class TestComposeServices:
+    """Test Docker Compose service generation."""
+
+    def test_redis_only_with_event_modules(self, tmp_path: Path):
+        """Redis should only be included when tg_bot or notifications selected."""
+        import yaml
+
+        # Backend only - no redis
+        output = run_copier(tmp_path, "backend")
+        compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
+        assert "redis" not in compose.get("services", {})
+
+    def test_redis_with_notifications(self, tmp_path: Path):
+        """Redis should be included with notifications module."""
+        import yaml
+
+        output = run_copier(tmp_path, "backend,notifications")
+        compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
+        assert "redis" in compose["services"]
+
+    def test_all_services_in_compose(self, tmp_path: Path):
+        """All selected services should be in compose."""
+        import yaml
+
+        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
+        compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
+
+        assert "backend" in compose["services"]
+        assert "tg_bot" in compose["services"]
+        assert "notifications_worker" in compose["services"]
+        assert "frontend" in compose["services"]
+        assert "redis" in compose["services"]
+        assert "db" in compose["services"]
