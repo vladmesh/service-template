@@ -1,0 +1,36 @@
+version: 2
+services:
+{% if 'backend' in modules %}
+  - name: backend
+    type: python-fastapi
+    description: >
+      FastAPI backend that exposes REST endpoints, owns the database, and powers the rest of the
+      system.
+    dev_template: true
+{% endif %}
+{% if 'tg_bot' in modules %}
+  - name: tg_bot
+    type: python-faststream
+    description: >
+      Telegram bot used for user onboarding and backend notifications.
+    dev_template: false
+    depends_on:
+      backend: service_started
+    profiles:
+      - tg
+{% endif %}
+{% if 'frontend' in modules %}
+  - name: frontend
+    type: node
+    description: >
+      Static frontend placeholder served separately via infra/compose.frontend.yml.
+{% endif %}
+{% if 'notifications' in modules %}
+  - name: notifications_worker
+    type: python-faststream
+    description: >
+      Service for notifications (email, telegram).
+    dev_template: false
+    depends_on:
+      redis: service_healthy
+{% endif %}
