@@ -158,10 +158,10 @@ The `shared/` directory contains generated code and shared models used by ALL se
 ### Common Pitfalls
 
 {% if 'tg_bot' in modules or 'notifications' in modules -%}
-1. **Missing Broker Connection:** Publishing events without `broker.connect()` -> `AssertionError`
+- **Missing Broker Connection:** Publishing events without `broker.connect()` -> `AssertionError`
 {% endif -%}
-2. **Stale Shared Code:** Forgetting volume mount -> services use old generated code
-3. **Type Mismatches:** Code generator now supports `list[type]` but verify complex types
-4. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields
-5. **Dockerfile Validation:** `sync_services.py` validates COPY sources - use proper Poetry patterns
+- **Stale Shared Code:** Forgetting volume mount -> services use old generated code
+- **Type Mismatches:** Code generator now supports `list[type]` but verify complex types
+- **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields
+- **Dockerfile Validation:** `sync_services.py` validates COPY sources - use proper Poetry patterns
 </coding_guidelines>
