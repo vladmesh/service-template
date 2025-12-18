@@ -39,10 +39,37 @@
 
 ### Implement Controller Pattern for Generated Routers
 
-**Status**: IN PROGRESS
+**Status**: DONE
 
-**Description**: Currently, generated routers contain `raise NotImplementedError`. We need a pattern (e.g., Controller injection or Protocol) to allow implementing logic without editing the generated file, while still satisfying the linter.
-- Forbid manual `APIRouter` definitions that don't match spec interfaces.
+**Description**: Protocol-based Controller Pattern for generated routers.
+
+**Implementation**:
+- Generated protocols in `services/<service>/src/generated/protocols.py` using `typing.Protocol`
+- Router factory pattern: `create_router(get_db, get_controller)` with DI
+- Controller stubs generated in `services/<service>/src/controllers/<router>.py` (skipped if exists)
+- Controllers implement protocols and contain business logic
+- Routers delegate all calls to injected controller
+
+**Pattern**:
+```python
+# Protocol (generated)
+class UsersControllerProtocol(Protocol):
+    async def create_user(self, session: AsyncSession, payload: UserCreate) -> UserRead: ...
+
+# Controller (user-implemented)
+class UsersController(UsersControllerProtocol):
+    async def create_user(self, session: AsyncSession, payload: UserCreate) -> UserRead:
+        # Business logic here
+        ...
+
+# Router factory (generated)
+def create_router(get_db, get_controller) -> APIRouter:
+    router = APIRouter(...)
+    @router.post(...)
+    async def create_user(..., controller = Depends(get_controller)):
+        return await controller.create_user(...)
+    return router
+```
 
 ## Infrastructure & Inter-Service Communication
 
