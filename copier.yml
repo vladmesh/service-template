@@ -31,20 +31,8 @@ _exclude:
   - docs/COPIER_MIGRATION_PLAN.md
   - tests/copier
   - tests/copier/**
-  # Jinja source templates (rendered versions are copied instead)
-  - Makefile.jinja
-  - AGENTS.md.jinja
-  - ARCHITECTURE.md.jinja
-  - .env.example.jinja
-  - services.yml.jinja
-  - README.md.jinja
-  - infra/compose.base.yml.jinja
-  - infra/compose.dev.yml.jinja
-  - .github/workflows/pr.yml.jinja
-  - .github/workflows/main.yml.jinja
-  - .github/workflows/verify.yml.jinja
+  # Template testing workflow (not needed in generated project)
   - .github/workflows/test-template.yml
-  - "{{ _copier_conf.answers_file }}.jinja"
 
   # Always exclude test_service (it's for template development only)
   - services/test_service
