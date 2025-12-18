@@ -27,7 +27,6 @@ RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
 COPY services/notifications_worker/pyproject.toml services/notifications_worker/poetry.lock ./services/notifications_worker/
 RUN cd services/notifications_worker \
     && poetry config virtualenvs.create false \
-    && poetry lock \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
     poetry install --with dev --no-root; \
     else \

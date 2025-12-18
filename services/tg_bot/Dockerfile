@@ -27,7 +27,6 @@ RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
 COPY services/tg_bot/pyproject.toml services/tg_bot/poetry.lock ./services/tg_bot/
 RUN cd services/tg_bot \
     && poetry config virtualenvs.create false \
-    && poetry lock \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
     poetry install --with dev --no-root; \
     else \
