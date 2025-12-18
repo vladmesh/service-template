@@ -2,6 +2,7 @@
 """Code generators for spec-first development."""
 
 from framework.generators.base import BaseGenerator
+from framework.generators.clients import ClientsGenerator
 from framework.generators.controllers import ControllersGenerator
 from framework.generators.event_handlers import EventHandlersGenerator
 from framework.generators.events import EventsGenerator
@@ -11,6 +12,7 @@ from framework.generators.schemas import SchemasGenerator
 
 __all__ = [
     "BaseGenerator",
+    "ClientsGenerator",
     "SchemasGenerator",
     "RoutersGenerator",
     "ProtocolsGenerator",

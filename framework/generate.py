@@ -6,6 +6,7 @@ Uses modular generators with validated spec types.
 from pathlib import Path
 import sys
 
+from framework.generators.clients import ClientsGenerator
 from framework.generators.controllers import ControllersGenerator
 from framework.generators.event_handlers import EventHandlersGenerator
 from framework.generators.events import EventsGenerator
@@ -31,6 +32,7 @@ def generate_all(repo_root: Path | None = None) -> None:
     print(f"  Models: {len(specs.models.models)}")
     print(f"  Domains: {len(specs.domains)}")
     print(f"  Events: {len(specs.events.events)}")
+    print(f"  Manifests: {len(specs.manifests)}")
 
     # Run generators in order
     generators = [
@@ -40,6 +42,7 @@ def generate_all(repo_root: Path | None = None) -> None:
         ("Controllers", ControllersGenerator(specs, repo_root)),
         ("Events", EventsGenerator(specs, repo_root)),
         ("EventHandlers", EventHandlersGenerator(specs, repo_root)),
+        ("Clients", ClientsGenerator(specs, repo_root)),
     ]
 
     for name, generator in generators:
