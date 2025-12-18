@@ -45,29 +45,20 @@ Agents should interact with the system primarily through `make`.
 
 ## 🧠 Critical Project Knowledge
 
+### Spec-First Architecture
+
+See `ARCHITECTURE.md` for detailed spec format documentation.
+
+**Quick Reference:**
+- Domain specs: `services/<svc>/spec/<domain>.yaml` → generates routers, protocols
+- Manifests: `services/<svc>/spec/manifest.yaml` → generates typed clients (set `<PROVIDER>_API_URL` env var)
+
 ### Shared Module Architecture
 
-The `shared/` directory contains generated code and shared models used by ALL services. Key facts:
-
-1. **Generated Code Location:** `shared/shared/generated/` contains auto-generated:
-   - `schemas.py` - Pydantic models from `shared/spec/models.yaml`
-   - `events.py` - FastStream publishers/subscribers from `shared/spec/events.yaml`
-   - `routers/` - FastAPI routers from `shared/spec/routers/*.yaml`
-   - `protocols.py` - Controller interfaces
-
-2. **Volume Mounts for Development:**
-   - Services install `shared` as a Python package during Docker build
-   - **CRITICAL:** In development, mount `../shared:/app/shared:delegated` in `infra/compose.dev.yml`
-   - Without this mount, services use stale code from the build, not live changes
-   - Required for BOTH backend and any Python services that import from `shared`
-
-3. **Code Generation Workflow:**
-   ```bash
-   # 1. Edit specs in shared/spec/
-   # 2. Regenerate code
-   make generate-from-spec
-   # 3. Services automatically pick up changes (if volume mounted)
-   ```
+1. **Shared generated:** `shared/shared/generated/` — schemas, events
+2. **Service generated:** `services/<svc>/src/generated/` — routers, protocols, clients
+3. **CRITICAL:** Mount `../shared:/app/shared:delegated` in dev for live reloads
+4. **Workflow:** Edit specs → `make generate-from-spec` → changes applied
 
 ### FastStream Event Architecture
 

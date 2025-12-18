@@ -4,24 +4,96 @@ This document describes how the principles in `MANIFESTO.md` are implemented tec
 
 ## The "Spec-First" Flow
 
-The heart of the framework is the `shared/spec/` directory. This is the single source of truth for the data model and API surface.
+The heart of the framework is the specification system. Specs define the data model, API surface, and service dependencies.
 
 ```mermaid
 graph TD
-    Spec[shared/spec/*.yaml] -->|make generate-from-spec| GenCode[shared/generated/]
-    GenCode -->|Imported by| Services[Services (backend, bot, etc.)]
-    Services -->|Implemented in| Docker[Docker Containers]
+    Models[shared/spec/models.yaml] -->|generate| Schemas[shared/generated/schemas.py]
+    Events[shared/spec/events.yaml] -->|generate| EventsPy[shared/generated/events.py]
+    Domain[services/*/spec/*.yaml] -->|generate| Routers[src/generated/routers/]
+    Domain -->|generate| Protocols[src/generated/protocols.py]
+    Manifest[services/*/spec/manifest.yaml] -->|generate| Clients[src/generated/clients/]
 ```
 
-1.  **Define:** You edit `shared/spec/models.yaml` or `shared/spec/rest.yaml`.
-2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models and FastAPI router stubs in `shared/generated/`.
-3.  **Implement:** Services import these generated assets. You only write the business logic to satisfy the interfaces.
+### Spec Locations
+
+| Spec | Location | Generates |
+|------|----------|-----------|
+| Models | `shared/spec/models.yaml` | Pydantic schemas |
+| Events | `shared/spec/events.yaml` | FastStream pub/sub |
+| Domain | `services/<service>/spec/<domain>.yaml` | Routers, protocols, controllers |
+| Manifest | `services/<service>/spec/manifest.yaml` | Typed REST clients |
+
+## Domain Specification Format
+
+Each domain spec defines transport-agnostic operations:
+
+```yaml
+# services/backend/spec/users.yaml
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
+  create_user:
+    input: UserCreate
+    output: UserRead
+    rest:
+      method: POST
+      path: ""
+      status: 201
+
+  get_user:
+    output: UserRead
+    params:
+      - name: user_id
+        type: int
+    rest:
+      method: GET
+      path: "/{user_id}"
+```
+
+Key concepts:
+- **Operations** are transport-agnostic (can have both REST and Events transports)
+- **Models** are referenced by name (defined in `shared/spec/models.yaml`)
+- **Params** define path/query parameters
+
+## Client Generation (Service Dependencies)
+
+Consumer services declare dependencies via `manifest.yaml`:
+
+```yaml
+# services/tg_bot/spec/manifest.yaml
+consumes:
+  - service: backend
+    domain: users
+    operations:
+      - create_user
+      - get_user
+```
+
+This generates a typed HTTP client:
+
+```python
+# services/tg_bot/src/generated/clients/backend.py
+class BackendClient:
+    async def create_user(self, payload: UserCreate) -> UserRead: ...
+    async def get_user(self, user_id: int) -> UserRead: ...
+```
+
+Usage:
+```python
+async with BackendClient() as client:
+    user = await client.create_user(UserCreate(telegram_id=123))
+```
 
 ## Service Modules ("Batteries")
 
 The project is a collection of modular services defined in `services.yml`.
 
-- **Definition:** A service is simply an entry in `services.yml` with a `name`, `type`, and `description`.
+- **Definition:** A service is an entry in `services.yml` with a `name`, `type`, and `description`.
 - **Scaffolding:** The `make sync-services` command ensures that for every entry in `services.yml`, a corresponding directory exists in `services/` with the correct boilerplate.
 - **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure (DB, Queue).
 - **Types:**
@@ -42,8 +114,12 @@ The project is a collection of modular services defined in `services.yml`.
 
 - `infra/`: Docker Compose files and infrastructure config.
 - `services/`: Source code for individual microservices.
+  - `<service>/spec/`: Domain and manifest specs for this service
+  - `<service>/src/generated/`: Auto-generated routers, protocols, clients
+  - `<service>/src/controllers/`: Business logic (manual)
 - `shared/`:
-    - `spec/`: YAML specifications (Source of Truth).
-    - `generated/`: Auto-generated code (Do Not Edit).
-- `templates/`: Jinja2 templates for scaffolding new services.
-
+    - `spec/`: YAML specifications (models, events)
+    - `shared/generated/`: Auto-generated schemas and events
+- `framework/`: Code generators and tooling
+  - `generators/`: Python generators for each artifact type
+  - `templates/codegen/`: Jinja2 templates for generated code
