@@ -53,23 +53,6 @@ services:
       - ../.env
     environment:
       PYTHONPATH: /app
-
-  test-service-tests-unit:
-    image: ${TEST_SERVICE_IMAGE:-service-template-test-service:latest}
-    build:
-      context: ..
-      dockerfile: services/test_service/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: "true"
-    command: >-
-      pytest -q --cov=services/test_service/src
-      --cov-report=term-missing --cov-fail-under=70
-      services/test_service/tests
-    working_dir: /app
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /app
   # <<< services (auto-generated from services.yml)
 
   tooling:

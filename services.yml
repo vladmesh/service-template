@@ -32,10 +32,3 @@ services:
     dev_template: false
     depends_on:
       redis: service_healthy
-  - name: test_service
-    type: python-faststream
-    description: >
-      Test service for verifying event flow.
-    dev_template: false
-    depends_on:
-      redis: service_healthy
