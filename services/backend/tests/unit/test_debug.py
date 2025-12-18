@@ -13,6 +13,9 @@ from fastapi import status
 from httpx import AsyncClient
 import pytest
 
+# Ignore DeprecationWarning for these tests as they verify deprecated functionality
+pytestmark = pytest.mark.filterwarnings("ignore:Debug endpoint is deprecated")
+
 
 @pytest.fixture()
 def publish_mock(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
