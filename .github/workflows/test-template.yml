@@ -1,0 +1,147 @@
+name: Test Copier Template
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'copier.yml'
+      - '**/*.jinja'
+      - 'tests/copier/**'
+      - '.github/workflows/test-template.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'copier.yml'
+      - '**/*.jinja'
+      - 'tests/copier/**'
+      - '.github/workflows/test-template.yml'
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  test-generation:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - "backend"
+          - "backend,tg_bot"
+          - "backend,notifications"
+          - "backend,frontend"
+          - "backend,tg_bot,notifications,frontend"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install copier and dependencies
+        run: pip install copier pyyaml
+
+      - name: Generate project
+        run: |
+          copier copy . /tmp/test-project \
+            --data project_name=test-project \
+            --data "modules=${{ matrix.modules }}" \
+            --defaults --trust
+
+      - name: Verify no Jinja artifacts
+        run: |
+          cd /tmp/test-project
+          # Check for unrendered Jinja in key files
+          if grep -rE '\{\{.*project_name.*\}\}|\{%.*modules.*%\}' --include="*.yml" --include="*.yaml" --include="*.md" .; then
+            echo "ERROR: Found unrendered Jinja templates"
+            exit 1
+          fi
+          echo "No Jinja artifacts found"
+
+      - name: Validate Docker Compose
+        run: |
+          cd /tmp/test-project
+          docker compose -f infra/compose.base.yml config > /dev/null
+          docker compose -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
+          echo "Docker Compose files are valid"
+
+      - name: Verify services.yml matches modules
+        run: |
+          cd /tmp/test-project
+          modules="${{ matrix.modules }}"
+          
+          # Check backend
+          if [[ "$modules" == *"backend"* ]]; then
+            grep -q "name: backend" services.yml || (echo "backend missing from services.yml" && exit 1)
+          else
+            ! grep -q "name: backend" services.yml || (echo "backend should not be in services.yml" && exit 1)
+          fi
+          
+          # Check tg_bot
+          if [[ "$modules" == *"tg_bot"* ]]; then
+            grep -q "name: tg_bot" services.yml || (echo "tg_bot missing from services.yml" && exit 1)
+          else
+            ! grep -q "name: tg_bot" services.yml || (echo "tg_bot should not be in services.yml" && exit 1)
+          fi
+          
+          # Check frontend
+          if [[ "$modules" == *"frontend"* ]]; then
+            grep -q "name: frontend" services.yml || (echo "frontend missing from services.yml" && exit 1)
+          else
+            ! grep -q "name: frontend" services.yml || (echo "frontend should not be in services.yml" && exit 1)
+          fi
+          
+          # Check notifications
+          if [[ "$modules" == *"notifications"* ]]; then
+            grep -q "name: notifications_worker" services.yml || (echo "notifications_worker missing from services.yml" && exit 1)
+          else
+            ! grep -q "name: notifications_worker" services.yml || (echo "notifications_worker should not be in services.yml" && exit 1)
+          fi
+          
+          echo "services.yml correctly reflects selected modules"
+
+      - name: Verify workflow matrix
+        run: |
+          cd /tmp/test-project
+          modules="${{ matrix.modules }}"
+          
+          # Check that main.yml has correct services in matrix
+          if [[ "$modules" == *"backend"* ]]; then
+            grep -q "id: backend" .github/workflows/main.yml || (echo "backend missing from CI matrix" && exit 1)
+          fi
+          
+          if [[ "$modules" == *"tg_bot"* ]]; then
+            grep -q "id: tg-bot" .github/workflows/main.yml || (echo "tg-bot missing from CI matrix" && exit 1)
+          else
+            ! grep -q "id: tg-bot" .github/workflows/main.yml || (echo "tg-bot should not be in CI matrix" && exit 1)
+          fi
+          
+          if [[ "$modules" == *"frontend"* ]]; then
+            grep -q "id: frontend" .github/workflows/main.yml || (echo "frontend missing from CI matrix" && exit 1)
+          else
+            ! grep -q "id: frontend" .github/workflows/main.yml || (echo "frontend should not be in CI matrix" && exit 1)
+          fi
+          
+          echo "Workflow matrix correctly reflects selected modules"
+
+  test-pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install copier pyyaml pytest
+
+      - name: Run copier template tests
+        run: pytest tests/copier/ -v

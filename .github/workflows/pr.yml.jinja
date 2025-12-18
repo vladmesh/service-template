@@ -1,0 +1,49 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare environment files
+        run: |
+          cp .env.example .env
+          if [ ! -f infra/.env.test ]; then
+            echo "infra/.env.test missing" >&2
+            exit 1
+          fi
+
+      - name: Generate from spec
+        run: make generate-from-spec
+
+      - name: Check generated files are up to date
+        run: git diff --exit-code -- shared/shared/generated/
+
+      - name: Run linters
+        run: make lint
+
+      - name: Check service sync
+        run: make sync-services
+
+      - name: Run tests
+        run: make tests
+
+      - name: Run sync-services tooling tests
+        run: make tooling-tests
+
+      - name: Clean up
+        if: always()
+        run: |
+          COMPOSE_PROJECT_NAME=tests-unit docker compose -f infra/compose.tests.unit.yml down --volumes --remove-orphans
+          COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans

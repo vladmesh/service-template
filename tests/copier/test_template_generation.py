@@ -584,3 +584,85 @@ class TestCopierUpdate:
         answers = yaml.safe_load(answers_file.read_text())
         assert answers["project_name"] == "test-project"
         assert answers["modules"] == "backend"
+
+
+@pytest.mark.usefixtures("copier_available")
+class TestWorkflowGeneration:
+    """Tests for GitHub Actions workflow generation."""
+
+    def test_workflows_exist(self, tmp_path: Path):
+        """GitHub workflows should be generated."""
+        output = run_copier(tmp_path, "backend")
+        workflows_dir = output / ".github" / "workflows"
+
+        assert workflows_dir.exists()
+        assert (workflows_dir / "main.yml").exists()
+        assert (workflows_dir / "pr.yml").exists()
+        assert (workflows_dir / "verify.yml").exists()
+
+    def test_workflow_no_jinja_source_files(self, tmp_path: Path):
+        """Jinja source templates should not be copied."""
+        output = run_copier(tmp_path, "backend")
+        workflows_dir = output / ".github" / "workflows"
+
+        assert not (workflows_dir / "main.yml.jinja").exists()
+        assert not (workflows_dir / "pr.yml.jinja").exists()
+        assert not (workflows_dir / "verify.yml.jinja").exists()
+        assert not (workflows_dir / "test-template.yml").exists()
+
+    def test_backend_only_workflow_matrix(self, tmp_path: Path):
+        """Backend-only should have only backend in CI matrix."""
+        output = run_copier(tmp_path, "backend")
+        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+
+        assert "id: backend" in main_yml
+        assert "id: tg-bot" not in main_yml
+        assert "id: frontend" not in main_yml
+        assert "id: notifications-worker" not in main_yml
+
+    def test_full_stack_workflow_matrix(self, tmp_path: Path):
+        """Full stack should have all services in CI matrix."""
+        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
+        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+
+        assert "id: backend" in main_yml
+        assert "id: tg-bot" in main_yml
+        assert "id: frontend" in main_yml
+        assert "id: notifications-worker" in main_yml
+
+    def test_partial_modules_workflow_matrix(self, tmp_path: Path):
+        """Partial module selection should reflect in CI matrix."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+
+        assert "id: backend" in main_yml
+        assert "id: tg-bot" in main_yml
+        assert "id: frontend" not in main_yml
+        assert "id: notifications-worker" not in main_yml
+
+    def test_workflow_valid_yaml(self, tmp_path: Path):
+        """Generated workflows should be valid YAML."""
+        import yaml
+
+        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
+        workflows_dir = output / ".github" / "workflows"
+
+        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+            content = yaml.safe_load((workflows_dir / workflow_file).read_text())
+            assert "name" in content
+            # YAML parses "on" as boolean True, so check for True key
+            assert True in content or "on" in content
+            assert "jobs" in content
+
+    def test_workflow_no_jinja_artifacts(self, tmp_path: Path):
+        """Workflows should not have unrendered Jinja artifacts."""
+        output = run_copier(tmp_path, "backend")
+        workflows_dir = output / ".github" / "workflows"
+
+        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+            content = (workflows_dir / workflow_file).read_text()
+            # Check for unrendered Jinja (but allow GitHub Actions ${{ }})
+            assert "{% if" not in content
+            assert "{% endif" not in content
+            assert "{{ modules" not in content
+            assert "{{ project_" not in content

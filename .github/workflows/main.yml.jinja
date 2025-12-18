@@ -1,0 +1,103 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: "1"
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+{% if 'backend' in modules %}
+          - id: backend
+            context: .
+            dockerfile: services/backend/Dockerfile
+            image-suffix: backend
+{% endif %}
+{% if 'frontend' in modules %}
+          - id: frontend
+            context: services/frontend
+            dockerfile: Dockerfile
+            image-suffix: frontend
+{% endif %}
+{% if 'tg_bot' in modules %}
+          - id: tg-bot
+            context: .
+            dockerfile: services/tg_bot/Dockerfile
+            image-suffix: tg-bot
+{% endif %}
+{% if 'notifications' in modules %}
+          - id: notifications-worker
+            context: .
+            dockerfile: services/notifications_worker/Dockerfile
+            image-suffix: notifications-worker
+{% endif %}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare .env placeholder
+        run: cp .env.example .env
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: {% raw %}${{ env.REGISTRY }}{% endraw %}
+          username: {% raw %}${{ github.actor }}{% endraw %}
+          password: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: {% raw %}${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.image-suffix }}{% endraw %}
+          tags: |
+            type=raw,value=latest,enable={% raw %}${{ github.ref == 'refs/heads/main' }}{% endraw %}
+            type=sha
+
+      - name: Build and push {% raw %}${{ matrix.id }}{% endraw %}
+        uses: docker/build-push-action@v5
+        with:
+          context: {% raw %}${{ matrix.context }}{% endraw %}
+          file: {% raw %}${{ matrix.context }}/${{ matrix.dockerfile }}{% endraw %}
+          push: true
+          provenance: false
+          tags: {% raw %}${{ steps.meta.outputs.tags }}{% endraw %}
+          labels: {% raw %}${{ steps.meta.outputs.labels }}{% endraw %}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: {% raw %}success() && secrets.DEPLOY_HOST != ''{% endraw %}
+    steps:
+      - name: Trigger remote deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: {% raw %}${{ secrets.DEPLOY_HOST }}{% endraw %}
+          username: {% raw %}${{ secrets.DEPLOY_USER }}{% endraw %}
+          key: {% raw %}${{ secrets.DEPLOY_SSH_KEY }}{% endraw %}
+          port: {% raw %}${{ secrets.DEPLOY_PORT || '22' }}{% endraw %}
+          script: |
+            set -euo pipefail
+            cd "{% raw %}${{ secrets.DEPLOY_PROJECT_PATH }}{% endraw %}"
+            compose_files="{% raw %}${{ secrets.DEPLOY_COMPOSE_FILES }}{% endraw %}"
+            compose_args=""
+            for file in $compose_files; do
+              compose_args="$compose_args -f $file"
+            done
+            docker compose $compose_args pull
+            docker compose $compose_args up -d --remove-orphans
