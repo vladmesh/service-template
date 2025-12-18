@@ -28,7 +28,7 @@ jobs:
 {% if 'frontend' in modules %}
           - id: frontend
             context: services/frontend
-            dockerfile: Dockerfile
+            dockerfile: services/frontend/Dockerfile
             image-suffix: frontend
 {% endif %}
 {% if 'tg_bot' in modules %}
@@ -73,7 +73,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: {% raw %}${{ matrix.context }}{% endraw %}
-          file: {% raw %}${{ matrix.context }}/${{ matrix.dockerfile }}{% endraw %}
+          file: {% raw %}${{ matrix.dockerfile }}{% endraw %}
           push: true
           provenance: false
           tags: {% raw %}${{ steps.meta.outputs.tags }}{% endraw %}
