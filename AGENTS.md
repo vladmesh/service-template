@@ -40,7 +40,8 @@ Agents should interact with the system primarily through `make`.
 - **Check State:** `make sync-services check`
 - **Scaffold:** `make sync-services create`
 - **Verify:** `make lint && make tests`
-- **Generate:** `make generate-from-spec`
+- **Generate Code:** `make generate-from-spec`
+- **Generate OpenAPI:** `make openapi` (Outputs to `services/<service>/docs/openapi.json`)
 
 ## 🧠 Critical Project Knowledge
 

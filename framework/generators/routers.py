@@ -18,8 +18,16 @@ class RoutersGenerator(BaseGenerator):
         for router_key, router_spec in self.specs.routers.items():
             # router_key is like "backend/users"
             service_name, router_name = router_key.split("/")
+
+            # Target: services/<service_name>/src/generated/routers/<router_name>.py
             output_file = (
-                self.repo_root / "shared" / "shared" / "generated" / "routers" / f"{router_name}.py"
+                self.repo_root
+                / "services"
+                / service_name
+                / "src"
+                / "generated"
+                / "routers"
+                / f"{router_name}.py"
             )
 
             self._generate_router(router_spec, router_name, output_file)

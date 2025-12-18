@@ -74,7 +74,6 @@ handlers:
     # Check shared generated files
     shared_gen = root / "shared" / "shared" / "generated"
     assert (shared_gen / "schemas.py").exists()
-    assert (shared_gen / "protocols.py").exists()
     assert (shared_gen / "events.py").exists()
 
     # Check content
@@ -84,12 +83,20 @@ handlers:
 
     assert "class UserCreated(BaseModel):" in schemas
 
-    protocols = (shared_gen / "protocols.py").read_text()
+    events = (shared_gen / "events.py").read_text()
+    assert "broker = RedisBroker" in events
+
+    # Check service generated files (routers & protocols)
+    backend_gen = root / "services" / "backend" / "src" / "generated"
+    assert (backend_gen / "protocols.py").exists()
+    assert (backend_gen / "routers" / "users.py").exists()
+
+    protocols = (backend_gen / "protocols.py").read_text()
     assert "class UsersControllerProtocol(Protocol):" in protocols
     assert "async def create" in protocols
 
-    events = (shared_gen / "events.py").read_text()
-    assert "broker = RedisBroker" in events
+    router = (backend_gen / "routers" / "users.py").read_text()
+    assert "router = APIRouter" in router
 
     # Check service generated files (controllers)
     # We need to create the service directory first for controllers to be generated?

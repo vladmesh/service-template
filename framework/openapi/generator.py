@@ -46,6 +46,7 @@ class OpenAPIGenerator:
         title: str = "API",
         version: str = "1.0.0",
         description: str = "",
+        service_name: str | None = None,
     ) -> dict[str, Any]:
         """Generate complete OpenAPI 3.1 specification."""
         openapi = {
@@ -55,7 +56,7 @@ class OpenAPIGenerator:
                 "version": version,
                 "description": description,
             },
-            "paths": self._generate_paths(),
+            "paths": self._generate_paths(service_name),
             "components": {
                 "schemas": self._generate_schemas(),
             },
@@ -118,11 +119,17 @@ class OpenAPIGenerator:
             "additionalProperties": False,
         }
 
-    def _generate_paths(self) -> dict[str, Any]:
+    def _generate_paths(self, service_name: str | None = None) -> dict[str, Any]:
         """Generate OpenAPI paths from routers."""
         paths: dict[str, Any] = {}
 
-        for router in self.specs.routers.values():
+        for router_key, router in self.specs.routers.items():
+            # router_key is "service/router"
+            r_service, _ = router_key.split("/")
+
+            if service_name and r_service != service_name:
+                continue
+
             for handler in router.handlers:
                 path = f"{router.prefix}{handler.path}"
                 if path.endswith("/") and len(path) > 1:
@@ -203,6 +210,7 @@ def generate_openapi(
     output_path: Path | None = None,
     title: str = "API",
     version: str = "1.0.0",
+    service_name: str | None = None,
 ) -> dict[str, Any]:
     """Generate OpenAPI spec and optionally write to file.
 
@@ -211,6 +219,7 @@ def generate_openapi(
         output_path: If provided, write JSON to this path
         title: API title
         version: API version
+        service_name: Optional service name to filter routers
 
     Returns:
         The generated OpenAPI specification dict
@@ -220,7 +229,7 @@ def generate_openapi(
 
     specs = load_specs(repo_root)
     generator = OpenAPIGenerator(specs)
-    openapi = generator.generate(title=title, version=version)
+    openapi = generator.generate(title=title, version=version, service_name=service_name)
 
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -233,10 +242,39 @@ def generate_openapi(
 def main() -> None:
     """CLI entrypoint for OpenAPI generation."""
     repo_root = get_repo_root()
-    output_path = repo_root / "docs" / "openapi.json"
+    services_dir = repo_root / "services"
 
-    generate_openapi(repo_root, output_path)
-    print(f"Generated OpenAPI spec: {output_path}")
+    if not services_dir.exists():
+        print("No services directory found.")
+        return
+
+    generated_count = 0
+
+    for service_dir in services_dir.iterdir():
+        if not service_dir.is_dir():
+            continue
+
+        service_name = service_dir.name
+
+        # Check if service has any routers defined
+        spec_dir = service_dir / "spec"
+        has_routers = spec_dir.exists() and any(spec_dir.glob("*.yaml"))
+
+        if not has_routers:
+            continue
+
+        output_path = service_dir / "docs" / "openapi.json"
+        generate_openapi(
+            repo_root=repo_root,
+            output_path=output_path,
+            title=f"{service_name.title()} API",
+            service_name=service_name,
+        )
+        print(f"Generated OpenAPI spec for {service_name}: {output_path.relative_to(repo_root)}")
+        generated_count += 1
+
+    if generated_count == 0:
+        print("No services with router specs found.")
 
 
 if __name__ == "__main__":

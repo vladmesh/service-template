@@ -42,8 +42,8 @@ handlers:
     )
 
     # Generate
-    output_path = root / "docs" / "openapi.json"
-    generator.generate_openapi(root, output_path)
+    output_path = root / "services" / "backend" / "docs" / "openapi.json"
+    generator.generate_openapi(root, output_path, service_name="backend")
 
     assert output_path.exists()
 

@@ -16,12 +16,20 @@ class ProtocolsGenerator(BaseGenerator):
         self.output_file = self.repo_root / "shared" / "shared" / "generated" / "protocols.py"
 
     def generate(self) -> list[Path]:
-        """Generate protocols for all routers."""
-        routers_context = []
-        all_imports: set[str] = set()
+        """Generate protocols for all services."""
+        generated_files = []
+
+        # Group routers by service
+        services_routers: dict[str, list] = {}
+        services_imports: dict[str, set[str]] = {}
 
         for router_key, router in self.specs.routers.items():
-            _, module_name = router_key.split("/")
+            service_name, module_name = router_key.split("/")
+
+            if service_name not in services_routers:
+                services_routers[service_name] = []
+                services_imports[service_name] = set()
+
             protocol_name = f"{module_name.capitalize()}ControllerProtocol"
 
             handlers = []
@@ -46,7 +54,7 @@ class ProtocolsGenerator(BaseGenerator):
                 # Request model
                 if handler.request_model:
                     handler_ctx["request_model"] = handler.request_model
-                    all_imports.add(handler.request_model)
+                    services_imports[service_name].add(handler.request_model)
 
                 # Response model
                 if handler.response_model:
@@ -57,11 +65,11 @@ class ProtocolsGenerator(BaseGenerator):
                     else:
                         handler_ctx["response_model"] = model
                         handler_ctx["return_type"] = model
-                    all_imports.add(model)
+                    services_imports[service_name].add(model)
 
                 handlers.append(handler_ctx)
 
-            routers_context.append(
+            services_routers[service_name].append(
                 {
                     "name": module_name,
                     "protocol_name": protocol_name,
@@ -69,6 +77,7 @@ class ProtocolsGenerator(BaseGenerator):
                 }
             )
 
+        # Generate protocols.py for each service
         env = Environment(
             loader=FileSystemLoader(str(self.templates_dir)),
             trim_blocks=True,
@@ -77,12 +86,18 @@ class ProtocolsGenerator(BaseGenerator):
         )
         template = env.get_template("protocols.py.j2")
 
-        content = template.render(
-            routers=routers_context,
-            imports=all_imports,
-            async_handlers=True,
-        )
-        self.write_file(self.output_file, content)
-        self.format_file(self.output_file)
+        for service_name, routers_context in services_routers.items():
+            output_file = (
+                self.repo_root / "services" / service_name / "src" / "generated" / "protocols.py"
+            )
 
-        return [self.output_file]
+            content = template.render(
+                routers=routers_context,
+                imports=services_imports[service_name],
+                async_handlers=True,
+            )
+            self.write_file(output_file, content)
+            self.format_file(output_file)
+            generated_files.append(output_file)
+
+        return generated_files
