@@ -6,12 +6,15 @@ extended with real handlers later on.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 import logging
 import os
 from typing import Final
 
 import httpx
+from shared.generated.events import broker, publish_command_received
+from shared.generated.schemas import CommandReceived
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -94,39 +97,53 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     LOGGER.info("Handled /start for user_id=%s", telegram_user.id)
 
 
-DEBUG_ENDPOINT: Final[str] = f"{API_BASE_URL}/debug/command"
-
-
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /command and trigger backend event."""
+    """Handle /command and publish event directly to Redis."""
     telegram_user = update.effective_user
-    if telegram_user is None:
+    if telegram_user is None or update.message is None:
         return
 
     command = update.message.text or "/command"
     args = context.args or []
 
-    # We pass telegram_id as user_id for simplicity in this test
-    payload = {
-        "command": command,
-        "args": args,
-        "user_id": telegram_user.id,
-    }
+    event = CommandReceived(
+        command=command,
+        args=args,
+        user_id=telegram_user.id,
+        timestamp=datetime.now(UTC),
+    )
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(DEBUG_ENDPOINT, json=payload)
-            resp.raise_for_status()
-        await update.message.reply_text("Command sent to backend!")
+        await publish_command_received(event)
+        await update.message.reply_text("Command published!")
+        LOGGER.info("Published command event: %s", event.command)
     except Exception:
-        LOGGER.exception("Failed to send command to backend")
-        await update.message.reply_text("Failed to send command to backend.")
+        LOGGER.exception("Failed to publish command event")
+        await update.message.reply_text("Failed to send command.")
+
+
+async def post_init(application: Application) -> None:
+    """Connect to Redis broker after application init."""
+    await broker.connect()
+    LOGGER.info("Connected to Redis broker")
+
+
+async def post_shutdown(application: Application) -> None:
+    """Disconnect from Redis broker on shutdown."""
+    await broker.close()
+    LOGGER.info("Disconnected from Redis broker")
 
 
 def build_application() -> Application:
     """Create the telegram bot application with all handlers wired in."""
 
-    application = ApplicationBuilder().token(_get_token()).build()
+    application = (
+        ApplicationBuilder()
+        .token(_get_token())
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
     application.add_handler(CommandHandler("start", handle_start))
     application.add_handler(CommandHandler("command", handle_command))
     return application

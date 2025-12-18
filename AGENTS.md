@@ -104,6 +104,32 @@ The `shared/` directory contains generated code and shared models used by ALL se
        # Handle event
    ```
 
+### Direct Event Publishing Pattern
+
+Services should publish events directly to Redis, NOT through REST API intermediaries.
+
+**Example (Telegram Bot):**
+```python
+from shared.generated.events import broker, publish_command_received
+from shared.generated.schemas import CommandReceived
+
+# For python-telegram-bot, use post_init/post_shutdown hooks:
+async def post_init(application: Application) -> None:
+    await broker.connect()
+
+async def post_shutdown(application: Application) -> None:
+    await broker.close()
+
+# In handler:
+event = CommandReceived(command=cmd, args=args, user_id=user_id, timestamp=datetime.now(UTC))
+await publish_command_received(event)
+```
+
+**Required Setup:**
+1. Add `shared` as dependency in service's `pyproject.toml`
+2. Add `redis: service_healthy` to `depends_on` in `services.yml`
+3. Ensure `REDIS_URL` is available in environment
+
 ### Service Creation Pattern
 
 1. **Add to Registry:** Define in `services.yml` with appropriate type:

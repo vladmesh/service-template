@@ -93,22 +93,37 @@
 
 ### Direct Event Publishing for Services
 
-**Status**: TODO
+**Status**: DONE
 
 **Description**: Enable services to publish events directly to message broker instead of using REST API intermediaries.
-- **Problem**: Currently, Telegram bot makes REST calls to backend's debug endpoint to publish commands, violating event-driven architecture principles and creating unnecessary dependencies.
-- **Solution**: Give all services direct access to Redis broker for publishing events, remove debug REST endpoint as unnecessary intermediary.
-- **Details**:
-  - Update shared events module to be available to all services
-  - Modify Telegram bot to publish `command_received` events directly to Redis Streams
-  - Remove debug REST endpoint from backend
-  - Update event specifications to define which services can publish which events
-  - Ensure proper broker connection lifecycle in all services that publish events
-- **Benefits**:
-  - True decoupling: Services don't depend on each other through REST
-  - Improved reliability: No single point of failure through backend API
-  - Better performance: Direct Redis operations instead of HTTP round-trips
-  - Architectural consistency: Events as primary communication pattern
+
+**Implementation**:
+- Telegram bot (`tg_bot`) now publishes `command_received` events directly to Redis Streams
+- Added `shared` as dependency to tg_bot for access to generated events module
+- Broker lifecycle managed via `post_init`/`post_shutdown` hooks in telegram Application
+- Backend debug endpoint marked as DEPRECATED (kept for manual testing)
+- tg_bot now depends on `redis: service_healthy` in `services.yml`
+
+**Pattern for other services**:
+```python
+from shared.generated.events import broker, publish_<event_name>
+from shared.generated.schemas import <EventModel>
+
+# On startup
+await broker.connect()
+
+# Publishing
+event = EventModel(...)
+await publish_<event_name>(event)
+
+# On shutdown
+await broker.close()
+```
+
+**Benefits achieved**:
+- True decoupling: tg_bot no longer depends on backend for event publishing
+- Better performance: Direct Redis operations instead of HTTP round-trips
+- Architectural consistency: Events as primary communication pattern
 
 ## Quality Assurance & Observability
 

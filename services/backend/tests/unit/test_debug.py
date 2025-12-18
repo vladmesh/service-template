@@ -1,3 +1,10 @@
+"""Tests for the debug endpoint.
+
+NOTE: This endpoint is DEPRECATED. Services should publish events directly to Redis.
+These tests remain to ensure backward compatibility during transition period.
+See: services/tg_bot/src/main.py for the recommended pattern.
+"""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock

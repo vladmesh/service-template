@@ -13,6 +13,7 @@ services:
     dev_template: false
     depends_on:
       backend: service_started
+      redis: service_healthy
     profiles:
       - tg
   - name: frontend
