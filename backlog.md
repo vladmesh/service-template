@@ -75,16 +75,22 @@ def create_router(get_db, get_controller) -> APIRouter:
 
 ### Retry Logic for Telegram Bot Backend Communication
 
-**Status**: TODO
+**Status**: DONE
 
-**Description**: Add retry logic to Telegram bot's `handle_command` function to handle temporary backend unavailability.
-- **Problem**: When backend is reloading (dev mode with `--reload`), it becomes temporarily unavailable, causing command sending to fail.
-- **Solution**: Implement exponential backoff retry mechanism in `services/tg_bot/src/main.py` for `handle_command` function.
-- **Details**: 
-  - Retry on `httpx.ConnectError` and `httpx.HTTPStatusError` (5xx errors)
-  - Use exponential backoff (e.g., 1s, 2s, 4s) with max 3 retries
-  - Log retry attempts for debugging
-  - Only retry transient errors, not client errors (4xx)
+**Description**: Exponential backoff retry for transient backend errors.
+
+**Implementation** (`services/tg_bot/src/main.py`):
+- `_sync_user_with_backend` now accepts `max_retries` (default: 3) and `initial_delay` (default: 1.0s)
+- Retries on `httpx.ConnectError` (backend unavailable) and 5xx status codes
+- Exponential backoff: 1s → 2s → 4s
+- No retry on 4xx client errors (fail immediately)
+- Logging of retry attempts for debugging
+
+**Tests** (`services/tg_bot/tests/unit/test_command_handler.py`):
+- `test_sync_user_retries_on_5xx` — 5xx triggers retries, succeeds after recovery
+- `test_sync_user_retries_on_connect_error` — ConnectError triggers retries
+- `test_sync_user_no_retry_on_4xx` — 4xx errors do NOT retry
+- `test_sync_user_exhausts_all_retries` — returns None after all retries fail
 
 ### Spec-First Async Messaging (Queues)
 

@@ -50,27 +50,82 @@ def _get_token() -> str:
     return token
 
 
-async def _sync_user_with_backend(telegram_id: int) -> bool | None:
-    """Ensure the user exists in the backend or create it if missing."""
+async def _sync_user_with_backend(
+    telegram_id: int,
+    *,
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+) -> bool | None:
+    """Ensure the user exists in the backend or create it if missing.
+
+    Implements exponential backoff retry for transient errors:
+    - httpx.ConnectError: Backend temporarily unavailable
+    - 5xx status codes: Server-side errors
+
+    Args:
+        telegram_id: Telegram user ID to sync
+        max_retries: Maximum number of retry attempts (default: 3)
+        initial_delay: Initial delay in seconds, doubles each retry (default: 1.0)
+
+    Returns:
+        True if user was created, False if already exists, None on permanent failure
+    """
+    import asyncio
 
     payload = {"telegram_id": telegram_id, "is_admin": False}
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(USERS_ENDPOINT, json=payload)
-    except httpx.HTTPError:
-        LOGGER.exception("Failed to talk to backend when syncing Telegram user")
-        return None
+    delay = initial_delay
 
-    if response.status_code == HTTPStatus.CREATED:
-        return True
-    if response.status_code == HTTPStatus.CONFLICT:
-        return False
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(USERS_ENDPOINT, json=payload)
 
-    LOGGER.error(
-        "Unexpected response from backend when syncing Telegram user: status=%s body=%s",
-        response.status_code,
-        response.text,
-    )
+            # Success cases - don't retry
+            if response.status_code == HTTPStatus.CREATED:
+                return True
+            if response.status_code == HTTPStatus.CONFLICT:
+                return False
+
+            # Client errors (4xx except 409) - don't retry
+            if HTTPStatus.BAD_REQUEST <= response.status_code < HTTPStatus.INTERNAL_SERVER_ERROR:
+                LOGGER.error(
+                    "Client error from backend: status=%s body=%s",
+                    response.status_code,
+                    response.text,
+                )
+                return None
+
+            # Server errors (5xx) - retry with backoff
+            LOGGER.warning(
+                "Backend returned %s (attempt %d/%d), retrying in %.1fs...",
+                response.status_code,
+                attempt + 1,
+                max_retries,
+                delay,
+            )
+
+        except httpx.ConnectError:
+            LOGGER.warning(
+                "Backend unavailable (attempt %d/%d), retrying in %.1fs...",
+                attempt + 1,
+                max_retries,
+                delay,
+            )
+        except httpx.HTTPError:
+            LOGGER.exception(
+                "HTTP error syncing Telegram user (attempt %d/%d)",
+                attempt + 1,
+                max_retries,
+            )
+            if attempt == max_retries - 1:
+                return None
+
+        # Wait before next attempt (skip wait on last attempt)
+        if attempt < max_retries - 1:
+            await asyncio.sleep(delay)
+            delay *= 2  # Exponential backoff
+
+    LOGGER.error("Failed to sync user after %d attempts", max_retries)
     return None
 
 
