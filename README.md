@@ -4,39 +4,79 @@ A rigid, spec-first, modular framework for building AI-Agent-ready microservices
 
 > **Start here:** Read the [MANIFESTO](MANIFESTO.md) to understand the philosophy behind this project.
 
-## 🚀 Quick Start
+## Quick Start
 
-1.  **Clone & Setup**
-    ```bash
-    cp .env.example .env
-    make dev-start
-    ```
+### Create a New Project
 
-2.  **Development Workflow**
-    - **Add Service:** Edit `services.yml` -> `make sync-services create`
-    - **Update API:** Edit `shared/spec/*.yaml` -> `make generate-from-spec`
-    - **Test:** `make tests`
+```bash
+# Install copier
+pip install copier
 
-## 📚 Documentation
+# Generate a new project
+copier copy gh:your-org/service-template my-project
+
+# Or with specific modules
+copier copy gh:your-org/service-template my-project \
+  --data project_name=my-project \
+  --data modules=backend,tg_bot
+```
+
+### Available Modules
+
+| Module | Description |
+|--------|-------------|
+| `backend` | FastAPI REST API + PostgreSQL |
+| `tg_bot` | Telegram bot (FastStream) |
+| `notifications` | Email/Telegram notification worker |
+| `frontend` | Node.js frontend |
+
+### After Generation
+
+```bash
+cd my-project
+cp .env.example .env
+make dev-start
+```
+
+### Update Infrastructure
+
+Pull latest infrastructure updates while preserving your code:
+
+```bash
+copier update
+```
+
+## Development Workflow
+
+- **Add Service:** Edit `services.yml` -> `make sync-services create`
+- **Update API:** Edit `shared/spec/*.yaml` -> `make generate-from-spec`
+- **Run Tests:** `make tests`
+- **Lint:** `make lint`
+
+## Documentation
 
 - **[MANIFESTO.md](MANIFESTO.md)**: The core philosophy.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: How it works under the hood.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)**: Coding standards and rules.
 - **[AGENTS.md](AGENTS.md)**: Navigation guide for AI agents.
 
-## 🔮 Roadmap
+### Template Development
 
-We are evolving from a simple template to a comprehensive agent-native ecosystem.
+- **[docs/TEMPLATE_DEVELOPMENT.md](docs/TEMPLATE_DEVELOPMENT.md)**: How to develop and extend the template.
+- **[docs/TESTING.md](docs/TESTING.md)**: How to run template tests.
 
-1.  **Current:** "Clone & Own" — simple git-based workflow.
-2.  **Near Future:** **Updatable Template** — switch to `copier` to allow pulling infrastructure updates from upstream.
-3.  **Vision:** **Agent-First Interface** — an MCP (Model Context Protocol) server that allows agents to scaffold, update, and manage services via high-level API calls.
+## Roadmap
 
-## 🛠 Tech Stack
+1. **Current:** Copier-based updatable template with modular service selection.
+2. **Next:** CLI wrappers for simplified usage (`my-framework init`, `my-framework sync`).
+3. **Vision:** MCP server for AI agents to scaffold and manage services via API.
 
-- **Core:** Python 3.11, Docker Compose
+## Tech Stack
+
+- **Core:** Python 3.12, Docker Compose
 - **API:** FastAPI, Pydantic (Spec-First)
 - **Data:** PostgreSQL, SQLAlchemy, Alembic
+- **Messaging:** Redis, FastStream
 - **Quality:** Ruff, Mypy, Pytest
 
 ## License

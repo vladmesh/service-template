@@ -21,6 +21,34 @@ services:
       PYTHONPATH: /workspace
 {% endif %}
 
+{% if 'tg_bot' in modules %}
+  tg_bot:
+    extends:
+      file: compose.base.yml
+      service: tg_bot
+    volumes:
+      - ../:/workspace:delegated
+    working_dir: /workspace
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /workspace
+{% endif %}
+
+{% if 'notifications' in modules %}
+  notifications_worker:
+    extends:
+      file: compose.base.yml
+      service: notifications_worker
+    volumes:
+      - ../:/workspace:delegated
+    working_dir: /workspace
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /workspace
+{% endif %}
+
 {% if 'frontend' in modules %}
   frontend:
     extends:
@@ -40,6 +68,15 @@ services:
       service: db
     ports:
       - "5432:5432"
+{% endif %}
+
+{% if 'tg_bot' in modules or 'notifications' in modules %}
+  redis:
+    extends:
+      file: compose.base.yml
+      service: redis
+    ports:
+      - "6379:6379"
 {% endif %}
 
   caddy:

@@ -132,11 +132,18 @@
 
 ### 1. Updatable Template (Copier)
 
-**Status**: IDEA
+**Status**: DONE
 
 **Description**: Move from a static repository to a template compatible with `copier` or `cruft`.
 - **Why**: To solve the "Upgrade Problem". Users should be able to pull updates from the upstream template (e.g., fixes to Makefile or Dockerfiles) even after they have started developing their services.
 - **Goal**: `copier update` should work seamlessly for infrastructure files while respecting user code in `services/`.
+
+**Implementation**:
+- `copier.yml` with module selection (backend, tg_bot, notifications, frontend)
+- Jinja templates for conditional generation of services, compose files, documentation
+- `_skip_if_exists` preserves user code in `services/*/src/app/`, `services/*/src/controllers/`, specs
+- `_tasks` clean up unselected modules after copy
+- Comprehensive test suite in `tests/copier/` (32 tests covering generation, updates, module exclusion)
 
 ### 2. CLI Wrappers
 

@@ -107,7 +107,7 @@ makemigrations:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 {% endif %}
 
-	log:
+log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
 	if [ -z "$$service" ]; then \
 		echo "Usage: make log <service_name>"; \

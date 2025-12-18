@@ -341,6 +341,27 @@ class TestComposeServices:
         assert "redis" in compose["services"]
         assert "db" in compose["services"]
 
+    def test_dev_compose_has_event_services(self, tmp_path: Path):
+        """compose.dev.yml should include tg_bot, notifications, and redis when selected."""
+        import yaml
+
+        output = run_copier(tmp_path, "backend,tg_bot,notifications")
+        compose_dev = yaml.safe_load((output / "infra" / "compose.dev.yml").read_text())
+
+        assert "tg_bot" in compose_dev["services"]
+        assert "notifications_worker" in compose_dev["services"]
+        assert "redis" in compose_dev["services"]
+
+    def test_dev_compose_no_redis_backend_only(self, tmp_path: Path):
+        """compose.dev.yml should not include redis for backend-only."""
+        import yaml
+
+        output = run_copier(tmp_path, "backend")
+        compose_dev = yaml.safe_load((output / "infra" / "compose.dev.yml").read_text())
+
+        assert "redis" not in compose_dev.get("services", {})
+        assert "tg_bot" not in compose_dev.get("services", {})
+
 
 @pytest.mark.usefixtures("copier_available")
 class TestIntegration:
