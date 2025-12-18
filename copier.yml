@@ -35,6 +35,12 @@ _exclude:
   - Makefile.jinja
   - AGENTS.md.jinja
   - ARCHITECTURE.md.jinja
+  - .env.example.jinja
+  - services.yml.jinja
+  - README.md.jinja
+  - infra/compose.base.yml.jinja
+  - infra/compose.dev.yml.jinja
+  - "{{ _copier_conf.answers_file }}.jinja"
 
   # Always exclude test_service (it's for template development only)
   - services/test_service
