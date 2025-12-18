@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests copier-tests generate-from-spec validate-specs
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests copier-tests generate-from-spec validate-specs lint-controllers openapi typescript
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -33,13 +33,13 @@ endif
 endif
 
 lint:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'framework/*,tests/*' . && python -m framework.validate_specs && python -m framework.enforce_spec_compliance"
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude 'framework/*,tests/*' . && python -c 'from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)' && python -m framework.enforce_spec_compliance && python -c 'from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)'"
 
 lint-complexity:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling xenon --max-absolute B --max-modules A --max-average A --exclude "framework/*,tests/*" .
 
 validate-specs:
-	$(PYTHON_TOOLING) -m framework.validate_specs
+	$(PYTHON_TOOLING) -c "from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
 
 lint-specs:
 	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
@@ -146,15 +146,19 @@ sync-services:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m framework.sync_services $$cmd
 
 tooling-tests:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 tests/tooling
+	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 tests/tooling tests/unit
 
 copier-tests:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -v tests/copier/
 
 generate-from-spec:
-	$(PYTHON_TOOLING) -m framework.generate_from_spec
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff format {} +'
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find shared/shared/generated -name "*.py" -type f -exec ruff check --fix {} +'
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find services/*/src/generated -name "*.py" -type f -exec ruff format {} +'
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling sh -c 'find services/*/src/generated -name "*.py" -type f -exec ruff check --fix {} +'
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --rm tooling chown -R $$(id -u):$$(id -g) services shared/shared/generated
+	$(PYTHON_TOOLING) -m framework.generate
+
+lint-controllers:
+	$(PYTHON_TOOLING) -c "from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
+
+openapi:
+	$(PYTHON_TOOLING) -m framework.openapi.generator
+
+typescript:
+	$(PYTHON_TOOLING) -m framework.frontend.generator

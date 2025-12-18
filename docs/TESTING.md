@@ -4,9 +4,22 @@ This document describes how to run tests for the service-template project.
 
 ## Test Categories
 
-### 1. Tooling Tests
+### 1. Unit Tests
 
-Tests for the framework code (`framework/` directory):
+Tests for the framework's core logic (`framework/spec/`):
+
+```bash
+make tests suite=unit
+```
+
+Covers:
+- Spec parsing and validation
+- Type system
+- Model/Router/Event spec logic
+
+### 2. Tooling Tests
+
+Tests for the framework's CLI tools and generators (`framework/generators/`, `framework/openapi/`, etc.):
 
 ```bash
 make tooling-tests
@@ -14,9 +27,10 @@ make tooling-tests
 
 Covers:
 - `sync_services.py` - Service scaffolding and synchronization
-- `generate_from_spec.py` - Code generation from YAML specs
-- `validate_specs.py` - Spec validation
-- `enforce_spec_compliance.py` - Custom linter rules
+- `generate.py` - Modular code generation from YAML specs
+- `openapi/generator.py` - OpenAPI export
+- `frontend/generator.py` - TypeScript type generation
+- `lint/controller_sync.py` - Controller synchronization check
 
 ### 2. Copier Template Tests
 
@@ -148,8 +162,9 @@ make lint
 Runs:
 - `ruff check` - Python linting
 - `xenon` - Complexity check
-- `validate_specs` - YAML spec validation
+- `spec.loader` - YAML spec validation
 - `enforce_spec_compliance` - Custom rules
+- `lint.controller_sync` - Controller-protocol sync check
 
 ## Type Checking
 

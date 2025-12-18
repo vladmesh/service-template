@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+{% if async_handlers %}
+from sqlalchemy.ext.asyncio import AsyncSession
+{% else %}
 from sqlalchemy.orm import Session
+{% endif %}
 
 from ..generated.protocols import {{ protocol_name }}
 
@@ -19,7 +23,7 @@ class {{ module_name.capitalize() }}Controller({{ protocol_name }}):
     {% for handler in handlers %}
     {% if async_handlers %}async {% endif %}def {{ handler.name }}(
         self,
-        session: Session,
+        session: {% if async_handlers %}AsyncSession{% else %}Session{% endif %},
         {% for param in handler.params %}
         {{ param.name }}: {{ param.type }},
         {% endfor %}

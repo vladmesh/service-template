@@ -30,7 +30,7 @@
 **Status**: DONE
 
 **Description**: Validate YAML specifications before code generation to catch errors early.
-- **Implementation**: `framework/validate_specs.py` validates:
+- **Implementation**: `framework/spec/loader.py` validates with Pydantic:
   - `models.yaml`: field types, constraints, variant references (exclude/optional)
   - `routers/*.yaml`: HTTP methods, model/variant existence
   - `events.yaml`: message type existence
