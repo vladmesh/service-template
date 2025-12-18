@@ -92,6 +92,28 @@ def create_router(get_db, get_controller) -> APIRouter:
 - `test_sync_user_no_retry_on_4xx` — 4xx errors do NOT retry
 - `test_sync_user_exhausts_all_retries` — returns None after all retries fail
 
+### Unified Retry Logic in Generated Clients
+
+**Status**: TODO
+
+**Description**: Add configurable retry logic to generated REST clients (from `ClientsGenerator`).
+
+**Problem**: 
+- Current retry implementation is manual in `tg_bot/src/main.py` 
+- Each consumer service would need to duplicate this logic
+- Violates DRY and "Generation > Context" principle
+
+**Proposed Solution**:
+- Add `tenacity` as optional dependency for generated clients
+- Configure retry at client init: `BackendClient(max_retries=3, retry_on=[5xx, ConnectError])`
+- Smart defaults: retry safe methods (GET), configurable for others
+- Alternatively: retry at httpx transport level
+
+**Considerations**:
+- POST/PUT with side effects — danger of duplicate actions
+- Need to distinguish retryable vs non-retryable errors (5xx vs 4xx)
+- Timeout vs connection error handling
+
 ### Spec-First Async Messaging (Queues)
 
 **Status**: IN PROGRESS

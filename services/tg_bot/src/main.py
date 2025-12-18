@@ -6,6 +6,7 @@ extended with real handlers later on.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from http import HTTPStatus
 import logging
@@ -14,9 +15,11 @@ from typing import Final
 
 import httpx
 from shared.generated.events import broker, publish_command_received
-from shared.generated.schemas import CommandReceived
+from shared.generated.schemas import CommandReceived, UserCreate
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
+
+from .generated.clients.backend import BackendClient
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -31,13 +34,6 @@ WELCOME_BACK_GREETING: Final[str] = "Хай, добро пожаловать н�
 REGISTRATION_ERROR: Final[str] = (
     "Не получилось зарегистрировать вас в сервисе, попробуйте ещё раз позже."
 )
-
-
-_api_base_url = os.getenv("API_BASE_URL")
-if not _api_base_url:
-    raise RuntimeError("API_BASE_URL is not set; please add it to your environment variables")
-API_BASE_URL: Final[str] = _api_base_url.rstrip("/")
-USERS_ENDPOINT: Final[str] = f"{API_BASE_URL}/users"
 
 
 def _get_token() -> str:
@@ -58,6 +54,7 @@ async def _sync_user_with_backend(
 ) -> bool | None:
     """Ensure the user exists in the backend or create it if missing.
 
+    Uses generated BackendClient with manual retry logic for resilience.
     Implements exponential backoff retry for transient errors:
     - httpx.ConnectError: Backend temporarily unavailable
     - 5xx status codes: Server-side errors
@@ -70,35 +67,36 @@ async def _sync_user_with_backend(
     Returns:
         True if user was created, False if already exists, None on permanent failure
     """
-    import asyncio
-
-    payload = {"telegram_id": telegram_id, "is_admin": False}
+    payload = UserCreate(telegram_id=telegram_id, is_admin=False)
     delay = initial_delay
 
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(USERS_ENDPOINT, json=payload)
-
-            # Success cases - don't retry
-            if response.status_code == HTTPStatus.CREATED:
+            async with BackendClient() as client:
+                user = await client.create_user(payload)
+                LOGGER.info("Created user: %s", user.id)
                 return True
-            if response.status_code == HTTPStatus.CONFLICT:
+
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+
+            # 409 CONFLICT = user already exists (success case)
+            if status == HTTPStatus.CONFLICT:
                 return False
 
             # Client errors (4xx except 409) - don't retry
-            if HTTPStatus.BAD_REQUEST <= response.status_code < HTTPStatus.INTERNAL_SERVER_ERROR:
+            if HTTPStatus.BAD_REQUEST <= status < HTTPStatus.INTERNAL_SERVER_ERROR:
                 LOGGER.error(
                     "Client error from backend: status=%s body=%s",
-                    response.status_code,
-                    response.text,
+                    status,
+                    e.response.text,
                 )
                 return None
 
             # Server errors (5xx) - retry with backoff
             LOGGER.warning(
                 "Backend returned %s (attempt %d/%d), retrying in %.1fs...",
-                response.status_code,
+                status,
                 attempt + 1,
                 max_retries,
                 delay,
@@ -111,6 +109,7 @@ async def _sync_user_with_backend(
                 max_retries,
                 delay,
             )
+
         except httpx.HTTPError:
             LOGGER.exception(
                 "HTTP error syncing Telegram user (attempt %d/%d)",
