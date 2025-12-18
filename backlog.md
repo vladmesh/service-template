@@ -143,7 +143,39 @@
 - Jinja templates for conditional generation of services, compose files, documentation
 - `_skip_if_exists` preserves user code in `services/*/src/app/`, `services/*/src/controllers/`, specs
 - `_tasks` clean up unselected modules after copy
-- Comprehensive test suite in `tests/copier/` (32 tests covering generation, updates, module exclusion)
+- Comprehensive test suite in `tests/copier/` (41 tests covering generation, updates, module exclusion, workflows)
+- GitHub workflows templatized with conditional CI matrix based on selected modules
+- Template CI workflow (`test-template.yml`) for testing template generation
+
+### 1.1 Add Predefined Module to Existing Project
+
+**Status**: TODO
+
+**Description**: Allow adding a predefined module (tg_bot, notifications, frontend) to an existing project that was initially generated without it.
+
+- **Problem**: Copier's `update` command updates infrastructure but cannot add modules that were excluded during initial generation. The `_tasks` in `copier.yml` delete unselected module directories, making them unavailable for later addition.
+
+- **Use Case**: Agent generates project with `modules=backend`, later decides to add `tg_bot`.
+
+- **Current Workaround**: Re-generate project with all desired modules (loses customizations) or manually copy module from template.
+
+- **Proposed Solution**: `make add-module name=tg_bot` command that:
+  1. Validates module is in predefined list (backend, tg_bot, notifications, frontend)
+  2. Fetches module directory from template repository (via git archive or copier partial)
+  3. Updates `services.yml` to include the new module
+  4. Runs `make sync-services` to update compose files
+  5. Updates `.copier-answers.yml` to reflect new module selection
+
+- **Alternative Approach**: Don't delete unselected modules during generation, just exclude them from compose files. Modules remain dormant until explicitly enabled.
+
+- **Considerations**:
+  - How to handle template version mismatch (project on v1.0, template on v2.0)?
+  - Should module addition trigger compose regeneration automatically?
+  - Integration with `copier update` — should it respect manually added modules?
+
+- **Differentiation from Custom Services**:
+  - **Predefined modules**: `make add-module` — pulls from template, includes all boilerplate
+  - **Custom services**: `make sync-services create` — scaffolds empty service structure
 
 ### 2. CLI Wrappers
 
