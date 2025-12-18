@@ -24,19 +24,27 @@ models:
         encoding="utf-8",
     )
 
-    # Create service spec
+    # Create service spec (NEW FORMAT)
     service_spec_dir = root / "services" / "backend" / "spec"
     service_spec_dir.mkdir(parents=True)
 
     (service_spec_dir / "users.yaml").write_text(
         """
-prefix: /users
-tags: [users]
-handlers:
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
   get:
-    method: GET
-    path: /{id}
-    response: {model: User}
+    output: User
+    params:
+      - name: id
+        type: int
+    rest:
+      method: GET
+      path: "/{id}"
 """,
         encoding="utf-8",
     )

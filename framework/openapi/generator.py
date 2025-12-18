@@ -2,7 +2,7 @@
 
 Generates a complete OpenAPI specification from:
 - models.yaml → JSON Schema definitions in components/schemas
-- routers/*.yaml → paths and operations
+- domain specs → paths and operations
 """
 
 from __future__ import annotations
@@ -11,9 +11,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from framework.generators.context import OperationContextBuilder
 from framework.lib.env import get_repo_root
 from framework.spec.loader import AllSpecs, load_specs
-from framework.spec.routers import HandlerSpec
+from framework.spec.operations import OperationSpec
 
 
 def type_to_openapi_schema(type_str: str) -> dict[str, Any]:
@@ -40,6 +41,7 @@ class OpenAPIGenerator:
     def __init__(self, specs: AllSpecs) -> None:
         """Initialize with validated specs."""
         self.specs = specs
+        self.context_builder = OperationContextBuilder()
 
     def generate(
         self,
@@ -120,89 +122,92 @@ class OpenAPIGenerator:
         }
 
     def _generate_paths(self, service_name: str | None = None) -> dict[str, Any]:
-        """Generate OpenAPI paths from routers."""
+        """Generate OpenAPI paths from domains."""
         paths: dict[str, Any] = {}
 
-        for router_key, router in self.specs.routers.items():
-            # router_key is "service/router"
-            r_service, _ = router_key.split("/")
+        for domain_key, domain in self.specs.domains.items():
+            d_service, _ = domain_key.split("/")
 
-            if service_name and r_service != service_name:
+            if service_name and d_service != service_name:
                 continue
 
-            for handler in router.handlers:
-                path = f"{router.prefix}{handler.path}"
+            # Get REST prefix from domain config
+            prefix = ""
+            tags = []
+            if domain.config.rest:
+                prefix = domain.config.rest.prefix
+                tags = domain.config.rest.tags
+
+            for operation in domain.get_rest_operations():
+                ctx = self.context_builder.build_for_rest(operation)
+
+                path = f"{prefix}{ctx.path or ''}"
                 if path.endswith("/") and len(path) > 1:
                     path = path[:-1]
-                # Convert {param} to OpenAPI format (it's already correct)
                 if not path:
                     path = "/"
 
                 if path not in paths:
                     paths[path] = {}
 
-                operation = self._handler_to_operation(handler, router.tags)
-                paths[path][handler.method.lower()] = operation
+                op_spec = self._operation_to_openapi(operation, ctx, tags)
+                paths[path][ctx.http_method.lower()] = op_spec
 
         return paths
 
-    def _handler_to_operation(self, handler: HandlerSpec, tags: list[str]) -> dict[str, Any]:
-        """Convert handler to OpenAPI operation."""
-        operation: dict[str, Any] = {
-            "operationId": handler.name,
-            "summary": handler.name.replace("_", " ").title(),
+    def _operation_to_openapi(
+        self,
+        operation: OperationSpec,
+        ctx,
+        tags: list[str],
+    ) -> dict[str, Any]:
+        """Convert operation to OpenAPI operation."""
+        openapi_op: dict[str, Any] = {
+            "operationId": operation.name,
+            "summary": operation.name.replace("_", " ").title(),
             "tags": tags,
             "responses": {},
         }
 
         # Path parameters
-        path_params = handler.get_path_params()
-        if path_params:
-            operation["parameters"] = [
+        if ctx.params:
+            openapi_op["parameters"] = [
                 {
-                    "name": name,
+                    "name": p.name,
                     "in": "path",
                     "required": True,
-                    "schema": type_to_openapi_schema(param_type),
+                    "schema": type_to_openapi_schema(p.type),
                 }
-                for name, param_type in path_params
+                for p in ctx.params
             ]
 
         # Request body
-        if handler.request_model:
-            operation["requestBody"] = {
+        if ctx.input_model:
+            openapi_op["requestBody"] = {
                 "required": True,
                 "content": {
                     "application/json": {
-                        "schema": {"$ref": f"#/components/schemas/{handler.request_model}"},
+                        "schema": {"$ref": f"#/components/schemas/{ctx.input_model}"},
                     },
                 },
             }
 
         # Response
-        status = str(handler.status_code)
-        if handler.response_model:
-            response_schema: dict[str, Any]
-            if handler.response_many:
-                response_schema = {
-                    "type": "array",
-                    "items": {"$ref": f"#/components/schemas/{handler.response_model}"},
-                }
-            else:
-                response_schema = {"$ref": f"#/components/schemas/{handler.response_model}"}
-
-            operation["responses"][status] = {
+        status = str(ctx.status_code)
+        if ctx.output_model:
+            response_schema = {"$ref": f"#/components/schemas/{ctx.output_model}"}
+            openapi_op["responses"][status] = {
                 "description": "Successful response",
                 "content": {
                     "application/json": {"schema": response_schema},
                 },
             }
         else:
-            operation["responses"][status] = {
+            openapi_op["responses"][status] = {
                 "description": "No content",
             }
 
-        return operation
+        return openapi_op
 
 
 def generate_openapi(
@@ -212,18 +217,7 @@ def generate_openapi(
     version: str = "1.0.0",
     service_name: str | None = None,
 ) -> dict[str, Any]:
-    """Generate OpenAPI spec and optionally write to file.
-
-    Args:
-        repo_root: Repository root path
-        output_path: If provided, write JSON to this path
-        title: API title
-        version: API version
-        service_name: Optional service name to filter routers
-
-    Returns:
-        The generated OpenAPI specification dict
-    """
+    """Generate OpenAPI spec and optionally write to file."""
     if repo_root is None:
         repo_root = get_repo_root()
 
@@ -255,12 +249,10 @@ def main() -> None:
             continue
 
         service_name = service_dir.name
-
-        # Check if service has any routers defined
         spec_dir = service_dir / "spec"
-        has_routers = spec_dir.exists() and any(spec_dir.glob("*.yaml"))
+        has_specs = spec_dir.exists() and any(spec_dir.glob("*.yaml"))
 
-        if not has_routers:
+        if not has_specs:
             continue
 
         output_path = service_dir / "docs" / "openapi.json"
@@ -274,7 +266,7 @@ def main() -> None:
         generated_count += 1
 
     if generated_count == 0:
-        print("No services with router specs found.")
+        print("No services with specs found.")
 
 
 if __name__ == "__main__":

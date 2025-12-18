@@ -46,26 +46,29 @@ models:
 """
         (temp_repo / "shared" / "spec" / "models.yaml").write_text(models_yaml)
 
-        # Write router
-        router_yaml = """
-rest:
-  prefix: "/users"
-  tags: ["users"]
+        # Write domain spec (new format)
+        domain_yaml = """
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
 
-handlers:
+operations:
   create_user:
-    method: POST
-    path: /
-    request: UserCreate
-    response: UserRead
-    status: 201
+    input: UserCreate
+    output: UserRead
+    rest:
+      method: POST
+      path: ""
+      status: 201
 """
-        (temp_repo / "services" / "backend" / "spec" / "users.yaml").write_text(router_yaml)
+        (temp_repo / "services" / "backend" / "spec" / "users.yaml").write_text(domain_yaml)
 
         specs = load_specs(temp_repo)
 
         assert "User" in specs.models.models
-        assert "backend/users" in specs.routers
+        assert "backend/users" in specs.domains
 
     def test_missing_models_yaml(self, temp_repo: Path) -> None:
         """Missing models.yaml should fail."""
@@ -90,18 +93,18 @@ models:
 """
         (temp_repo / "shared" / "spec" / "models.yaml").write_text(models_yaml)
 
-        router_yaml = """
-rest:
-  prefix: "/users"
-handlers:
+        domain_yaml = """
+domain: users
+operations:
   get_user:
-    method: GET
-    path: /
-    response: UnknownModel
+    output: UnknownModel
+    rest:
+      method: GET
+      path: ""
 """
-        (temp_repo / "services" / "backend" / "spec" / "users.yaml").write_text(router_yaml)
+        (temp_repo / "services" / "backend" / "spec" / "users.yaml").write_text(domain_yaml)
 
-        with pytest.raises(SpecValidationError, match="Unknown response model 'UnknownModel'"):
+        with pytest.raises(SpecValidationError, match="Unknown output model 'UnknownModel'"):
             load_specs(temp_repo)
 
     def test_events_optional(self, temp_repo: Path) -> None:

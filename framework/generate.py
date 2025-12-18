@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 from framework.generators.controllers import ControllersGenerator
+from framework.generators.event_handlers import EventHandlersGenerator
 from framework.generators.events import EventsGenerator
 from framework.generators.protocols import ProtocolsGenerator
 from framework.generators.routers import RoutersGenerator
@@ -28,7 +29,7 @@ def generate_all(repo_root: Path | None = None) -> None:
         sys.exit(1)
 
     print(f"  Models: {len(specs.models.models)}")
-    print(f"  Routers: {len(specs.routers)}")
+    print(f"  Domains: {len(specs.domains)}")
     print(f"  Events: {len(specs.events.events)}")
 
     # Run generators in order
@@ -38,6 +39,7 @@ def generate_all(repo_root: Path | None = None) -> None:
         ("Protocols", ProtocolsGenerator(specs, repo_root)),
         ("Controllers", ControllersGenerator(specs, repo_root)),
         ("Events", EventsGenerator(specs, repo_root)),
+        ("EventHandlers", EventHandlersGenerator(specs, repo_root)),
     ]
 
     for name, generator in generators:

@@ -50,20 +50,26 @@ events:
         encoding="utf-8",
     )
 
-    # Create service spec
+    # Create service spec (NEW FORMAT)
     service_spec_dir = root / "services" / "backend" / "spec"
     service_spec_dir.mkdir(parents=True)
 
     (service_spec_dir / "users.yaml").write_text(
         """
-prefix: /users
-tags: [users]
-handlers:
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
   create:
-    method: POST
-    path: /
-    request: {model: User, variant: Create}
-    response: {model: User}
+    input: UserCreate
+    output: User
+    rest:
+      method: POST
+      path: ""
+      status: 201
 """,
         encoding="utf-8",
     )
@@ -98,13 +104,7 @@ handlers:
     router = (backend_gen / "routers" / "users.py").read_text()
     assert "router = APIRouter" in router
 
-    # Check service generated files (controllers)
-    # We need to create the service directory first for controllers to be generated?
-    # Actually controllers are generated in services/backend/src/controllers
-    # But only if the service exists.
-    # The generator might skip if dir doesn't exist.
-
-    # Let's create a backend service dir
+    # Create backend service dir for controllers
     backend_src = root / "services" / "backend" / "src"
     (backend_src / "controllers").mkdir(parents=True, exist_ok=True)
 

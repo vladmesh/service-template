@@ -1,25 +1,33 @@
-"""Router generator using Jinja2 templates."""
+"""Router generator using Jinja2 templates and OperationContextBuilder."""
 
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
 from framework.generators.base import BaseGenerator
-from framework.spec.routers import HandlerSpec, RouterSpec
+from framework.generators.context import OperationContextBuilder
 
 
 class RoutersGenerator(BaseGenerator):
-    """Generate FastAPI routers from router specs."""
+    """Generate FastAPI routers from domain specs."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize generator."""
+        super().__init__(*args, **kwargs)
+        self.context_builder = OperationContextBuilder()
 
     def generate(self) -> list[Path]:
         """Generate routers for all services."""
         generated = []
 
-        for router_key, router_spec in self.specs.routers.items():
-            # router_key is like "backend/users"
-            service_name, router_name = router_key.split("/")
+        for domain_key, domain in self.specs.domains.items():
+            service_name, domain_name = domain_key.split("/")
 
-            # Target: services/<service_name>/src/generated/routers/<router_name>.py
+            # Only generate if domain has REST operations
+            rest_ops = domain.get_rest_operations()
+            if not rest_ops:
+                continue
+
             output_file = (
                 self.repo_root
                 / "services"
@@ -27,17 +35,17 @@ class RoutersGenerator(BaseGenerator):
                 / "src"
                 / "generated"
                 / "routers"
-                / f"{router_name}.py"
+                / f"{domain_name}.py"
             )
 
-            self._generate_router(router_spec, router_name, output_file)
+            self._generate_router(domain, domain_name, output_file)
             generated.append(output_file)
 
         return generated
 
-    def _generate_router(self, router: RouterSpec, module_name: str, output_file: Path) -> None:
+    def _generate_router(self, domain, module_name: str, output_file: Path) -> None:
         """Generate a single router file."""
-        context = self._prepare_context(router, module_name)
+        context = self._prepare_context(domain, module_name)
 
         env = Environment(
             loader=FileSystemLoader(str(self.templates_dir)),
@@ -51,63 +59,44 @@ class RoutersGenerator(BaseGenerator):
         self.write_file(output_file, content)
         self.format_file(output_file)
 
-    def _prepare_context(self, router: RouterSpec, module_name: str) -> dict:
-        """Prepare Jinja2 template context from router spec."""
+    def _prepare_context(self, domain, module_name: str) -> dict:
+        """Prepare Jinja2 template context from domain spec."""
         imports: set[str] = set()
         handlers = []
 
-        for handler in router.handlers:
-            handler_ctx = self._prepare_handler_context(handler, imports)
+        # Get REST config from domain
+        prefix = ""
+        tags = []
+        if domain.config.rest:
+            prefix = domain.config.rest.prefix
+            tags = domain.config.rest.tags
+
+        for operation in domain.get_rest_operations():
+            ctx = self.context_builder.build_for_rest(operation)
+
+            handler_ctx = {
+                "name": ctx.name,
+                "method": ctx.http_method,
+                "path": ctx.path,
+                "status_code": ctx.status_code,
+                "docstring": f"Handler for {ctx.name}",
+                "params": [
+                    {"name": p.name, "type": p.type, "source": p.source} for p in ctx.params
+                ],
+                "request_model": ctx.input_model,
+                "response_model": ctx.output_model,
+                "return_type": ctx.computed_return_type,
+            }
+
+            imports.update(ctx.imports)
             handlers.append(handler_ctx)
 
         return {
             "module_name": module_name,
-            "prefix": router.prefix,
-            "tags": router.tags,
-            "async_handlers": router.config.async_handlers,
+            "prefix": prefix,
+            "tags": tags,
+            "async_handlers": True,  # Always async in new format
             "imports": imports,
             "handlers": handlers,
             "protocol_name": f"{module_name.capitalize()}ControllerProtocol",
         }
-
-    def _prepare_handler_context(self, handler: HandlerSpec, imports: set[str]) -> dict:
-        """Prepare context for a single handler."""
-        ctx = {
-            "name": handler.name,
-            "method": handler.method,
-            "path": handler.path,
-            "status_code": handler.status_code,
-            "docstring": f"Handler for {handler.name}",
-            "params": [],
-            "request_model": None,
-            "response_model": None,
-            "return_type": "None",
-        }
-
-        # Path params
-        for param_name, param_type in handler.get_path_params():
-            ctx["params"].append(
-                {
-                    "name": param_name,
-                    "type": param_type,
-                    "source": "Path(...)",
-                }
-            )
-
-        # Request model
-        if handler.request_model:
-            ctx["request_model"] = handler.request_model
-            imports.add(handler.request_model)
-
-        # Response model
-        if handler.response_model:
-            model = handler.response_model
-            if handler.response_many:
-                ctx["response_model"] = f"list[{model}]"
-                ctx["return_type"] = f"list[{model}]"
-            else:
-                ctx["response_model"] = model
-                ctx["return_type"] = model
-            imports.add(model)
-
-        return ctx

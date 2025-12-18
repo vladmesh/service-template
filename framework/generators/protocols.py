@@ -1,77 +1,61 @@
-"""Protocol generator for controllers."""
+"""Protocol generator for controllers.
+
+Generates typing.Protocol classes from domain specifications.
+"""
 
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
 from framework.generators.base import BaseGenerator
+from framework.generators.context import OperationContextBuilder
 
 
 class ProtocolsGenerator(BaseGenerator):
-    """Generate controller protocols from all routers."""
+    """Generate controller protocols from domain specs."""
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initialize with output path."""
+        """Initialize generator."""
         super().__init__(*args, **kwargs)
-        self.output_file = self.repo_root / "shared" / "shared" / "generated" / "protocols.py"
+        self.context_builder = OperationContextBuilder()
 
     def generate(self) -> list[Path]:
         """Generate protocols for all services."""
         generated_files = []
 
-        # Group routers by service
-        services_routers: dict[str, list] = {}
+        # Group domains by service
+        services_domains: dict[str, list] = {}
         services_imports: dict[str, set[str]] = {}
 
-        for router_key, router in self.specs.routers.items():
-            service_name, module_name = router_key.split("/")
+        for domain_key, domain in self.specs.domains.items():
+            service_name, domain_name = domain_key.split("/")
 
-            if service_name not in services_routers:
-                services_routers[service_name] = []
+            if service_name not in services_domains:
+                services_domains[service_name] = []
                 services_imports[service_name] = set()
 
-            protocol_name = f"{module_name.capitalize()}ControllerProtocol"
+            protocol_name = f"{domain_name.capitalize()}ControllerProtocol"
 
             handlers = []
-            for handler in router.handlers:
+            for operation in domain.operations:
+                ctx = self.context_builder.build_for_protocol(operation)
+
                 handler_ctx = {
-                    "name": handler.name,
-                    "params": [],
-                    "request_model": None,
-                    "response_model": None,
-                    "return_type": "None",
+                    "name": ctx.name,
+                    "params": [{"name": p.name, "type": p.type} for p in ctx.params],
+                    "request_model": ctx.input_model,
+                    "response_model": ctx.output_model,
+                    "return_type": ctx.return_type,
                 }
 
-                # Path params
-                for param_name, param_type in handler.get_path_params():
-                    handler_ctx["params"].append(
-                        {
-                            "name": param_name,
-                            "type": param_type,
-                        }
-                    )
-
-                # Request model
-                if handler.request_model:
-                    handler_ctx["request_model"] = handler.request_model
-                    services_imports[service_name].add(handler.request_model)
-
-                # Response model
-                if handler.response_model:
-                    model = handler.response_model
-                    if handler.response_many:
-                        handler_ctx["response_model"] = f"list[{model}]"
-                        handler_ctx["return_type"] = f"list[{model}]"
-                    else:
-                        handler_ctx["response_model"] = model
-                        handler_ctx["return_type"] = model
-                    services_imports[service_name].add(model)
+                # Collect imports
+                services_imports[service_name].update(ctx.imports)
 
                 handlers.append(handler_ctx)
 
-            services_routers[service_name].append(
+            services_domains[service_name].append(
                 {
-                    "name": module_name,
+                    "name": domain_name,
                     "protocol_name": protocol_name,
                     "handlers": handlers,
                 }
@@ -86,13 +70,13 @@ class ProtocolsGenerator(BaseGenerator):
         )
         template = env.get_template("protocols.py.j2")
 
-        for service_name, routers_context in services_routers.items():
+        for service_name, domains_context in services_domains.items():
             output_file = (
                 self.repo_root / "services" / service_name / "src" / "generated" / "protocols.py"
             )
 
             content = template.render(
-                routers=routers_context,
+                routers=domains_context,  # Template expects 'routers' key
                 imports=services_imports[service_name],
                 async_handlers=True,
             )

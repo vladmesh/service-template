@@ -10,6 +10,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
+from framework.generators.context import OperationContextBuilder
 from framework.spec.loader import AllSpecs
 
 
@@ -68,9 +69,10 @@ def check_controller_sync(
     Returns list of results, one per controller.
     """
     results = []
+    context_builder = OperationContextBuilder()
 
-    for router_key, router in specs.routers.items():
-        service_name, module_name = router_key.split("/")
+    for domain_key, domain in specs.domains.items():
+        service_name, module_name = domain_key.split("/")
         controller_path = (
             repo_root / "services" / service_name / "src" / "controllers" / f"{module_name}.py"
         )
@@ -82,26 +84,19 @@ def check_controller_sync(
 
         # Find missing methods with their signatures
         missing = []
-        for handler in router.handlers:
-            if handler.name not in actual_methods:
-                params = []
-                for param_name, param_type in handler.get_path_params():
-                    params.append((param_name, param_type))
-                if handler.request_model:
-                    params.append(("data", handler.request_model))
+        for operation in domain.operations:
+            if operation.name not in actual_methods:
+                ctx = context_builder.build_for_protocol(operation)
 
-                return_type = "None"
-                if handler.response_model:
-                    if handler.response_many:
-                        return_type = f"list[{handler.response_model}]"
-                    else:
-                        return_type = handler.response_model
+                params = [(p.name, p.type) for p in ctx.params]
+                if ctx.input_model:
+                    params.append(("data", ctx.input_model))
 
                 missing.append(
                     MissingMethod(
-                        name=handler.name,
+                        name=operation.name,
                         params=params,
-                        return_type=return_type,
+                        return_type=ctx.computed_return_type,
                     )
                 )
 

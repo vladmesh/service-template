@@ -3,6 +3,7 @@
 
 from framework.generators.base import BaseGenerator
 from framework.generators.controllers import ControllersGenerator
+from framework.generators.event_handlers import EventHandlersGenerator
 from framework.generators.events import EventsGenerator
 from framework.generators.protocols import ProtocolsGenerator
 from framework.generators.routers import RoutersGenerator
@@ -15,4 +16,5 @@ __all__ = [
     "ProtocolsGenerator",
     "ControllersGenerator",
     "EventsGenerator",
+    "EventHandlersGenerator",
 ]

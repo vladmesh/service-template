@@ -6,7 +6,7 @@ Provides clear error messages for spec violations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ import yaml
 
 from framework.spec.events import EventsSpec
 from framework.spec.models import ModelsSpec
-from framework.spec.routers import RouterSpec
+from framework.spec.operations import DomainSpec
 
 
 class SpecValidationError(Exception):
@@ -37,8 +37,8 @@ class AllSpecs:
     """Container for all loaded and validated specs."""
 
     models: ModelsSpec
-    routers: dict[str, RouterSpec]  # service_name/router_name -> RouterSpec
     events: EventsSpec
+    domains: dict[str, DomainSpec] = field(default_factory=dict)
 
 
 def load_yaml_file(file_path: Path) -> dict[str, Any]:
@@ -79,18 +79,6 @@ def load_models(models_file: Path) -> ModelsSpec:
         raise SpecValidationError(str(e), str(models_file)) from e
 
 
-def load_router(router_file: Path) -> RouterSpec:
-    """Load and validate a single router spec."""
-    data = load_yaml_file(router_file)
-
-    try:
-        return RouterSpec.from_yaml(data)
-    except ValidationError as e:
-        raise SpecValidationError(format_pydantic_error(e, "rest"), str(router_file)) from e
-    except ValueError as e:
-        raise SpecValidationError(str(e), str(router_file)) from e
-
-
 def load_events(events_file: Path) -> EventsSpec:
     """Load and validate events.yaml."""
     if not events_file.exists():
@@ -106,9 +94,22 @@ def load_events(events_file: Path) -> EventsSpec:
         raise SpecValidationError(str(e), str(events_file)) from e
 
 
+def load_domain(domain_file: Path) -> DomainSpec:
+    """Load and validate a domain spec."""
+    data = load_yaml_file(domain_file)
+
+    domain_name = domain_file.stem
+    try:
+        return DomainSpec.from_yaml(domain_name, data)
+    except ValidationError as e:
+        raise SpecValidationError(format_pydantic_error(e, "domain"), str(domain_file)) from e
+    except ValueError as e:
+        raise SpecValidationError(str(e), str(domain_file)) from e
+
+
 def validate_model_references(
     models: ModelsSpec,
-    routers: dict[str, RouterSpec],
+    domains: dict[str, DomainSpec],
     events: EventsSpec,
 ) -> list[str]:
     """Validate that all model references exist.
@@ -118,18 +119,18 @@ def validate_model_references(
     errors = []
     known_models = models.get_model_names()
 
-    # Check routers
-    for router_name, router in routers.items():
-        for handler in router.handlers:
-            if handler.request_model and handler.request_model not in known_models:
+    # Check domains
+    for domain_key, domain in domains.items():
+        for op in domain.operations:
+            if op.input_model and op.input_model not in known_models:
                 errors.append(
-                    f"Router '{router_name}', handler '{handler.name}': "
-                    f"Unknown request model '{handler.request_model}'"
+                    f"Domain '{domain_key}', operation '{op.name}': "
+                    f"Unknown input model '{op.input_model}'"
                 )
-            if handler.response_model and handler.response_model not in known_models:
+            if op.output_model and op.output_model not in known_models:
                 errors.append(
-                    f"Router '{router_name}', handler '{handler.name}': "
-                    f"Unknown response model '{handler.response_model}'"
+                    f"Domain '{domain_key}', operation '{op.name}': "
+                    f"Unknown output model '{op.output_model}'"
                 )
 
     # Check events
@@ -147,7 +148,7 @@ def load_specs(repo_root: Path) -> AllSpecs:
         repo_root: Path to the repository root
 
     Returns:
-        AllSpecs containing validated models, routers, and events
+        AllSpecs containing validated models, events, and domains
 
     Raises:
         SpecValidationError: If any spec is invalid
@@ -165,8 +166,8 @@ def load_specs(repo_root: Path) -> AllSpecs:
     events_file = shared_spec_dir / "events.yaml"
     events = load_events(events_file)
 
-    # 3. Load service routers
-    routers: dict[str, RouterSpec] = {}
+    # 3. Load service domains
+    domains: dict[str, DomainSpec] = {}
     services_dir = repo_root / "services"
 
     if services_dir.exists():
@@ -178,18 +179,18 @@ def load_specs(repo_root: Path) -> AllSpecs:
             if not spec_dir.exists():
                 continue
 
-            for router_file in spec_dir.glob("*.yaml"):
-                router_key = f"{service_dir.name}/{router_file.stem}"
-                routers[router_key] = load_router(router_file)
+            for spec_file in spec_dir.glob("*.yaml"):
+                domain_key = f"{service_dir.name}/{spec_file.stem}"
+                domains[domain_key] = load_domain(spec_file)
 
     # 4. Cross-validate model references
-    reference_errors = validate_model_references(models, routers, events)
+    reference_errors = validate_model_references(models, domains, events)
     if reference_errors:
         raise SpecValidationError(
             "Model reference validation failed:\n" + "\n".join(f"  - {e}" for e in reference_errors)
         )
 
-    return AllSpecs(models=models, routers=routers, events=events)
+    return AllSpecs(models=models, events=events, domains=domains)
 
 
 def validate_specs_cli(repo_root: Path) -> tuple[bool, str]:
@@ -201,13 +202,13 @@ def validate_specs_cli(repo_root: Path) -> tuple[bool, str]:
     try:
         specs = load_specs(repo_root)
         model_count = len(specs.models.models)
-        router_count = len(specs.routers)
+        domain_count = len(specs.domains)
         event_count = len(specs.events.events)
 
         return True, (
             f"Spec validation PASSED.\n"
             f"  Models: {model_count}\n"
-            f"  Routers: {router_count}\n"
+            f"  Domains: {domain_count}\n"
             f"  Events: {event_count}"
         )
     except SpecValidationError as e:

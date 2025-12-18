@@ -1,7 +1,7 @@
 """Controller stub generator.
 
 Generates controller stubs only if they don't exist.
-For Phase 3, we add auto-stubbing of missing methods.
+Uses OperationContextBuilder for unified context building.
 """
 
 from pathlib import Path
@@ -9,17 +9,23 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from framework.generators.base import BaseGenerator
+from framework.generators.context import OperationContextBuilder
 
 
 class ControllersGenerator(BaseGenerator):
     """Generate controller stubs for services."""
 
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize generator."""
+        super().__init__(*args, **kwargs)
+        self.context_builder = OperationContextBuilder()
+
     def generate(self) -> list[Path]:
         """Generate controller stubs (only if not existing)."""
         generated = []
 
-        for router_key, router in self.specs.routers.items():
-            service_name, module_name = router_key.split("/")
+        for domain_key, domain in self.specs.domains.items():
+            service_name, module_name = domain_key.split("/")
             output_file = (
                 self.repo_root
                 / "services"
@@ -33,50 +39,28 @@ class ControllersGenerator(BaseGenerator):
             if output_file.exists():
                 continue
 
-            self._generate_controller(router, module_name, output_file)
+            self._generate_controller(domain, module_name, output_file)
             generated.append(output_file)
 
         return generated
 
-    def _generate_controller(self, router, module_name: str, output_file: Path) -> None:
+    def _generate_controller(self, domain, module_name: str, output_file: Path) -> None:
         """Generate a single controller stub."""
         handlers = []
         imports: set[str] = set()
 
-        for handler in router.handlers:
+        for operation in domain.operations:
+            ctx = self.context_builder.build_for_protocol(operation)
+
             handler_ctx = {
-                "name": handler.name,
-                "params": [],
-                "request_model": None,
-                "response_model": None,
-                "return_type": "None",
+                "name": ctx.name,
+                "params": [{"name": p.name, "type": p.type} for p in ctx.params],
+                "request_model": ctx.input_model,
+                "response_model": ctx.output_model,
+                "return_type": ctx.computed_return_type,
             }
 
-            # Path params
-            for param_name, param_type in handler.get_path_params():
-                handler_ctx["params"].append(
-                    {
-                        "name": param_name,
-                        "type": param_type,
-                    }
-                )
-
-            # Request model
-            if handler.request_model:
-                handler_ctx["request_model"] = handler.request_model
-                imports.add(handler.request_model)
-
-            # Response model
-            if handler.response_model:
-                model = handler.response_model
-                if handler.response_many:
-                    handler_ctx["response_model"] = f"list[{model}]"
-                    handler_ctx["return_type"] = f"list[{model}]"
-                else:
-                    handler_ctx["response_model"] = model
-                    handler_ctx["return_type"] = model
-                imports.add(model)
-
+            imports.update(ctx.imports)
             handlers.append(handler_ctx)
 
         context = {
@@ -84,7 +68,7 @@ class ControllersGenerator(BaseGenerator):
             "protocol_name": f"{module_name.capitalize()}ControllerProtocol",
             "handlers": handlers,
             "imports": imports,
-            "async_handlers": router.config.async_handlers,
+            "async_handlers": True,  # Always async in new format
         }
 
         env = Environment(
