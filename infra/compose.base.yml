@@ -15,7 +15,7 @@ services:
       - ../.env
     environment:
       <<: *backend-env
-    command: [ "services/backend/scripts/start.sh" ]
+    command: ["services/backend/scripts/start.sh"]
     depends_on:
       db:
         condition: service_healthy
@@ -36,7 +36,7 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    profiles: [ "tg" ]
+    profiles: ["tg"]
     networks:
       - internal
 
