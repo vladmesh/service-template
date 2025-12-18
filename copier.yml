@@ -1,5 +1,6 @@
 _min_copier_version: "9.0.0"
 _answers_file: .copier-answers.yml
+_templates_suffix: .jinja
 
 # Files to exclude from template (template development files)
 _exclude:
@@ -23,18 +24,18 @@ _exclude:
   - dist
   - build
   - "**/*.egg-info"
+  - .coverage
+  - "**/.coverage"
   # Template-specific files (not needed in generated project)
   - copier.yml
   - docs/COPIER_MIGRATION_PLAN.md
   - tests/copier
   - tests/copier/**
-  # Exclude services not selected (Jinja conditions)
-  - "{% if 'tg_bot' not in modules %}services/tg_bot{% endif %}"
-  - "{% if 'tg_bot' not in modules %}services/tg_bot/**{% endif %}"
-  - "{% if 'notifications' not in modules %}services/notifications_worker{% endif %}"
-  - "{% if 'notifications' not in modules %}services/notifications_worker/**{% endif %}"
-  - "{% if 'frontend' not in modules %}services/frontend{% endif %}"
-  - "{% if 'frontend' not in modules %}services/frontend/**{% endif %}"
+  # Jinja source templates (rendered versions are copied instead)
+  - Makefile.jinja
+  - AGENTS.md.jinja
+  - ARCHITECTURE.md.jinja
+
   # Always exclude test_service (it's for template development only)
   - services/test_service
   - services/test_service/**
@@ -112,3 +113,11 @@ node_version:
   help: "Node.js version (for frontend)"
   default: "20"
   when: "{{ 'frontend' in modules }}"
+
+# ============================================================================
+# Tasks - Clean up unselected modules after copy
+# ============================================================================
+_tasks:
+  - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
+  - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
+  - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"

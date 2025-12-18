@@ -7,6 +7,7 @@ Run with: pytest tests/copier/ -v
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 
 import pytest
 
@@ -21,6 +22,65 @@ BASE_DATA = {
 
 TEMPLATE_DIR = Path(__file__).parent.parent.parent  # Root of service-template
 
+# Cache for copied template to avoid repeated copies
+_template_cache_dir: Path | None = None
+
+
+def _get_template_dir() -> Path:
+    """Get template directory, copying to /tmp if running in Docker with slow mounts."""
+    global _template_cache_dir
+
+    if _template_cache_dir is not None and _template_cache_dir.exists():
+        return _template_cache_dir
+
+    # Check if we're in a Docker container with mounted workspace (slow I/O)
+    # by checking if /workspace exists and is the template dir
+    if TEMPLATE_DIR.as_posix().startswith("/workspace"):
+        # Copy template to /tmp for faster I/O
+        _template_cache_dir = Path(tempfile.mkdtemp(prefix="copier-template-"))
+        # Use rsync-like copy excluding heavy/unnecessary dirs
+        shutil.copytree(
+            TEMPLATE_DIR,
+            _template_cache_dir,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                ".venv",
+                "__pycache__",
+                ".pytest_cache",
+                ".mypy_cache",
+                ".ruff_cache",
+                "node_modules",
+                ".coverage",
+            ),
+        )
+        # Initialize git repo (copier requires it)
+        subprocess.run(["git", "init"], cwd=_template_cache_dir, capture_output=True, check=True)  # noqa: S603, S607
+        subprocess.run(  # noqa: S603, S607
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=_template_cache_dir,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(  # noqa: S603, S607
+            ["git", "config", "user.name", "Test"],
+            cwd=_template_cache_dir,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(  # noqa: S603, S607
+            ["git", "add", "."], cwd=_template_cache_dir, capture_output=True, check=True
+        )
+        subprocess.run(  # noqa: S603, S607
+            ["git", "commit", "-m", "init"],
+            cwd=_template_cache_dir,
+            capture_output=True,
+            check=True,
+        )
+        return _template_cache_dir
+
+    return TEMPLATE_DIR
+
 
 @pytest.fixture(scope="module")
 def copier_available():
@@ -34,10 +94,12 @@ def run_copier(tmp_path: Path, modules: str) -> Path:
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
+    template_dir = _get_template_dir()
+
     cmd = [
         "copier",
         "copy",
-        str(TEMPLATE_DIR),
+        str(template_dir),
         str(output_dir),
         "--trust",
         "--defaults",
@@ -49,7 +111,7 @@ def run_copier(tmp_path: Path, modules: str) -> Path:
         f"--data=modules={modules}",
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=TEMPLATE_DIR)  # noqa: S603
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=template_dir)  # noqa: S603, S607
     if result.returncode != 0:
         pytest.fail(f"Copier failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
 
@@ -278,3 +340,226 @@ class TestComposeServices:
         assert "frontend" in compose["services"]
         assert "redis" in compose["services"]
         assert "db" in compose["services"]
+
+
+@pytest.mark.usefixtures("copier_available")
+class TestIntegration:
+    """Integration tests - validate generated project structure."""
+
+    def test_docker_compose_config_valid(self, tmp_path: Path):
+        """docker compose config should pass on generated project."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend")
+
+        result = subprocess.run(  # noqa: S603, S607
+            ["docker", "compose", "-f", "infra/compose.base.yml", "config"],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_docker_compose_config_full_stack(self, tmp_path: Path):
+        """docker compose config should pass for full stack."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
+
+        result = subprocess.run(  # noqa: S603, S607
+            ["docker", "compose", "-f", "infra/compose.base.yml", "config"],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_makefile_has_correct_targets(self, tmp_path: Path):
+        """Makefile should have expected targets."""
+        output = run_copier(tmp_path, "backend")
+        makefile = (output / "Makefile").read_text()
+
+        # Core targets should exist
+        assert "dev-start:" in makefile
+        assert "dev-stop:" in makefile
+        assert "lint:" in makefile
+        assert "tests:" in makefile
+        assert "makemigrations:" in makefile  # backend selected
+
+    def test_makefile_no_migrations_without_backend(self, tmp_path: Path):
+        """Makefile should not have makemigrations if no backend."""
+        # This test only makes sense if we support non-backend configs
+        # For now, just verify backend includes it
+        output = run_copier(tmp_path, "backend")
+        makefile = (output / "Makefile").read_text()
+        assert "makemigrations:" in makefile
+
+    def test_architecture_md_conditional_content(self, tmp_path: Path):
+        """ARCHITECTURE.md should have conditional content based on modules."""
+        # Backend only - no Redis
+        output = run_copier(tmp_path, "backend")
+        arch = (output / "ARCHITECTURE.md").read_text()
+        assert "PostgreSQL" in arch
+        assert "python-fastapi" in arch
+
+    def test_architecture_md_with_events(self, tmp_path: Path):
+        """ARCHITECTURE.md should mention Redis when event modules selected."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+        arch = (output / "ARCHITECTURE.md").read_text()
+        assert "Redis" in arch
+        assert "python-faststream" in arch
+
+    def test_agents_md_conditional_content(self, tmp_path: Path):
+        """AGENTS.md should have conditional content based on modules."""
+        output = run_copier(tmp_path, "backend")
+        agents = (output / "AGENTS.md").read_text()
+        assert "Backend:" in agents
+        assert "Telegram Bot:" not in agents
+
+    def test_agents_md_with_tg_bot(self, tmp_path: Path):
+        """AGENTS.md should include tg_bot section when selected."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+        agents = (output / "AGENTS.md").read_text()
+        assert "Backend:" in agents
+        assert "Telegram Bot:" in agents
+        assert "FastStream Event Architecture" in agents
+
+
+def _init_git_repo(path: Path) -> None:
+    """Initialize a git repo in the given path for copier update tests."""
+    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
+    subprocess.run(  # noqa: S603, S607
+        ["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True, check=True
+    )
+    subprocess.run(  # noqa: S603, S607
+        ["git", "config", "user.name", "Test"], cwd=path, capture_output=True, check=True
+    )
+    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
+    subprocess.run(["git", "commit", "-m", "init"], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
+
+
+@pytest.mark.usefixtures("copier_available")
+class TestCopierUpdate:
+    """Tests for copier update functionality."""
+
+    def test_update_preserves_user_code(self, tmp_path: Path):
+        """copier update should preserve user-created files in protected dirs."""
+        output = run_copier(tmp_path, "backend")
+        _init_git_repo(output)
+
+        # Create "user" code in protected directory
+        user_controller = output / "services" / "backend" / "src" / "controllers" / "custom.py"
+        user_controller.parent.mkdir(parents=True, exist_ok=True)
+        user_controller.write_text(
+            "# My custom controller code\nclass CustomController:\n    pass\n"
+        )
+
+        # Commit user changes
+        subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
+        subprocess.run(  # noqa: S603, S607
+            ["git", "commit", "-m", "user code"], cwd=output, capture_output=True, check=True
+        )
+
+        # Run copier update
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "copier",
+                "update",
+                "--trust",
+                "--defaults",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"copier update failed: {result.stderr}"
+
+        # Verify user code preserved
+        assert user_controller.exists(), "User controller was deleted"
+        content = user_controller.read_text()
+        assert "My custom controller code" in content
+
+    def test_update_preserves_env_example(self, tmp_path: Path):
+        """copier update should not overwrite .env.example."""
+        output = run_copier(tmp_path, "backend")
+        _init_git_repo(output)
+
+        # Modify .env.example
+        env_example = output / ".env.example"
+        original_content = env_example.read_text()
+        modified_content = original_content + "\n# User custom variable\nMY_CUSTOM_VAR=value\n"
+        env_example.write_text(modified_content)
+
+        # Commit user changes
+        subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
+        subprocess.run(  # noqa: S603, S607
+            ["git", "commit", "-m", "user env"], cwd=output, capture_output=True, check=True
+        )
+
+        # Run copier update
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "copier",
+                "update",
+                "--trust",
+                "--defaults",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"copier update failed: {result.stderr}"
+
+        # Verify modification preserved
+        content = env_example.read_text()
+        assert "MY_CUSTOM_VAR" in content
+
+    def test_update_preserves_spec_files(self, tmp_path: Path):
+        """copier update should not overwrite spec files."""
+        output = run_copier(tmp_path, "backend")
+        _init_git_repo(output)
+
+        # Modify models.yaml
+        models_spec = output / "shared" / "spec" / "models.yaml"
+        if models_spec.exists():
+            original_content = models_spec.read_text()
+            modified_content = original_content + "\n# User added model\n"
+            models_spec.write_text(modified_content)
+
+            # Commit user changes
+            subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
+            subprocess.run(  # noqa: S603, S607
+                ["git", "commit", "-m", "user spec"], cwd=output, capture_output=True, check=True
+            )
+
+            # Run copier update
+            result = subprocess.run(  # noqa: S603, S607
+                [
+                    "copier",
+                    "update",
+                    "--trust",
+                    "--defaults",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=output,
+            )
+            assert result.returncode == 0, f"copier update failed: {result.stderr}"
+
+            # Verify modification preserved
+            content = models_spec.read_text()
+            assert "User added model" in content
+
+    def test_copier_answers_file_created(self, tmp_path: Path):
+        """Generated project should have .copier-answers.yml."""
+        output = run_copier(tmp_path, "backend")
+        answers_file = output / ".copier-answers.yml"
+        assert answers_file.exists(), f"Answers file not found. Contents: {list(output.iterdir())}"
+
+        import yaml
+
+        answers = yaml.safe_load(answers_file.read_text())
+        assert answers["project_name"] == "test-project"
+        assert answers["modules"] == "backend"

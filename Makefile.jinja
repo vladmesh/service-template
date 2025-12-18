@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop makemigrations log sync-services tooling-tests copier-tests generate-from-spec validate-specs
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations {% endif %}log sync-services tooling-tests generate-from-spec validate-specs
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
@@ -98,12 +98,14 @@ tests:
 		$(MAKE) tooling-tests; \
 	fi
 
+{% if 'backend' in modules %}
 makemigrations:
 	@if [ -z "$(name)" ]; then \
 		echo "Usage: make makemigrations name=\"<description>\""; \
 		exit 1; \
 	fi
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
+{% endif %}
 
 	log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
@@ -147,9 +149,6 @@ sync-services:
 
 tooling-tests:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 tests/tooling
-
-copier-tests:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -v tests/copier/
 
 generate-from-spec:
 	$(PYTHON_TOOLING) -m framework.generate_from_spec

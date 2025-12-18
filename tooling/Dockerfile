@@ -8,6 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     POETRY_NO_INTERACTION=1 \
     PATH="/root/.local/bin:${PATH}"
 
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
 
 RUN pip install --no-cache-dir \
@@ -20,6 +22,7 @@ RUN pip install --no-cache-dir \
     PyYAML \
     datamodel-code-generator[http] \
     jinja2 \
-    poetry
+    poetry \
+    copier==9.4.1
 
 CMD ["bash"]
