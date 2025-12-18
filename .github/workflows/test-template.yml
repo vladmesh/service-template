@@ -127,6 +127,12 @@ jobs:
             ! grep -q "id: frontend" .github/workflows/main.yml || (echo "frontend should not be in CI matrix" && exit 1)
           fi
           
+          if [[ "$modules" == *"notifications"* ]]; then
+            grep -q "id: notifications-worker" .github/workflows/main.yml || (echo "notifications-worker missing from CI matrix" && exit 1)
+          else
+            ! grep -q "id: notifications-worker" .github/workflows/main.yml || (echo "notifications-worker should not be in CI matrix" && exit 1)
+          fi
+          
           echo "Workflow matrix correctly reflects selected modules"
 
   test-pytest:
