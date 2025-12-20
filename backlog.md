@@ -281,3 +281,75 @@ await broker.close()
     - Signatures of imported modules
     - Current linter errors
 - **Goal**: Provide a single, token-optimized file containing strictly necessary information for the current task.
+
+---
+
+## Template / Copier Issues
+
+### tg_bot Missing Redis Dependency
+
+**Status**: TODO
+
+**Description**: The `services.yml.jinja` template for tg_bot is missing the `redis: service_healthy` dependency in `depends_on`. The template diverged from the original project configuration.
+
+**Fix**: Update `services.yml.jinja` to include:
+```yaml
+depends_on:
+  backend: service_started
+  redis: service_healthy
+```
+
+### Copier Shows "version None"
+
+**Status**: TODO
+
+**Description**: During `copier copy`, the output shows `Copying from template version None` instead of the actual git tag or branch.
+
+**Fix**: Ensure the template repository has proper git tags, or configure `_version` in `copier.yml`.
+
+---
+
+## Spec-First Features — Wishlist
+
+### Query Parameters in Domain Specs
+
+**Status**: IDEA
+
+**Description**: Add support for query parameters in domain operation specs for filtering and pagination.
+
+**Example**:
+```yaml
+list_books:
+  output: list[BookRead]
+  params:
+    - name: status
+      type: string
+      source: query  # NEW: query vs path
+    - name: limit
+      type: int
+      source: query
+      default: 20
+  rest:
+    method: GET
+    path: ""
+```
+
+### Enum Types in Model Fields
+
+**Status**: IDEA
+
+**Description**: Add support for enum types in model field definitions.
+
+**Example**:
+```yaml
+models:
+  Book:
+    fields:
+      status:
+        type: enum
+        values: [wishlist, reading, finished]
+        default: wishlist
+```
+
+**Benefit**: Generated Pydantic models would use `Literal` or `Enum` types instead of plain strings.
+
