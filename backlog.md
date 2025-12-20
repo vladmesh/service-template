@@ -278,11 +278,11 @@ await broker.close()
 
 ### Copier Shows "version None"
 
-**Status**: TODO
+**Status**: DONE
 
 **Description**: During `copier copy`, the output shows `Copying from template version None` instead of the actual git tag or branch.
 
-**Fix**: Ensure the template repository has proper git tags, or configure `_version` in `copier.yml`.
+**Implementation**: Created git tag `v0.1.0` to enable Copier's automatic version detection. Copier uses git tags sorted by PEP 440 to determine template version. The `vcs_ref` is a CLI argument, not a `copier.yml` setting.
 
 ---
 
