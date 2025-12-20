@@ -84,7 +84,7 @@ class RoutersGenerator(BaseGenerator):
                     {"name": p.name, "type": p.type, "source": p.source} for p in ctx.params
                 ],
                 "request_model": ctx.input_model,
-                "response_model": ctx.output_model,
+                "response_model": ctx.computed_return_type if ctx.output_model else None,
                 "return_type": ctx.computed_return_type,
             }
 

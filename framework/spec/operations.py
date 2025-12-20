@@ -85,6 +85,24 @@ class OperationSpec(BaseModel):
         return self
 
     @property
+    def response_many(self) -> bool:
+        """Check if output is a list type."""
+        if not self.output_model:
+            return False
+        return self.output_model.startswith("list[") or self.output_model.startswith("List[")
+
+    @property
+    def base_output_model(self) -> str | None:
+        """Get the base output model (unwrapping list[] if present)."""
+        if not self.output_model:
+            return None
+        if self.output_model.startswith("list[") and self.output_model.endswith("]"):
+            return self.output_model[5:-1]
+        if self.output_model.startswith("List[") and self.output_model.endswith("]"):
+            return self.output_model[5:-1]
+        return self.output_model
+
+    @property
     def return_type(self) -> str:
         """Get the Python return type annotation."""
         return self.output_model or "None"

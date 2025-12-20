@@ -88,11 +88,11 @@ class OperationContextBuilder:
         imports: set[str] = set()
         params: list[ParamContext] = []
 
-        # Collect models for imports
+        # Collect models for imports (use base models, not wrapped types)
         if operation.input_model:
             imports.add(operation.input_model)
-        if operation.output_model:
-            imports.add(operation.output_model)
+        if operation.base_output_model:
+            imports.add(operation.base_output_model)
 
         # Build params from spec
         for param in operation.params:
@@ -109,9 +109,10 @@ class OperationContextBuilder:
             name=operation.name,
             params=params,
             input_model=operation.input_model,
-            output_model=operation.output_model,
+            output_model=operation.base_output_model,  # Use unwrapped model
             return_type=operation.return_type,
             imports=imports,
+            response_many=operation.response_many,  # Pass the list flag
         )
 
         # Add REST-specific context

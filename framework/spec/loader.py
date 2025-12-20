@@ -120,6 +120,21 @@ def load_manifest(manifest_file: Path, service_name: str) -> ServiceManifest:
         raise SpecValidationError(str(e), str(manifest_file)) from e
 
 
+def extract_base_model(model_ref: str) -> str:
+    """Extract base model name from a model reference.
+
+    Handles:
+        - "User" -> "User"
+        - "list[User]" -> "User"
+        - "List[User]" -> "User"
+    """
+    if model_ref.startswith("list[") and model_ref.endswith("]"):
+        return model_ref[5:-1]
+    if model_ref.startswith("List[") and model_ref.endswith("]"):
+        return model_ref[5:-1]
+    return model_ref
+
+
 def validate_model_references(
     models: ModelsSpec,
     domains: dict[str, DomainSpec],
@@ -135,16 +150,20 @@ def validate_model_references(
     # Check domains
     for domain_key, domain in domains.items():
         for op in domain.operations:
-            if op.input_model and op.input_model not in known_models:
-                errors.append(
-                    f"Domain '{domain_key}', operation '{op.name}': "
-                    f"Unknown input model '{op.input_model}'"
-                )
-            if op.output_model and op.output_model not in known_models:
-                errors.append(
-                    f"Domain '{domain_key}', operation '{op.name}': "
-                    f"Unknown output model '{op.output_model}'"
-                )
+            if op.input_model:
+                base_input = extract_base_model(op.input_model)
+                if base_input not in known_models:
+                    errors.append(
+                        f"Domain '{domain_key}', operation '{op.name}': "
+                        f"Unknown input model '{op.input_model}'"
+                    )
+            if op.output_model:
+                base_output = extract_base_model(op.output_model)
+                if base_output not in known_models:
+                    errors.append(
+                        f"Domain '{domain_key}', operation '{op.name}': "
+                        f"Unknown output model '{op.output_model}'"
+                    )
 
     # Check events
     for event in events.events:
