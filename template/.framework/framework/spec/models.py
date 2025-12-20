@@ -41,6 +41,7 @@ class FieldSpec(BaseModel):
 
     # Modifiers
     readonly: bool = False
+    optional: bool = False  # Makes field nullable (T | None) in all variants
     default: Any = Field(default=None)
 
     model_config = {"extra": "forbid"}
@@ -80,6 +81,7 @@ class FieldSpec(BaseModel):
             min_length=data.get("min_length"),
             max_length=data.get("max_length"),
             readonly=data.get("readonly", False),
+            optional=data.get("optional", False),
             default=data.get("default"),
         )
 
@@ -104,6 +106,8 @@ class FieldSpec(BaseModel):
             schema["default"] = self.default
         if self.readonly:
             schema["readOnly"] = True
+        if self.optional:
+            schema["nullable"] = True
 
         return schema
 
@@ -263,11 +267,12 @@ class ModelsSpec(BaseModel):
         for field_name, field in fields.items():
             properties[field_name] = field.to_json_schema()
 
-            # Required if: no default AND not explicitly optional
-            is_optional = field_name in optional_fields
+            # Required if: no default AND not explicitly optional (variant-level or field-level)
+            is_variant_optional = field_name in optional_fields
+            is_field_optional = field.optional  # Field-level optional: true
             has_default = field.default is not None
 
-            if not is_optional and not has_default:
+            if not is_variant_optional and not is_field_optional and not has_default:
                 required.append(field_name)
 
         return {
