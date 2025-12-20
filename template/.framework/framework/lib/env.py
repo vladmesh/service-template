@@ -17,10 +17,10 @@ def get_repo_root() -> Path:
     candidate = current.parents[2]
     if (candidate / "services.yml").exists() or (candidate / "copier.yml").exists():
         return candidate
-
+        
     # Try parents[3] (Generated project structure: .framework/framework/lib/env.py)
     candidate = current.parents[3]
     if (candidate / "services.yml").exists() or (candidate / ".copier-answers.yml").exists():
         return candidate
-
+        
     return current.parents[2]

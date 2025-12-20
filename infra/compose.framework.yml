@@ -1,8 +1,54 @@
-# Framework development compose file
-# This file is used for running framework tests and tooling commands
-# It's NOT part of the generated product template
-
 services:
+  # >>> services (auto-generated from services.yml)
+  backend-tests-unit:
+    image: ${BACKEND_IMAGE:-service-template-backend:latest}
+    build:
+      context: ../..
+      dockerfile: template/services/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: >-
+      pytest -q --cov=template/services/backend/src --cov-report=term-missing --cov-fail-under=70 template/services/backend/tests/unit
+    working_dir: /app
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+      ENVIRONMENT: test
+      APP_ENV: test
+      DATABASE_URL: sqlite+pysqlite:////app/template/services/backend/tests/.tmp/test.db
+
+  tg-bot-tests-unit:
+    image: ${TG_BOT_IMAGE:-service-template-tg:latest}
+    build:
+      context: ../..
+      dockerfile: template/services/tg_bot/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: >-
+      pytest -q --cov=template/services/tg_bot/src --cov-report=term-missing --cov-fail-under=70 template/services/tg_bot/tests/unit
+    working_dir: /app
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+
+  notifications-worker-tests-unit:
+    image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications-worker:latest}
+    build:
+      context: ../..
+      dockerfile: template/services/notifications_worker/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    command: >-
+      pytest -q --cov=template/services/notifications_worker/src --cov-report=term-missing --cov-fail-under=70 template/services/notifications_worker/tests
+    working_dir: /app
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+  # <<< services (auto-generated from services.yml)
+
   tooling:
     image: ${TOOLING_IMAGE:-service-template-tooling:latest}
     build:
@@ -13,5 +59,3 @@ services:
       - ../:/workspace:delegated
     env_file:
       - ../.env
-    environment:
-      PYTHONPATH: /workspace

@@ -312,8 +312,8 @@ This CLI would be installed via pip (`pip install service-template-framework`) o
 **Complexity**: High  
 **Risk**: High (core functionality)
 
-- [ ] Create `template/.framework/` directory
-- [ ] Copy framework code to template:
+- [x] Create `template/.framework/` directory
+- [x] Copy framework code to template:
   - `framework/generators/` → `template/.framework/generators/`
   - `framework/templates/codegen/` → `template/.framework/templates/codegen/`
   - `framework/spec/` → `template/.framework/spec/`
@@ -323,10 +323,10 @@ This CLI would be installed via pip (`pip install service-template-framework`) o
   - `framework/generate.py` → `template/.framework/generate.py`
   - `framework/compose_sync.py` → `template/.framework/compose_sync.py`
   - `framework/enforce_spec_compliance.py` → `template/.framework/enforce_spec_compliance.py`
-- [ ] Update `template/Makefile.jinja` to call `.framework/` instead of `framework/`
-- [ ] Ensure Python imports work with `.framework/` path
-- [ ] Run copier tests with generated project
-- [ ] Verify `make generate-from-spec` works in generated project
+- [x] Update `template/Makefile.jinja` to call `.framework/` instead of `framework/`
+- [x] Ensure Python imports work with `.framework/` path
+- [x] Run copier tests with generated project
+- [x] Verify `make generate-from-spec` works in generated project
 
 ### Phase 5: Create Product CI Templates
 **Complexity**: Medium  

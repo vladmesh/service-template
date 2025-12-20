@@ -34,6 +34,7 @@ test-copier:
 test-all: test test-copier
 
 sync-framework:
-	@echo "Syncing framework/ to template/.framework/..."
-	@rsync -av --delete framework/ template/.framework/
+	@echo "Syncing framework/ to template/.framework/framework/..."
+	@mkdir -p template/.framework/framework
+	@rsync -av --delete framework/ template/.framework/framework/
 	@echo "Done."

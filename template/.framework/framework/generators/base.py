@@ -22,7 +22,7 @@ class BaseGenerator(ABC):
         """Initialize generator with validated specs."""
         self.specs = specs
         self.repo_root = repo_root
-
+        
         # Resolve templates dir relative to this file to support both dev and prod structures
         # framework/generators/base.py -> framework/
         self.framework_dir = Path(__file__).resolve().parent.parent

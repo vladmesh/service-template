@@ -4,9 +4,11 @@ These tests require copier to be installed: pip install copier pyyaml
 Run with: pytest tests/copier/ -v
 """
 
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import pytest
@@ -408,6 +410,34 @@ class TestIntegration:
             cwd=output,
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_framework_generate_runs(self, tmp_path: Path):
+        """framework generation should run successfully via python."""
+        # We simulate what 'make generate-from-spec' does inside the container
+        # i.e. python -m framework.generate with PYTHONPATH=.framework
+
+        generated_project = run_copier(tmp_path, "backend")
+
+        framework_path = generated_project / ".framework"
+        env = {"PYTHONPATH": str(framework_path)}
+
+        # We need to run this using the Current python environment (which has dependencies)
+        # But we need to ensure the imports work.
+        # The current process is pytest in tooling.
+
+        # Note: We use the generated_project fixture which already ran copier.
+        # But generated_project path is inside /tmp (or cache).
+
+        result = subprocess.run(
+            [sys.executable, "-m", "framework.generate"],
+            cwd=generated_project,  # run from project root
+            env={**os.environ, **env},
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"framework.generate failed:\nstderr: {result.stderr}\nstdout: {result.stdout}"
+        )
 
     def test_makefile_has_correct_targets(self, tmp_path: Path):
         """Makefile should have expected targets."""
