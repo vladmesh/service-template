@@ -63,6 +63,13 @@ jobs:
           fi
           echo "No Jinja artifacts found"
 
+      - name: Debug .env.example
+        run: |
+          cd /tmp/test-project
+          echo "=== Contents of .env.example ==="
+          cat .env.example
+          echo "=== End of .env.example ==="
+
       - name: Validate Docker Compose
         run: |
           cd /tmp/test-project
