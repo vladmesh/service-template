@@ -22,10 +22,10 @@ help:
 	@echo "  make check-sync            - Check if framework/ and template/.framework/ are in sync"
 
 lint:
-	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff check framework/ tests/"
+	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff check --no-cache framework/ tests/"
 
 format:
-	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff format framework/ tests/ && ruff check --fix framework/ tests/"
+	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff format framework/ tests/ && ruff check --no-cache --fix framework/ tests/"
 
 test:
 	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing tests/unit tests/tooling

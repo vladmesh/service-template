@@ -9,6 +9,7 @@ __pycache__/
 .coverage
 pytest.cache/
 .mypy_cache/
+.ruff_cache/
 .eggs/
 *.egg-info/
 build/
