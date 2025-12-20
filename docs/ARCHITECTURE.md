@@ -120,6 +120,17 @@ The project is a collection of modular services defined in `services.yml`.
 - `shared/`:
     - `spec/`: YAML specifications (models, events)
     - `shared/generated/`: Auto-generated schemas and events
-- `framework/`: Code generators and tooling
+- `.framework/`: Framework runtime (hidden, auto-updated via `copier update`)
+  - Contains code generators and templates
+  - Used by `make generate-from-spec` to regenerate code from specs
+  - **Do not edit**: Changes will be overwritten on framework updates
+
+## Framework Development
+
+This repository structure is for **generated products**. Framework development happens in the [service-template](https://github.com/your-org/service-template) repository:
+
+- `framework/`: Source code for generators and validators
   - `generators/`: Python generators for each artifact type
   - `templates/codegen/`: Jinja2 templates for generated code
+- `tests/`: Framework tests (unit, integration, copier)
+- `docs/`: Framework internal documentation

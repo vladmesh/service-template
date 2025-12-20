@@ -2,7 +2,7 @@
 # This Makefile is for developing the service-template framework itself.
 # For product development commands, see the generated project's Makefile.
 
-.PHONY: lint format test test-copier test-all help sync-framework
+.PHONY: lint format test test-copier test-all help sync-framework check-sync
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_FRAMEWORK := -f infra/compose.framework.yml
@@ -18,6 +18,7 @@ help:
 	@echo "  make test-copier   - Run copier template tests"
 	@echo "  make test-all      - Run all tests"
 	@echo "  make sync-framework - Sync framework/ to template/.framework/"
+	@echo "  make check-sync    - Check if framework/ and template/.framework/ are in sync"
 
 lint:
 	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff check framework/ tests/"
@@ -34,7 +35,7 @@ test-copier:
 test-all: test test-copier
 
 sync-framework:
-	@echo "Syncing framework/ to template/.framework/framework/..."
-	@mkdir -p template/.framework/framework
-	@rsync -av --delete framework/ template/.framework/framework/
-	@echo "Done."
+	@./scripts/sync-framework-to-template.sh
+
+check-sync:
+	@./scripts/check-framework-sync.sh

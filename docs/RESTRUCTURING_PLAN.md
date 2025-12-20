@@ -1,7 +1,8 @@
 # Restructuring Plan: Separation of Abstraction Levels
 
-> **Status**: DRAFT  
+> **Status**: COMPLETED  
 > **Created**: 2025-12-20  
+> **Completed**: 2025-12-20  
 > **Goal**: Clear separation between framework internals, framework interface, and generated product code
 
 ---
@@ -370,10 +371,10 @@ This CLI would be installed via pip (`pip install service-template-framework`) o
 
 Since `framework/` and `template/.framework/` will have identical code, create a sync mechanism:
 
-- [ ] Create `scripts/sync-framework-to-template.sh`
-- [ ] Add `make sync-framework` command
-- [ ] Add CI check that `framework/` and `template/.framework/` are in sync
-- [ ] Document in `docs/DEVELOPMENT.md`
+- [x] Create `scripts/sync-framework-to-template.sh`
+- [x] Add `make sync-framework` command
+- [x] Add CI check that `framework/` and `template/.framework/` are in sync
+- [x] Document in `docs/DEVELOPMENT.md`
 
 Alternative approach: Use symlinks (not recommended due to Git/Copier compatibility issues)
 
@@ -381,25 +382,25 @@ Alternative approach: Use symlinks (not recommended due to Git/Copier compatibil
 **Complexity**: Low  
 **Risk**: None
 
-- [ ] Update `docs/ARCHITECTURE.md` with new structure
-- [ ] Update `template/AGENTS.md.jinja` to reflect `.framework/` location
-- [ ] Update `template/README.md.jinja` with product-specific instructions
-- [ ] Create `docs/DEVELOPMENT.md` for framework contributors
-- [ ] Update this plan with "DONE" status
+- [x] Update `docs/ARCHITECTURE.md` with new structure
+- [x] Update `template/AGENTS.md.jinja` to reflect `.framework/` location
+- [x] Update `template/README.md.jinja` with product-specific instructions
+- [x] Create `docs/DEVELOPMENT.md` for framework contributors
+- [x] Update this plan with "COMPLETED" status
 
 ### Phase 10: Final Verification
 **Complexity**: Low  
 **Risk**: None
 
-- [ ] Run full framework test suite
-- [ ] Run copier generation tests
-- [ ] Manually test `copier copy . /tmp/test-project`
-- [ ] Verify generated project:
+- [x] Run full framework test suite
+- [x] Run copier generation tests
+- [x] Manually test `copier copy . /tmp/test-project`
+- [x] Verify generated project:
   - `make lint` works
   - `make test` works
   - `make generate-from-spec` works
   - `make dev-start` works
-- [ ] Update CHANGELOG/release notes
+- [x] Update CHANGELOG/release notes
 
 ---
 
@@ -424,12 +425,12 @@ If issues arise:
 
 ## Success Criteria
 
-- [ ] Framework repo clearly separates internal docs from user-facing docs
-- [ ] `template/` directory contains everything that goes into generated products
-- [ ] Generated products have `.framework/` directory (hidden)
-- [ ] All tests pass (framework + copier)
-- [ ] Generated project `make generate-from-spec` works
-- [ ] No confusion about which files are for framework vs product
+- [x] Framework repo clearly separates internal docs from user-facing docs
+- [x] `template/` directory contains everything that goes into generated products
+- [x] Generated products have `.framework/` directory (hidden)
+- [x] All tests pass (framework + copier)
+- [x] Generated project `make generate-from-spec` works
+- [x] No confusion about which files are for framework vs product
 
 ---
 
