@@ -7,7 +7,7 @@ COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_UNIT := -f infra/compose.tests.unit.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_UNIT := COMPOSE_PROJECT_NAME=tests-unit
-COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling
+COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling HOST_UID=$$(id -u) HOST_GID=$$(id -g)
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 PYTHON_TOOLING := $(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python
 

@@ -54,6 +54,7 @@ services:
     build:
       context: ..
       dockerfile: template/tooling/Dockerfile
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /workspace
     volumes:
       - ../:/workspace:delegated
