@@ -75,8 +75,9 @@ jobs:
           cd /tmp/test-project
           # Create .env from .env.example for compose validation
           cp .env.example .env
-          docker compose -f infra/compose.base.yml config > /dev/null
-          docker compose -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
+          # Use --env-file to explicitly load .env (compose doesn't auto-load from parent dir)
+          docker compose --env-file .env -f infra/compose.base.yml config > /dev/null
+          docker compose --env-file .env -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
           echo "Docker Compose files are valid"
 
       - name: Verify services.yml matches modules
