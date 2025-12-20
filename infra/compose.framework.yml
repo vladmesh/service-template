@@ -1,0 +1,17 @@
+# Framework development compose file
+# This file is used for running framework tests and tooling commands
+# It's NOT part of the generated product template
+
+services:
+  tooling:
+    image: ${TOOLING_IMAGE:-service-template-tooling:latest}
+    build:
+      context: ..
+      dockerfile: template/tooling/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace:delegated
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /workspace

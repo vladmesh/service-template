@@ -2,7 +2,7 @@
 
 A rigid, spec-first, modular framework for building AI-Agent-ready microservices.
 
-> **Start here:** Read the [MANIFESTO](MANIFESTO.md) to understand the philosophy behind this project.
+> **Start here:** Read the [MANIFESTO](docs/MANIFESTO.md) to understand the philosophy behind this project.
 
 ## Quick Start
 
@@ -55,15 +55,16 @@ copier update
 
 ## Documentation
 
-- **[MANIFESTO.md](MANIFESTO.md)**: The core philosophy.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: How it works under the hood.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Coding standards and rules.
+### For Framework Users
 - **[AGENTS.md](AGENTS.md)**: Navigation guide for AI agents.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Coding standards and rules.
 
-### Template Development
-
-- **[docs/TEMPLATE_DEVELOPMENT.md](docs/TEMPLATE_DEVELOPMENT.md)**: How to develop and extend the template.
-- **[docs/TESTING.md](docs/TESTING.md)**: How to run template tests.
+### For Framework Developers
+- **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: How it works under the hood.
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: How to develop the framework.
+- **[docs/RESTRUCTURING_PLAN.md](docs/RESTRUCTURING_PLAN.md)**: Ongoing restructuring plan.
+- **[docs/backlog.md](docs/backlog.md)**: Framework roadmap and backlog.
 
 ## Roadmap
 

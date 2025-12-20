@@ -1,6 +1,7 @@
 _min_copier_version: "9.0.0"
 _answers_file: .copier-answers.yml
 _templates_suffix: .jinja
+_subdirectory: template
 
 # Files to exclude from template (template development files)
 _exclude:
@@ -26,17 +27,10 @@ _exclude:
   - "**/*.egg-info"
   - .coverage
   - "**/.coverage"
-  # Template-specific files (not needed in generated project)
-  - copier.yml
-  - docs/COPIER_MIGRATION_PLAN.md
-  - tests/copier
-  - tests/copier/**
-  # Template testing workflow (not needed in generated project)
-  - .github/workflows/test-template.yml
-
   # Always exclude test_service (it's for template development only)
   - services/test_service
   - services/test_service/**
+
 
 # Files to skip if they already exist (preserve user modifications on update)
 _skip_if_exists:

@@ -38,6 +38,8 @@ services:
     depends_on:
       backend:
         condition: service_started
+      redis:
+        condition: service_healthy
     profiles: ["tg"]
     networks:
       - internal
