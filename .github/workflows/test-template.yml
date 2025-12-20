@@ -66,6 +66,8 @@ jobs:
       - name: Validate Docker Compose
         run: |
           cd /tmp/test-project
+          # Create .env from .env.example for compose validation
+          cp .env.example .env
           docker compose -f infra/compose.base.yml config > /dev/null
           docker compose -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
           echo "Docker Compose files are valid"
@@ -141,5 +143,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare environment
+        run: |
+          cp .env.example .env || touch .env
+
       - name: Run copier template tests
-        run: pytest tests/copier/ -v
+        run: make test-copier
