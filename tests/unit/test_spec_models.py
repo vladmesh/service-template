@@ -65,6 +65,24 @@ class TestFieldSpec:
         assert schema["type"] == "array"
         assert schema["items"]["type"] == "string"
 
+    def test_optional_field(self) -> None:
+        """Field with optional: true becomes nullable."""
+        field = FieldSpec.from_yaml({"type": "int", "optional": True})
+        assert field.optional is True
+
+    def test_optional_field_to_json_schema(self) -> None:
+        """Optional field adds nullable: true to JSON schema."""
+        field = FieldSpec.from_yaml({"type": "int", "optional": True})
+        schema = field.to_json_schema()
+        assert schema["type"] == "integer"
+        assert schema["nullable"] is True
+
+    def test_non_optional_field_no_nullable(self) -> None:
+        """Non-optional field does not have nullable in schema."""
+        field = FieldSpec.from_yaml({"type": "int"})
+        schema = field.to_json_schema()
+        assert "nullable" not in schema
+
 
 class TestVariantSpec:
     """Tests for VariantSpec."""
@@ -245,3 +263,41 @@ class TestModelsSpec:
         """Empty models dict should fail."""
         with pytest.raises(ValueError, match="at least one model"):
             ModelsSpec.from_yaml({"models": {}})
+
+    def test_optional_field_propagates_to_all_variants(self) -> None:
+        """Field with optional: true is nullable in all variants including Read."""
+        spec = ModelsSpec.from_yaml(
+            {
+                "models": {
+                    "Subscription": {
+                        "fields": {
+                            "id": {"type": "int", "readonly": True},
+                            "user_id": {"type": "int"},
+                            "telegram_id": {"type": "int", "optional": True},
+                        },
+                        "variants": {
+                            "Create": {},
+                            "Read": {},
+                        },
+                    },
+                },
+            }
+        )
+        schema = spec.to_json_schema()
+
+        # Base model: telegram_id is nullable and NOT required
+        base = schema["definitions"]["Subscription"]
+        assert base["properties"]["telegram_id"]["nullable"] is True
+        assert "telegram_id" not in base["required"]
+
+        # Read variant: telegram_id is STILL nullable and NOT required
+        read = schema["definitions"]["SubscriptionRead"]
+        assert read["properties"]["telegram_id"]["nullable"] is True
+        assert "telegram_id" not in read["required"]
+        # user_id should still be required
+        assert "user_id" in read["required"]
+
+        # Create variant: telegram_id is nullable but not required
+        create = schema["definitions"]["SubscriptionCreate"]
+        assert create["properties"]["telegram_id"]["nullable"] is True
+        assert "telegram_id" not in create["required"]

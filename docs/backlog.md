@@ -378,9 +378,15 @@ models:
 
 ### Fix Nullable Field Inheritance in Schema Generation
 
-**Status**: TODO
+**Status**: DONE
 
-**Description**: When a field is marked `optional: true` in `models.yaml`, this should propagate to all variants unless overridden. Currently, the `Read` variant treats nullable fields as required.
+**Description**: When a field is marked `optional: true` in `models.yaml`, this should propagate to all variants unless overridden.
+
+**Implementation**:
+- Added `optional: bool = False` attribute to `FieldSpec` in `framework/spec/models.py`
+- `to_json_schema()` now adds `nullable: true` when field has `optional: true`
+- `_model_to_schema()` now excludes optional fields from `required` list in all variants
+- Added 4 unit tests in `tests/unit/test_spec_models.py`
 
 **Example**:
 ```yaml
@@ -388,16 +394,14 @@ Subscription:
   fields:
     telegram_id:
       type: int
-      optional: true  # Should make it `int | None` in ALL variants
+      optional: true  # Makes it `int | None` in ALL variants
   variants:
-    Create:
-      optional: [telegram_id]  # Works: generates `int | None = None`
-    Read: {}  # BUG: generates `int` instead of `int | None`
+    Create: {}
+    Read: {}  # telegram_id is now nullable here too
 ```
 
-**Expected Behavior**: If a field has `optional: true`, it should be nullable in the base model and all variants unless explicitly made required.
-
 ---
+
 
 ### Auto-Register Routers
 
