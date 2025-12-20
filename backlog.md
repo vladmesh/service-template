@@ -94,25 +94,31 @@ def create_router(get_db, get_controller) -> APIRouter:
 
 ### Unified Retry Logic in Generated Clients
 
-**Status**: TODO
+**Status**: DONE
 
 **Description**: Add configurable retry logic to generated REST clients (from `ClientsGenerator`).
 
-**Problem**: 
-- Current retry implementation is manual in `tg_bot/src/main.py` 
-- Each consumer service would need to duplicate this logic
-- Violates DRY and "Generation > Context" principle
+**Implementation**:
+- Modified `framework/templates/codegen/client.py.j2` to include `_request_with_retry` method
+- Generated clients now accept `max_retries` (default: 3) and `initial_delay` (default: 1.0s)
+- Retry behavior:
+  - Retries on `httpx.ConnectError` (service unavailable)
+  - Retries on 5xx status codes (server errors)
+  - No retry on 4xx client errors (fails immediately)
+  - Exponential backoff: 1s → 2s → 4s
+- Simplified `tg_bot/src/main.py` from ~80 lines to ~35 lines by using built-in client retry
+- Tests in `tests/tooling/test_client_generator.py` verify generated code structure
 
-**Proposed Solution**:
-- Add `tenacity` as optional dependency for generated clients
-- Configure retry at client init: `BackendClient(max_retries=3, retry_on=[5xx, ConnectError])`
-- Smart defaults: retry safe methods (GET), configurable for others
-- Alternatively: retry at httpx transport level
+**Usage**:
+```python
+# Default retry (3 attempts, 1s initial delay)
+async with BackendClient() as client:
+    user = await client.create_user(payload)
 
-**Considerations**:
-- POST/PUT with side effects — danger of duplicate actions
-- Need to distinguish retryable vs non-retryable errors (5xx vs 4xx)
-- Timeout vs connection error handling
+# Custom retry settings
+async with BackendClient(max_retries=5, initial_delay=0.5) as client:
+    user = await client.get_user(user_id=123)
+```
 
 ### Spec-First Async Messaging (Queues)
 

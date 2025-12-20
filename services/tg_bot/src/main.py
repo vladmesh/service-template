@@ -6,7 +6,6 @@ extended with real handlers later on.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from http import HTTPStatus
 import logging
@@ -46,86 +45,43 @@ def _get_token() -> str:
     return token
 
 
-async def _sync_user_with_backend(
-    telegram_id: int,
-    *,
-    max_retries: int = 3,
-    initial_delay: float = 1.0,
-) -> bool | None:
+async def _sync_user_with_backend(telegram_id: int) -> bool | None:
     """Ensure the user exists in the backend or create it if missing.
 
-    Uses generated BackendClient with manual retry logic for resilience.
-    Implements exponential backoff retry for transient errors:
-    - httpx.ConnectError: Backend temporarily unavailable
-    - 5xx status codes: Server-side errors
+    Uses generated BackendClient with built-in retry logic:
+    - Retries on httpx.ConnectError (backend unavailable)
+    - Retries on 5xx status codes (server errors)
+    - No retry on 4xx client errors (fails immediately)
 
     Args:
         telegram_id: Telegram user ID to sync
-        max_retries: Maximum number of retry attempts (default: 3)
-        initial_delay: Initial delay in seconds, doubles each retry (default: 1.0)
 
     Returns:
         True if user was created, False if already exists, None on permanent failure
     """
     payload = UserCreate(telegram_id=telegram_id, is_admin=False)
-    delay = initial_delay
 
-    for attempt in range(max_retries):
-        try:
-            async with BackendClient() as client:
-                user = await client.create_user(payload)
-                LOGGER.info("Created user: %s", user.id)
-                return True
+    try:
+        async with BackendClient() as client:
+            user = await client.create_user(payload)
+            LOGGER.info("Created user: %s", user.id)
+            return True
 
-        except httpx.HTTPStatusError as e:
-            status = e.response.status_code
+    except httpx.HTTPStatusError as e:
+        # 409 CONFLICT = user already exists (success case)
+        if e.response.status_code == HTTPStatus.CONFLICT:
+            return False
 
-            # 409 CONFLICT = user already exists (success case)
-            if status == HTTPStatus.CONFLICT:
-                return False
+        LOGGER.error(
+            "Backend error: status=%s body=%s",
+            e.response.status_code,
+            e.response.text,
+        )
+        return None
 
-            # Client errors (4xx except 409) - don't retry
-            if HTTPStatus.BAD_REQUEST <= status < HTTPStatus.INTERNAL_SERVER_ERROR:
-                LOGGER.error(
-                    "Client error from backend: status=%s body=%s",
-                    status,
-                    e.response.text,
-                )
-                return None
-
-            # Server errors (5xx) - retry with backoff
-            LOGGER.warning(
-                "Backend returned %s (attempt %d/%d), retrying in %.1fs...",
-                status,
-                attempt + 1,
-                max_retries,
-                delay,
-            )
-
-        except httpx.ConnectError:
-            LOGGER.warning(
-                "Backend unavailable (attempt %d/%d), retrying in %.1fs...",
-                attempt + 1,
-                max_retries,
-                delay,
-            )
-
-        except httpx.HTTPError:
-            LOGGER.exception(
-                "HTTP error syncing Telegram user (attempt %d/%d)",
-                attempt + 1,
-                max_retries,
-            )
-            if attempt == max_retries - 1:
-                return None
-
-        # Wait before next attempt (skip wait on last attempt)
-        if attempt < max_retries - 1:
-            await asyncio.sleep(delay)
-            delay *= 2  # Exponential backoff
-
-    LOGGER.error("Failed to sync user after %d attempts", max_retries)
-    return None
+    except (httpx.ConnectError, httpx.HTTPError):
+        LOGGER.exception("Failed to sync Telegram user after retries")
+        return None
 
 
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

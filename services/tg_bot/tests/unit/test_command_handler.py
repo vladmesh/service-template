@@ -147,20 +147,25 @@ async def test_post_shutdown_closes_broker(mock_broker: MagicMock) -> None:
 
 
 class TestSyncUserWithBackend:
-    """Tests for _sync_user_with_backend function."""
+    """Tests for _sync_user_with_backend function.
+
+    Note: Retry logic is now handled by the generated BackendClient.
+    These tests verify the integration between _sync_user_with_backend
+    and BackendClient, not the retry implementation details.
+    """
 
     @pytest.mark.asyncio
     async def test_sync_user_created(self) -> None:
         """Test that new user creation returns True."""
-        from http import HTTPStatus
         from unittest.mock import AsyncMock
 
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.CREATED
+        from shared.generated.schemas import UserRead
 
+        mock_user = UserRead(id=1, telegram_id=TEST_TELEGRAM_USER_ID, is_admin=False)
+
+        with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.create_user = AsyncMock(return_value=mock_user)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
@@ -172,16 +177,26 @@ class TestSyncUserWithBackend:
 
     @pytest.mark.asyncio
     async def test_sync_user_already_exists(self) -> None:
-        """Test that existing user returns False (conflict)."""
+        """Test that 409 CONFLICT returns False (user exists)."""
         from http import HTTPStatus
         from unittest.mock import AsyncMock
 
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.CONFLICT
+        import httpx
 
+        # Create mock response for 409 status
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.CONFLICT
+        mock_response.text = "User already exists"
+
+        with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.create_user = AsyncMock(
+                side_effect=httpx.HTTPStatusError(
+                    "Conflict",
+                    request=MagicMock(),
+                    response=mock_response,
+                )
+            )
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
@@ -193,14 +208,16 @@ class TestSyncUserWithBackend:
 
     @pytest.mark.asyncio
     async def test_sync_user_http_error(self) -> None:
-        """Test that HTTP errors return None."""
+        """Test that HTTPError returns None (handled gracefully)."""
         from unittest.mock import AsyncMock
 
         import httpx
 
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
+        with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=httpx.HTTPError("Connection failed"))
+            mock_client.create_user = AsyncMock(
+                side_effect=httpx.HTTPError("Connection failed after retries")
+            )
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
@@ -211,164 +228,55 @@ class TestSyncUserWithBackend:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_sync_user_unexpected_status(self) -> None:
-        """Test that unexpected status codes return None."""
-        from http import HTTPStatus
+    async def test_sync_user_connect_error(self) -> None:
+        """Test that ConnectError returns None (after client exhausts retries)."""
         from unittest.mock import AsyncMock
 
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.INTERNAL_SERVER_ERROR
-            mock_response.text = "Internal Server Error"
+        import httpx
 
+        with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.create_user = AsyncMock(
+                side_effect=httpx.ConnectError("Backend unavailable after retries")
+            )
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
 
             from services.tg_bot.src.main import _sync_user_with_backend
 
-            # Use minimal retries and delay for faster tests
-            result = await _sync_user_with_backend(
-                TEST_TELEGRAM_USER_ID, max_retries=1, initial_delay=0.01
-            )
+            result = await _sync_user_with_backend(TEST_TELEGRAM_USER_ID)
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_sync_user_retries_on_5xx(self) -> None:
-        """Test that 5xx errors trigger retries with eventual success."""
-        from http import HTTPStatus
-        from unittest.mock import AsyncMock
-
-        call_count = 0
-
-        async def post_side_effect(*args, **kwargs) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            mock_response = MagicMock()
-            success_attempt = 3
-            if call_count < success_attempt:
-                mock_response.status_code = HTTPStatus.SERVICE_UNAVAILABLE
-                mock_response.text = "Service Unavailable"
-            else:
-                mock_response.status_code = HTTPStatus.CREATED
-            return mock_response
-
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=post_side_effect)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
-
-            from services.tg_bot.src.main import _sync_user_with_backend
-
-            max_attempts = 3
-            result = await _sync_user_with_backend(
-                TEST_TELEGRAM_USER_ID, max_retries=max_attempts, initial_delay=0.01
-            )
-            assert result is True
-            assert call_count == max_attempts
-
-    @pytest.mark.asyncio
-    async def test_sync_user_retries_on_connect_error(self) -> None:
-        """Test that ConnectError triggers retries with eventual success."""
+    async def test_sync_user_4xx_error(self) -> None:
+        """Test that 4xx client errors return None (no retry by client)."""
         from http import HTTPStatus
         from unittest.mock import AsyncMock
 
         import httpx
 
-        call_count = 0
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.BAD_REQUEST
+        mock_response.text = "Bad Request"
 
-        async def post_side_effect(*args, **kwargs) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            success_attempt = 2
-            if call_count < success_attempt:
-                raise httpx.ConnectError("Connection refused")
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.CONFLICT
-            return mock_response
-
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
+        with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=post_side_effect)
+            mock_client.create_user = AsyncMock(
+                side_effect=httpx.HTTPStatusError(
+                    "Bad Request",
+                    request=MagicMock(),
+                    response=mock_response,
+                )
+            )
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
 
             from services.tg_bot.src.main import _sync_user_with_backend
 
-            result = await _sync_user_with_backend(
-                TEST_TELEGRAM_USER_ID, max_retries=3, initial_delay=0.01
-            )
-            expected_attempts = 2
-            assert result is False  # User already exists
-            assert call_count == expected_attempts
-
-    @pytest.mark.asyncio
-    async def test_sync_user_no_retry_on_4xx(self) -> None:
-        """Test that 4xx client errors do NOT trigger retries."""
-        from http import HTTPStatus
-        from unittest.mock import AsyncMock
-
-        call_count = 0
-
-        async def post_side_effect(*args, **kwargs) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.BAD_REQUEST
-            mock_response.text = "Bad Request"
-            return mock_response
-
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=post_side_effect)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
-
-            from services.tg_bot.src.main import _sync_user_with_backend
-
-            result = await _sync_user_with_backend(
-                TEST_TELEGRAM_USER_ID, max_retries=3, initial_delay=0.01
-            )
+            result = await _sync_user_with_backend(TEST_TELEGRAM_USER_ID)
             assert result is None
-            assert call_count == 1  # No retries on 4xx
-
-    @pytest.mark.asyncio
-    async def test_sync_user_exhausts_all_retries(self) -> None:
-        """Test that function returns None after exhausting all retries."""
-        from http import HTTPStatus
-        from unittest.mock import AsyncMock
-
-        call_count = 0
-
-        async def post_side_effect(*args, **kwargs) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            mock_response = MagicMock()
-            mock_response.status_code = HTTPStatus.INTERNAL_SERVER_ERROR
-            mock_response.text = "Internal Server Error"
-            return mock_response
-
-        with patch("services.tg_bot.src.main.httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=post_side_effect)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
-
-            from services.tg_bot.src.main import _sync_user_with_backend
-
-            max_attempts = 3
-            result = await _sync_user_with_backend(
-                TEST_TELEGRAM_USER_ID, max_retries=max_attempts, initial_delay=0.01
-            )
-            assert result is None
-            assert call_count == max_attempts  # All retries exhausted
 
 
 class TestHandleStart:
