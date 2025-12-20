@@ -33,6 +33,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare environment
+        run: |
+          cp .env.example .env || touch .env
+
       - name: Check framework sync
         run: make check-sync
 

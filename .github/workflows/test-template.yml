@@ -141,13 +141,5 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install copier pyyaml pytest
-
       - name: Run copier template tests
         run: pytest tests/copier/ -v
