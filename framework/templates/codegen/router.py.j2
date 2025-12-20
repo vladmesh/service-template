@@ -61,7 +61,7 @@ def create_router(
     def {{ handler.name }}(
     {% endif %}
         {% for param in handler.params %}
-        {{ param.name }}: {{ param.type }} = {{ param.source }},
+        {{ param.name }}: {{ param.type }} = {{ param.fastapi_source }},
         {% endfor %}
         {% if handler.request_model %}
         payload: {{ handler.request_model }} = Body(...),  # noqa: B008

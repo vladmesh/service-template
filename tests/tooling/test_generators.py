@@ -136,3 +136,87 @@ operations:
         "Controller method 'create' is not properly indented inside class body. "
         "This indicates a code generation bug in controller.py.j2 template."
     )
+
+
+def test_generate_router_with_query_params(fake_repo) -> None:
+    """Test that routers with query parameters use Query(...) syntax."""
+    root, _, _, _ = fake_repo
+
+    # Copy templates to fake repo
+    real_templates = Path("framework/templates").absolute()
+    fake_templates = root / "framework" / "templates"
+    fake_templates.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(real_templates, fake_templates, dirs_exist_ok=True)
+
+    # Reload generate module to pick up new root
+    importlib.reload(generate)
+
+    # Create specs
+    spec_dir = root / "shared" / "spec"
+    spec_dir.mkdir(parents=True)
+
+    (spec_dir / "models.yaml").write_text(
+        """
+models:
+  Item:
+    fields:
+      id: int
+      name: string
+    variants:
+      Read: {}
+""",
+        encoding="utf-8",
+    )
+
+    # Create service spec with query parameters
+    service_spec_dir = root / "services" / "backend" / "spec"
+    service_spec_dir.mkdir(parents=True)
+
+    (service_spec_dir / "items.yaml").write_text(
+        """
+domain: items
+config:
+  rest:
+    prefix: "/items"
+    tags: ["items"]
+
+operations:
+  list_items:
+    output: list[ItemRead]
+    params:
+      - name: limit
+        type: int
+        source: query
+        default: 20
+      - name: offset
+        type: int
+        source: query
+        default: 0
+      - name: search
+        type: str
+        source: query
+        required: false
+    rest:
+      method: GET
+      path: ""
+""",
+        encoding="utf-8",
+    )
+
+    # Run generation
+    generate.generate_all(root)
+
+    # Check generated router
+    backend_gen = root / "services" / "backend" / "src" / "generated"
+    router_file = backend_gen / "routers" / "items.py"
+    assert router_file.exists(), "Items router was not generated"
+
+    router_content = router_file.read_text()
+
+    # Verify Query(...) is used for query params
+    assert "Query(default=20)" in router_content, "limit param should have Query(default=20)"
+    assert "Query(default=0)" in router_content, "offset param should have Query(default=0)"
+    assert "Query(default=None)" in router_content, "search param should have Query(default=None)"
+
+    # Verify Path(...) is NOT used (no path params in this endpoint)
+    assert "Path(...)" not in router_content, "No Path(...) should be present without path params"

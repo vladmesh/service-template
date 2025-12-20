@@ -15,12 +15,23 @@ if TYPE_CHECKING:
 
 @dataclass
 class ParamContext:
-    """Context for a single parameter in generated code."""
+    """Context for a single parameter in generated code.
+
+    Attributes:
+        name: Parameter name
+        type: Python type annotation
+        required: Whether param is required
+        param_source: Original source type ("path" or "query")
+        default: Default value for optional params
+        fastapi_source: FastAPI dependency string (e.g., "Path(...)" or "Query(default=10)")
+    """
 
     name: str
     type: str
     required: bool = True
-    source: str | None = None  # e.g., "Path(...)" for REST
+    param_source: str = "path"  # "path" or "query"
+    default: str | int | float | bool | None = None
+    fastapi_source: str | None = None  # e.g., "Path(...)" or "Query(default=10)"
 
 
 @dataclass
@@ -94,13 +105,28 @@ class OperationContextBuilder:
         if operation.base_output_model:
             imports.add(operation.base_output_model)
 
-        # Build params from spec
+        # Build params from spec with source-specific FastAPI syntax
         for param in operation.params:
+            # Determine FastAPI source based on param source type
+            if param.source == "query":
+                if param.default is not None:
+                    fastapi_source = f"Query(default={param.default!r})"
+                elif not param.required:
+                    fastapi_source = "Query(default=None)"
+                else:
+                    fastapi_source = "Query(...)"
+            else:
+                # Path params are always required
+                fastapi_source = "Path(...)"
+
             params.append(
                 ParamContext(
                     name=param.name,
                     type=param.type,
                     required=param.required,
+                    param_source=param.source,
+                    default=param.default,
+                    fastapi_source=fastapi_source,
                 )
             )
 
@@ -120,10 +146,6 @@ class OperationContextBuilder:
             ctx.http_method = operation.rest.method
             ctx.path = operation.rest.path
             ctx.status_code = operation.rest.effective_status
-
-            # Add Path(...) source for REST params
-            for param in ctx.params:
-                param.source = "Path(...)"
 
         # Add Events-specific context
         if include_events and operation.events:

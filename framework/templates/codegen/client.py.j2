@@ -179,22 +179,40 @@ class {{ provider_capitalized }}Client:
 
     async def {{ op.name }}(
         self,
-        {% for param in op.params %}
+        {% for param in op.path_params %}
         {{ param.name }}: {{ param.type }},
         {% endfor %}
         {% if op.input_model %}
         payload: {{ op.input_model }},
         {% endif %}
+        {% for param in op.query_params %}
+        {% if param.default_repr %}
+        {{ param.name }}: {{ param.type }} = {{ param.default_repr }},
+        {% elif not param.required %}
+        {{ param.name }}: {{ param.type }} | None = None,
+        {% else %}
+        {{ param.name }}: {{ param.type }},
+        {% endif %}
+        {% endfor %}
     ) -> {{ op.return_type }}:
         """Call {{ op.name }} on {{ provider }} service."""
-        {% if op.params %}
+        {% if op.path_params %}
         path = "{{ domain.prefix }}{{ op.path }}".format(
-            {% for param in op.params %}
+            {% for param in op.path_params %}
             {{ param.name }}={{ param.name }},
             {% endfor %}
         )
         {% else %}
         path = "{{ domain.prefix }}{{ op.path }}"
+        {% endif %}
+        {% if op.query_params %}
+
+        # Build query parameters (exclude None values)
+        query_params: dict[str, Any] = {}
+        {% for param in op.query_params %}
+        if {{ param.name }} is not None:
+            query_params["{{ param.name }}"] = {{ param.name }}
+        {% endfor %}
         {% endif %}
         
         response = await self._request_with_retry(
@@ -202,6 +220,9 @@ class {{ provider_capitalized }}Client:
             path,
             {% if op.input_model %}
             json=payload.model_dump(mode="json"),
+            {% endif %}
+            {% if op.query_params %}
+            params=query_params if query_params else None,
             {% endif %}
         )
         {% if op.output_model %}

@@ -12,11 +12,21 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class ParamSpec(BaseModel):
-    """Specification for an operation parameter (path param, query param, etc)."""
+    """Specification for an operation parameter (path param, query param, etc).
+
+    Attributes:
+        name: Parameter name (used in path templates and function signatures)
+        type: Python type annotation (int, str, bool, float, etc.)
+        required: Whether the parameter is required (for query params)
+        source: Where the parameter comes from - "path" (URL path) or "query" (query string)
+        default: Default value for optional query parameters
+    """
 
     name: str
     type: str = "str"  # Python type annotation
     required: bool = True
+    source: Literal["path", "query"] = "path"
+    default: str | int | float | bool | None = None
 
     model_config = {"extra": "forbid"}
 

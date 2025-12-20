@@ -134,10 +134,28 @@ class ClientsGenerator(BaseGenerator):
             for op in operations:
                 ctx = self.context_builder.build_for_rest(op)
 
+                # Separate path and query params
+                path_params = [
+                    {"name": p.name, "type": p.type} for p in ctx.params if p.param_source == "path"
+                ]
+                query_params = [
+                    {
+                        "name": p.name,
+                        "type": p.type,
+                        "required": p.required,
+                        "default": p.default,
+                        "default_repr": repr(p.default) if p.default is not None else None,
+                    }
+                    for p in ctx.params
+                    if p.param_source == "query"
+                ]
+
                 op_ctx = {
                     "name": ctx.name,
                     "http_method": ctx.http_method.lower() if ctx.http_method else "get",
                     "path": ctx.path or "",
+                    "path_params": path_params,
+                    "query_params": query_params,
                     "params": [{"name": p.name, "type": p.type} for p in ctx.params],
                     "input_model": ctx.input_model,
                     "output_model": ctx.output_model,

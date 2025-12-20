@@ -296,9 +296,16 @@ await broker.close()
 
 ### Query Parameters in Domain Specs
 
-**Status**: IDEA
+**Status**: DONE
 
 **Description**: Add support for query parameters in domain operation specs for filtering and pagination.
+
+**Implementation**:
+- Extended `ParamSpec` in `framework/spec/operations.py` with `source: Literal["path", "query"]` and `default` fields
+- Updated `OperationContextBuilder` in `framework/generators/context.py` to generate `Query(...)` syntax for query params
+- Modified router template (`router.py.j2`) to use `fastapi_source` for parameter FastAPI dependencies
+- Modified client template (`client.py.j2`) to separate path and query params, passing query params as `params=` dict
+- Added tests in `tests/tooling/test_generators.py` verifying `Query(default=...)` generation
 
 **Example**:
 ```yaml
@@ -307,7 +314,8 @@ list_books:
   params:
     - name: status
       type: string
-      source: query  # NEW: query vs path
+      source: query
+      required: false
     - name: limit
       type: int
       source: query
@@ -315,6 +323,17 @@ list_books:
   rest:
     method: GET
     path: ""
+```
+
+**Generated Router Code**:
+```python
+async def list_books(
+    status: str = Query(default=None),  # optional query param
+    limit: int = Query(default=20),     # query param with default
+    session: AsyncSession = Depends(get_db),
+    controller: BooksControllerProtocol = Depends(get_controller),
+) -> list[BookRead]:
+    ...
 ```
 
 ### Enum Types in Model Fields

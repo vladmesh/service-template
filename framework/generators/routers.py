@@ -81,7 +81,13 @@ class RoutersGenerator(BaseGenerator):
                 "status_code": ctx.status_code,
                 "docstring": f"Handler for {ctx.name}",
                 "params": [
-                    {"name": p.name, "type": p.type, "source": p.source} for p in ctx.params
+                    {
+                        "name": p.name,
+                        "type": p.type,
+                        "param_source": p.param_source,
+                        "fastapi_source": p.fastapi_source,
+                    }
+                    for p in ctx.params
                 ],
                 "request_model": ctx.input_model,
                 "response_model": ctx.computed_return_type if ctx.output_model else None,
