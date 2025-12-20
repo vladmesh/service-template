@@ -332,12 +332,12 @@ This CLI would be installed via pip (`pip install service-template-framework`) o
 **Complexity**: Medium  
 **Risk**: Low
 
-- [ ] Create `template/.github/` directory
-- [ ] Move/adapt CI workflows:
+- [x] Create `template/.github/` directory
+- [x] Move/adapt CI workflows:
   - Create `template/.github/workflows/ci.yml.jinja` for product CI
   - Keep `.github/workflows/` in root for framework CI
-- [ ] Update workflow templates to use correct paths
-- [ ] Add test for CI workflow generation
+- [x] Update workflow templates to use correct paths
+- [x] Add test for CI workflow generation
 
 ### Phase 6: Create Product Test Scaffolding
 **Complexity**: Low  

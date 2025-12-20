@@ -639,8 +639,7 @@ class TestWorkflowGeneration:
 
         assert workflows_dir.exists()
         assert (workflows_dir / "main.yml").exists()
-        assert (workflows_dir / "pr.yml").exists()
-        assert (workflows_dir / "verify.yml").exists()
+        assert (workflows_dir / "ci.yml").exists()
 
     def test_workflow_no_jinja_source_files(self, tmp_path: Path):
         """Jinja source templates should not be copied."""
@@ -648,8 +647,7 @@ class TestWorkflowGeneration:
         workflows_dir = output / ".github" / "workflows"
 
         assert not (workflows_dir / "main.yml.jinja").exists()
-        assert not (workflows_dir / "pr.yml.jinja").exists()
-        assert not (workflows_dir / "verify.yml.jinja").exists()
+        assert not (workflows_dir / "ci.yml.jinja").exists()
         assert not (workflows_dir / "test-template.yml").exists()
 
     def test_backend_only_workflow_matrix(self, tmp_path: Path):
@@ -689,7 +687,7 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+        for workflow_file in ["main.yml", "ci.yml"]:
             content = yaml.safe_load((workflows_dir / workflow_file).read_text())
             assert "name" in content
             # YAML parses "on" as boolean True, so check for True key
@@ -701,7 +699,7 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+        for workflow_file in ["main.yml", "ci.yml"]:
             content = (workflows_dir / workflow_file).read_text()
             # Check for unrendered Jinja (but allow GitHub Actions ${{ }})
             assert "{% if" not in content

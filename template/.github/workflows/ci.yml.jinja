@@ -1,7 +1,10 @@
-name: Verify Main Push
+name: CI
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -10,7 +13,7 @@ env:
   DOCKER_BUILDKIT: "1"
 
 jobs:
-  verify:
+  lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
