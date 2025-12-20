@@ -115,7 +115,12 @@ node_version:
 # ============================================================================
 # Tasks - Clean up unselected modules after copy
 # ============================================================================
+# NOTE: When running copier via Docker, pass -e HOST_UID=$(id -u) -e HOST_GID=$(id -g)
+# to fix file ownership. The last task will chown all files to the host user.
 _tasks:
   - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+  # Fix file permissions if running as root in Docker
+  - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
+
