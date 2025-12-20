@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'copier.yml'
-      - '**/*.jinja'
+      - 'template/**'
       - 'tests/copier/**'
       - '.github/workflows/test-template.yml'
   pull_request:
@@ -14,7 +14,7 @@ on:
       - main
     paths:
       - 'copier.yml'
-      - '**/*.jinja'
+      - 'template/**'
       - 'tests/copier/**'
       - '.github/workflows/test-template.yml'
   workflow_dispatch:

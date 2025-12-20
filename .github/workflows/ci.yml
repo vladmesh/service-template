@@ -7,6 +7,8 @@ on:
     paths:
       - 'framework/**'
       - 'tests/**'
+      - 'scripts/**'
+      - 'docs/**'
       - '.github/workflows/ci.yml'
       - 'Makefile'
   pull_request:
@@ -15,6 +17,8 @@ on:
     paths:
       - 'framework/**'
       - 'tests/**'
+      - 'scripts/**'
+      - 'docs/**'
       - '.github/workflows/ci.yml'
       - 'Makefile'
   workflow_dispatch:
