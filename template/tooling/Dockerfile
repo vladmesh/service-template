@@ -1,14 +1,22 @@
 # syntax=docker/dockerfile:1.7
 FROM python:3.11-slim AS tooling
 
+# Accept build args for user/group IDs to match host user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_NO_INTERACTION=1 \
-    PATH="/root/.local/bin:${PATH}"
+    PATH="/home/appuser/.local/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+# Create user with matching UID/GID to host user
+RUN groupadd -g ${GROUP_ID} appuser && \
+    useradd -m -u ${USER_ID} -g appuser appuser
 
 WORKDIR /workspace
 
@@ -24,5 +32,8 @@ RUN pip install --no-cache-dir \
     jinja2 \
     poetry \
     copier==9.4.1
+
+# Switch to non-root user
+USER appuser
 
 CMD ["bash"]

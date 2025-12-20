@@ -14,3 +14,7 @@ pytest.cache/
 build/
 dist/
 apps/backend/tests/.tmp/
+
+# Auto-generated files (created by make generate-from-spec, make openapi)
+**/generated/
+**/docs/openapi.json
