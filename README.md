@@ -46,25 +46,36 @@ Pull latest infrastructure updates while preserving your code:
 copier update
 ```
 
-## Development Workflow
+## Development Workflow (in Generated Projects)
 
-- **Add Service:** Edit `services.yml` -> `make sync-services create`
-- **Update API:** Edit `shared/spec/*.yaml` -> `make generate-from-spec`
+After generating a project with `copier copy`:
+
+- **Add Service:** Edit `services.yml` → `make sync-services create`
+- **Update API:** Edit `shared/spec/*.yaml` → `make generate-from-spec`
 - **Run Tests:** `make tests`
 - **Lint:** `make lint`
 
+## Framework Development
+
+Developing the framework itself (this repository):
+
+- **Run Tests:** `make test` (framework unit tests) or `make test-copier` (template generation tests)
+- **Lint:** `make lint` (framework code only)
+- **Sync `.framework/`:** `make sync-framework` (copy framework code to template)
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed framework development instructions.
+
 ## Documentation
 
-### For Framework Users
-- **[AGENTS.md](AGENTS.md)**: Navigation guide for AI agents.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Coding standards and rules.
+### For Framework Users (Template Users)
+- Generated projects include `README.md`, `AGENTS.md`, and `CONTRIBUTING.md` with usage instructions
 
 ### For Framework Developers
-- **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy.
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: How it works under the hood.
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: How to develop the framework.
-- **[docs/RESTRUCTURING_PLAN.md](docs/RESTRUCTURING_PLAN.md)**: Ongoing restructuring plan.
-- **[docs/backlog.md](docs/backlog.md)**: Framework roadmap and backlog.
+- **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: How the framework works
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: How to develop the framework
+- **[docs/RESTRUCTURING_PLAN.md](docs/RESTRUCTURING_PLAN.md)**: Current restructuring progress
+- **[docs/backlog.md](docs/backlog.md)**: Framework roadmap
 
 ## Roadmap
 

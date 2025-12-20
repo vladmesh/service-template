@@ -343,26 +343,26 @@ This CLI would be installed via pip (`pip install service-template-framework`) o
 **Complexity**: Low  
 **Risk**: Low
 
-- [ ] Create `template/tests/` directory structure
-- [ ] Create `template/tests/conftest.py.jinja`
-- [ ] Create `template/tests/integration/` placeholder
-- [ ] Ensure copier doesn't copy framework's `tests/` to product
+- [x] Create `template/tests/` directory structure
+- [x] Create `template/tests/conftest.py.jinja`
+- [x] Create `template/tests/integration/` placeholder
+- [x] Ensure copier doesn't copy framework's `tests/` to product
 
 ### Phase 7: Update Framework Root
 **Complexity**: Low  
 **Risk**: Low
 
-- [ ] Rewrite root `README.md` as framework interface documentation:
+- [x] Rewrite root `README.md` as framework interface documentation:
   - Quick start with Copier
   - Available modules
   - Link to `docs/` for internals
-- [ ] Update root `Makefile` for framework-specific commands:
+- [x] Update root `Makefile` for framework-specific commands:
   - `make test` → run framework tests
   - `make lint` → lint framework code
   - `make test-template` → test copier generation
   - Remove product-specific commands
-- [ ] Update `.github/workflows/` for framework CI only
-- [ ] Clean up root directory (remove any remaining template files)
+- [x] Update `.github/workflows/` for framework CI only
+- [x] Clean up root directory (remove any remaining template files)
 
 ### Phase 8: Sync Script for .framework/
 **Complexity**: Medium  

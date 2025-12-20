@@ -205,6 +205,24 @@ class TestBackendOnlyGeneration:
         assert BASE_DATA["project_name"] in content
         assert "backend" in content.lower()
 
+    def test_product_test_scaffolding(self, generated_project: Path):
+        """Product should have test scaffolding, not framework tests."""
+        # Product test scaffolding should exist
+        tests_dir = generated_project / "tests"
+        assert tests_dir.exists(), "tests/ directory should exist"
+        assert (tests_dir / "conftest.py").exists(), "tests/conftest.py should exist"
+        assert (tests_dir / "integration").exists(), "tests/integration/ should exist"
+
+        # Framework tests should NOT be copied
+        assert not (tests_dir / "unit").exists(), "Framework tests/unit/ should not be copied"
+        assert not (tests_dir / "copier").exists(), "Framework tests/copier/ should not be copied"
+        assert not (tests_dir / "tooling").exists(), "Framework tests/tooling/ should not be copied"
+
+        # conftest.py should not have .jinja extension and should be rendered
+        conftest_content = (tests_dir / "conftest.py").read_text()
+        assert "{{ project_name }}" not in conftest_content, "Jinja artifacts in conftest.py"
+        assert "test-project" in conftest_content or "Pytest configuration" in conftest_content
+
 
 @pytest.mark.usefixtures("copier_available")
 class TestBackendWithTgBotGeneration:
