@@ -42,11 +42,11 @@ class BaseGenerator(ABC):
 
     def format_file(self, path: Path) -> None:
         """Format generated file with ruff."""
-        ruff_format_cmd = ["ruff", "format", str(path)]
-        ruff_check_cmd = ["ruff", "check", "--fix", str(path)]
+        ruff_format_cmd = ["ruff", "format", "--no-cache", str(path)]
+        ruff_check_cmd = ["ruff", "check", "--no-cache", "--fix", str(path)]
         try:
             subprocess.run(ruff_format_cmd, check=True, capture_output=True)  # noqa: S603, S607
             subprocess.run(ruff_check_cmd, check=False, capture_output=True)  # noqa: S603, S607
-        except FileNotFoundError:
+        except subprocess.CalledProcessError:
             # ruff not available, skip formatting
             pass
