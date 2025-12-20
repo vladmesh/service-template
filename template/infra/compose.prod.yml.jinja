@@ -1,0 +1,98 @@
+services:
+{% if 'backend' in modules %}
+  backend:
+    extends:
+      file: compose.base.yml
+      service: backend
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the published backend image}
+    env_file:
+      - ../.env
+      - ./.env.prod
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+
+  db:
+    extends:
+      file: compose.base.yml
+      service: db
+    env_file:
+      - ./.env.prod
+    deploy:
+      restart_policy:
+        condition: on-failure
+{% endif %}
+
+{% if 'tg_bot' in modules %}
+  tg_bot:
+    extends:
+      file: compose.base.yml
+      service: tg_bot
+    image: ${TG_BOT_IMAGE:?Set TG_BOT_IMAGE to the published tg_bot image}
+    env_file:
+      - ../.env
+      - ./.env.prod
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+{% endif %}
+
+{% if 'notifications' in modules %}
+  notifications_worker:
+    extends:
+      file: compose.base.yml
+      service: notifications_worker
+    image: ${NOTIFICATIONS_WORKER_IMAGE:?Set NOTIFICATIONS_WORKER_IMAGE to the published image}
+    env_file:
+      - ../.env
+      - ./.env.prod
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+{% endif %}
+
+{% if 'frontend' in modules %}
+  frontend:
+    extends:
+      file: compose.base.yml
+      service: frontend
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE to the published frontend image}
+    env_file:
+      - ../.env
+      - ./.env.prod
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+{% endif %}
+
+{% if 'tg_bot' in modules or 'notifications' in modules %}
+  redis:
+    extends:
+      file: compose.base.yml
+      service: redis
+    env_file:
+      - ./.env.prod
+    deploy:
+      restart_policy:
+        condition: on-failure
+{% endif %}
+
+  caddy:
+    extends:
+      file: compose.base.yml
+      service: caddy
+    image: ${CADDY_IMAGE:-caddy:2}
+    env_file:
+      - ./.env.prod
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      restart_policy:
+        condition: on-failure

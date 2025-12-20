@@ -1,0 +1,47 @@
+name: Framework CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'framework/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+      - 'Makefile'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'framework/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+      - 'Makefile'
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env || touch .env
+
+      - name: Check framework sync
+        run: make check-sync
+
+      - name: Run linters
+        run: make lint
+
+      - name: Run unit tests
+        run: make test

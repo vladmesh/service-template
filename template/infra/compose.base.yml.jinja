@@ -1,0 +1,132 @@
+{% if 'backend' in modules -%}
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
+  ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
+{% endif %}
+
+services:
+{% if 'backend' in modules %}
+  backend:
+    image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
+    build:
+      context: ..
+      dockerfile: services/backend/Dockerfile
+      args:
+        INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
+    env_file:
+      - ../.env
+    environment:
+      <<: *backend-env
+    command: ["services/backend/scripts/start.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    expose:
+      - "8000"
+{% endif %}
+
+{% if 'tg_bot' in modules %}
+  tg_bot:
+    image: ${TG_BOT_IMAGE:-{{ project_slug }}-tg:latest}
+    build:
+      context: ..
+      dockerfile: services/tg_bot/Dockerfile
+    env_file:
+      - ../.env
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    profiles: ["tg"]
+    networks:
+      - internal
+{% endif %}
+
+{% if 'frontend' in modules %}
+  frontend:
+    image: ${FRONTEND_IMAGE:-{{ project_slug }}-frontend:latest}
+    build:
+      context: ..
+      dockerfile: services/frontend/Dockerfile
+    env_file:
+      - ../.env
+    networks:
+      - edge
+    expose:
+      - "4321"
+{% endif %}
+
+{% if 'notifications' in modules %}
+  notifications_worker:
+    image: ${NOTIFICATIONS_WORKER_IMAGE:-{{ project_slug }}-notifications-worker:latest}
+    build:
+      context: ..
+      dockerfile: services/notifications_worker/Dockerfile
+    env_file:
+      - ../.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+{% endif %}
+
+{% if 'backend' in modules %}
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-service}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+{% endif %}
+
+{% if 'tg_bot' in modules or 'notifications' in modules %}
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+{% endif %}
+
+  caddy:
+    image: caddy:2
+{% if 'backend' in modules %}
+    depends_on:
+      backend:
+        condition: service_started
+{% endif %}
+    networks:
+      - edge
+      - internal
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+
+networks:
+  internal:
+  edge:
+
+volumes:
+{% if 'backend' in modules %}
+  db_data:
+{% endif %}
+  caddy_data:
+  caddy_config:

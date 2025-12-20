@@ -2,7 +2,7 @@
 
 A rigid, spec-first, modular framework for building AI-Agent-ready microservices.
 
-> **Start here:** Read the [MANIFESTO](MANIFESTO.md) to understand the philosophy behind this project.
+> **Start here:** Read the [MANIFESTO](docs/MANIFESTO.md) to understand the philosophy behind this project.
 
 ## Quick Start
 
@@ -46,24 +46,36 @@ Pull latest infrastructure updates while preserving your code:
 copier update
 ```
 
-## Development Workflow
+## Development Workflow (in Generated Projects)
 
-- **Add Service:** Edit `services.yml` -> `make sync-services create`
-- **Update API:** Edit `shared/spec/*.yaml` -> `make generate-from-spec`
+After generating a project with `copier copy`:
+
+- **Add Service:** Edit `services.yml` → `make sync-services create`
+- **Update API:** Edit `shared/spec/*.yaml` → `make generate-from-spec`
 - **Run Tests:** `make tests`
 - **Lint:** `make lint`
 
+## Framework Development
+
+Developing the framework itself (this repository):
+
+- **Run Tests:** `make test` (framework unit tests) or `make test-copier` (template generation tests)
+- **Lint:** `make lint` (framework code only)
+- **Sync `.framework/`:** `make sync-framework` (copy framework code to template)
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed framework development instructions.
+
 ## Documentation
 
-- **[MANIFESTO.md](MANIFESTO.md)**: The core philosophy.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: How it works under the hood.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Coding standards and rules.
-- **[AGENTS.md](AGENTS.md)**: Navigation guide for AI agents.
+### For Framework Users (Template Users)
+- Generated projects include `README.md`, `AGENTS.md`, and `CONTRIBUTING.md` with usage instructions
 
-### Template Development
-
-- **[docs/TEMPLATE_DEVELOPMENT.md](docs/TEMPLATE_DEVELOPMENT.md)**: How to develop and extend the template.
-- **[docs/TESTING.md](docs/TESTING.md)**: How to run template tests.
+### For Framework Developers
+- **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: How the framework works
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: How to develop the framework
+- **[docs/RESTRUCTURING_PLAN.md](docs/RESTRUCTURING_PLAN.md)**: Current restructuring progress
+- **[docs/backlog.md](docs/backlog.md)**: Framework roadmap
 
 ## Roadmap
 

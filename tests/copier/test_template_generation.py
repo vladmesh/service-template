@@ -4,9 +4,11 @@ These tests require copier to be installed: pip install copier pyyaml
 Run with: pytest tests/copier/ -v
 """
 
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import pytest
@@ -202,6 +204,24 @@ class TestBackendOnlyGeneration:
 
         assert BASE_DATA["project_name"] in content
         assert "backend" in content.lower()
+
+    def test_product_test_scaffolding(self, generated_project: Path):
+        """Product should have test scaffolding, not framework tests."""
+        # Product test scaffolding should exist
+        tests_dir = generated_project / "tests"
+        assert tests_dir.exists(), "tests/ directory should exist"
+        assert (tests_dir / "conftest.py").exists(), "tests/conftest.py should exist"
+        assert (tests_dir / "integration").exists(), "tests/integration/ should exist"
+
+        # Framework tests should NOT be copied
+        assert not (tests_dir / "unit").exists(), "Framework tests/unit/ should not be copied"
+        assert not (tests_dir / "copier").exists(), "Framework tests/copier/ should not be copied"
+        assert not (tests_dir / "tooling").exists(), "Framework tests/tooling/ should not be copied"
+
+        # conftest.py should not have .jinja extension and should be rendered
+        conftest_content = (tests_dir / "conftest.py").read_text()
+        assert "{{ project_name }}" not in conftest_content, "Jinja artifacts in conftest.py"
+        assert "test-project" in conftest_content or "Pytest configuration" in conftest_content
 
 
 @pytest.mark.usefixtures("copier_available")
@@ -409,6 +429,34 @@ class TestIntegration:
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
+    def test_framework_generate_runs(self, tmp_path: Path):
+        """framework generation should run successfully via python."""
+        # We simulate what 'make generate-from-spec' does inside the container
+        # i.e. python -m framework.generate with PYTHONPATH=.framework
+
+        generated_project = run_copier(tmp_path, "backend")
+
+        framework_path = generated_project / ".framework"
+        env = {"PYTHONPATH": str(framework_path)}
+
+        # We need to run this using the Current python environment (which has dependencies)
+        # But we need to ensure the imports work.
+        # The current process is pytest in tooling.
+
+        # Note: We use the generated_project fixture which already ran copier.
+        # But generated_project path is inside /tmp (or cache).
+
+        result = subprocess.run(
+            [sys.executable, "-m", "framework.generate"],
+            cwd=generated_project,  # run from project root
+            env={**os.environ, **env},
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"framework.generate failed:\nstderr: {result.stderr}\nstdout: {result.stdout}"
+        )
+
     def test_makefile_has_correct_targets(self, tmp_path: Path):
         """Makefile should have expected targets."""
         output = run_copier(tmp_path, "backend")
@@ -609,8 +657,7 @@ class TestWorkflowGeneration:
 
         assert workflows_dir.exists()
         assert (workflows_dir / "main.yml").exists()
-        assert (workflows_dir / "pr.yml").exists()
-        assert (workflows_dir / "verify.yml").exists()
+        assert (workflows_dir / "ci.yml").exists()
 
     def test_workflow_no_jinja_source_files(self, tmp_path: Path):
         """Jinja source templates should not be copied."""
@@ -618,8 +665,7 @@ class TestWorkflowGeneration:
         workflows_dir = output / ".github" / "workflows"
 
         assert not (workflows_dir / "main.yml.jinja").exists()
-        assert not (workflows_dir / "pr.yml.jinja").exists()
-        assert not (workflows_dir / "verify.yml.jinja").exists()
+        assert not (workflows_dir / "ci.yml.jinja").exists()
         assert not (workflows_dir / "test-template.yml").exists()
 
     def test_backend_only_workflow_matrix(self, tmp_path: Path):
@@ -659,7 +705,7 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+        for workflow_file in ["main.yml", "ci.yml"]:
             content = yaml.safe_load((workflows_dir / workflow_file).read_text())
             assert "name" in content
             # YAML parses "on" as boolean True, so check for True key
@@ -671,7 +717,7 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "pr.yml", "verify.yml"]:
+        for workflow_file in ["main.yml", "ci.yml"]:
             content = (workflows_dir / workflow_file).read_text()
             # Check for unrendered Jinja (but allow GitHub Actions ${{ }})
             assert "{% if" not in content

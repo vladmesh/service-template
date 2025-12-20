@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# Pre-commit hook for service-template FRAMEWORK repository
+# This hook runs framework code formatting before commit
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
-echo "[pre-commit] Running make format..."
+echo "[pre-commit] Running make format on framework code..."
 make format
 
 echo "[pre-commit] Staging formatting changes..."

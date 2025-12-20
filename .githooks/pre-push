@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Pre-push hook for service-template FRAMEWORK repository
+# This hook verifies framework code quality before pushing
 set -euo pipefail
 
 remote_name="${1-}"
@@ -11,31 +13,20 @@ echo "[pre-push] Verifying push to ${remote_name:-unknown} (${remote_url:-})..."
 
 export DOCKER_BUILDKIT=1
 
-# Prepare environment files
-cp .env.example .env
-if [ ! -f infra/.env.test ]; then
-  echo "infra/.env.test missing" >&2
-  exit 1
-fi
+# Check framework sync status
+echo "[pre-push] Checking framework synchronization..."
+make check-sync
 
-# Generate from spec
-make generate-from-spec
-
-# Check generated files are up to date
-git diff --exit-code -- shared/shared/generated/
-
-# Run linters
+# Run linters on framework code
+echo "[pre-push] Running linters..."
 make lint
 
-# Check service sync
-make sync-services
+# Run framework unit tests
+echo "[pre-push] Running framework tests..."
+make test
 
-# Run tests
-make tests
+# Run copier template tests
+echo "[pre-push] Running copier tests..."
+make test-copier
 
-# Run sync-services tooling tests
-make tooling-tests
-
-# Clean up
-COMPOSE_PROJECT_NAME=tests-unit docker compose -f infra/compose.tests.unit.yml down --volumes --remove-orphans || true
-COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans || true
+echo "[pre-push] ✅ All checks passed!"

@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'copier.yml'
-      - '**/*.jinja'
+      - 'template/**'
       - 'tests/copier/**'
       - '.github/workflows/test-template.yml'
   pull_request:
@@ -14,7 +14,7 @@ on:
       - main
     paths:
       - 'copier.yml'
-      - '**/*.jinja'
+      - 'template/**'
       - 'tests/copier/**'
       - '.github/workflows/test-template.yml'
   workflow_dispatch:
@@ -63,11 +63,21 @@ jobs:
           fi
           echo "No Jinja artifacts found"
 
+      - name: Debug .env.example
+        run: |
+          cd /tmp/test-project
+          echo "=== Contents of .env.example ==="
+          cat .env.example
+          echo "=== End of .env.example ==="
+
       - name: Validate Docker Compose
         run: |
           cd /tmp/test-project
-          docker compose -f infra/compose.base.yml config > /dev/null
-          docker compose -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
+          # Create .env from .env.example for compose validation
+          cp .env.example .env
+          # Use --env-file to explicitly load .env (compose doesn't auto-load from parent dir)
+          docker compose --env-file .env -f infra/compose.base.yml config > /dev/null
+          docker compose --env-file .env -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
           echo "Docker Compose files are valid"
 
       - name: Verify services.yml matches modules
@@ -141,13 +151,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install copier pyyaml pytest
+      - name: Prepare environment
+        run: |
+          cp .env.example .env || touch .env
 
       - name: Run copier template tests
-        run: pytest tests/copier/ -v
+        run: make test-copier
