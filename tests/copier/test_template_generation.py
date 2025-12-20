@@ -232,6 +232,18 @@ class TestBackendWithTgBotGeneration:
         assert "backend" in content
         assert "tg_bot" in content
 
+    def test_tg_bot_depends_on_redis(self, generated_project: Path):
+        """tg_bot should depend on redis: service_healthy in services.yml."""
+        import yaml
+
+        services_yml = generated_project / "services.yml"
+        content = yaml.safe_load(services_yml.read_text())
+
+        tg_bot_service = next((s for s in content["services"] if s["name"] == "tg_bot"), None)
+        assert tg_bot_service is not None, "tg_bot service not found"
+        assert "depends_on" in tg_bot_service
+        assert tg_bot_service["depends_on"].get("redis") == "service_healthy"
+
 
 @pytest.mark.usefixtures("copier_available")
 class TestFullStackGeneration:

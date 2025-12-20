@@ -258,16 +258,6 @@ await broker.close()
     - `my-framework sync` (wraps `make sync-services`)
     - `my-framework update` (wraps `copier update`)
 
-### 3. MCP Server for Agents
-
-**Status**: IDEA
-
-**Description**: Build a Model Context Protocol (MCP) server that exposes the framework's capabilities to AI agents.
-- **Why**: Agents shouldn't just "edit files"; they should call high-level tools to manage the project lifecycle.
-- **Functionality**:
-    - `initialize_project(spec)`
-    - `add_service(name, type)`
-    - `update_infrastructure()`
 
 ### 4. Context Packer
 
@@ -285,19 +275,6 @@ await broker.close()
 ---
 
 ## Template / Copier Issues
-
-### tg_bot Missing Redis Dependency
-
-**Status**: TODO
-
-**Description**: The `services.yml.jinja` template for tg_bot is missing the `redis: service_healthy` dependency in `depends_on`. The template diverged from the original project configuration.
-
-**Fix**: Update `services.yml.jinja` to include:
-```yaml
-depends_on:
-  backend: service_started
-  redis: service_healthy
-```
 
 ### Copier Shows "version None"
 
