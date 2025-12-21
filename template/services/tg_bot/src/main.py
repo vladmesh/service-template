@@ -13,10 +13,11 @@ import os
 from typing import Final
 
 import httpx
-from shared.generated.events import broker, publish_command_received
-from shared.generated.schemas import CommandReceived, UserCreate
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
+
+from shared.generated.events import broker, publish_command_received
+from shared.generated.schemas import CommandReceived, UserCreate
 
 from .generated.clients.backend import BackendClient
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 import logging
 import os
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from faststream import FastStream
 from faststream.redis import RedisBroker

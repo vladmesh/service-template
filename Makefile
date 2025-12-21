@@ -24,6 +24,9 @@ help:
 lint:
 	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff check --no-cache framework/ tests/"
 
+lint-template:
+	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "cd template && ruff check ."
+
 format:
 	$(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling sh -c "ruff format framework/ tests/ && ruff check --no-cache --fix framework/ tests/"
 

@@ -46,6 +46,10 @@ class ProtocolsGenerator(BaseGenerator):
                     "request_model": ctx.input_model,
                     "response_model": ctx.output_model,
                     "return_type": ctx.return_type,
+                    # Transport type flags for unified handlers
+                    "is_rest_only": ctx.is_rest_only,
+                    "is_events_only": ctx.is_events_only,
+                    "is_dual_transport": ctx.is_dual_transport,
                 }
 
                 # Collect imports

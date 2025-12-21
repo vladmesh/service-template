@@ -84,13 +84,6 @@ def _get_template_dir() -> Path:
     return TEMPLATE_DIR
 
 
-@pytest.fixture(scope="module")
-def copier_available():
-    """Check if copier is available."""
-    if shutil.which("copier") is None:
-        pytest.skip("copier not installed (pip install copier)")
-
-
 def run_copier(tmp_path: Path, modules: str) -> Path:
     """Run copier copy and return the output directory."""
     output_dir = tmp_path / "output"

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from faststream.redis import TestRedisBroker
 import pytest
+
 from shared.generated.events import _publisher_user_registered, broker, publish_user_registered
 from shared.generated.schemas import UserRegisteredEvent
 

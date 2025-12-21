@@ -45,7 +45,9 @@ jobs:
         run: make check-sync
 
       - name: Run linters
-        run: make lint
+        run: |
+          make lint
+          make lint-template
 
       - name: Run unit tests
-        run: make test
+        run: make test-all

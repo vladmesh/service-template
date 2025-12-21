@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+
 from shared.generated.events import broker
 
 from ..core.logging import configure_logging
