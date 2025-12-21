@@ -232,11 +232,11 @@ return result
 
 #### 3.5. Тестирование
 
-- [ ] Unit тесты: генерация event_adapter.py
-- [ ] Unit тесты: корректные subscriber декораторы
-- [ ] Unit тесты: publish_on_success добавлен в REST adapter
+- [x] Unit тесты: генерация event_adapter.py
+- [x] Unit тесты: корректные subscriber декораторы
+- [x] Unit тесты: publish_on_success добавлен в event adapter
 
-**Проверка**: `make test-unit` проходит, файлы генерируются корректно.
+**Проверка**: ✅ `make test-unit` проходит, 4 теста для EventAdapterGenerator.
 
 ---
 
