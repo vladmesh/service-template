@@ -136,3 +136,81 @@ class TestOperationSpecValidation:
         )
         assert op.rest is not None
         assert op.events is not None
+
+
+class TestOperationContextTransportFlags:
+    """Tests for OperationContext transport type flags."""
+
+    def test_rest_only_flags(self) -> None:
+        """REST-only operation has correct flags."""
+        from framework.generators.context import OperationContextBuilder
+
+        op = OperationSpec(
+            name="get_user",
+            output_model="UserRead",
+            rest=RestConfig(method="GET"),
+        )
+        builder = OperationContextBuilder()
+        ctx = builder.build_for_protocol(op)
+
+        assert ctx.has_rest is True
+        assert ctx.has_events is False
+        assert ctx.is_rest_only is True
+        assert ctx.is_events_only is False
+        assert ctx.is_dual_transport is False
+
+    def test_events_only_flags(self) -> None:
+        """Events-only operation has correct flags."""
+        from framework.generators.context import OperationContextBuilder
+
+        op = OperationSpec(
+            name="process_import",
+            input_model="ImportBatch",
+            events=EventsConfig(subscribe="import.requested"),
+        )
+        builder = OperationContextBuilder()
+        ctx = builder.build_for_protocol(op)
+
+        assert ctx.has_rest is False
+        assert ctx.has_events is True
+        assert ctx.is_rest_only is False
+        assert ctx.is_events_only is True
+        assert ctx.is_dual_transport is False
+
+    def test_dual_transport_flags(self) -> None:
+        """Dual-transport operation has correct flags."""
+        from framework.generators.context import OperationContextBuilder
+
+        op = OperationSpec(
+            name="create_user",
+            input_model="UserCreate",
+            output_model="UserRead",
+            rest=RestConfig(method="POST"),
+            events=EventsConfig(publish_on_success="user.created"),
+        )
+        builder = OperationContextBuilder()
+        ctx = builder.build_for_protocol(op)
+
+        assert ctx.has_rest is True
+        assert ctx.has_events is True
+        assert ctx.is_rest_only is False
+        assert ctx.is_events_only is False
+        assert ctx.is_dual_transport is True
+
+    def test_publish_on_error_in_context(self) -> None:
+        """publish_on_error is included in events context."""
+        from framework.generators.context import OperationContextBuilder
+
+        op = OperationSpec(
+            name="process_import",
+            input_model="ImportBatch",
+            events=EventsConfig(
+                subscribe="import.requested",
+                publish_on_error="import.failed",
+            ),
+        )
+        builder = OperationContextBuilder()
+        ctx = builder.build_for_events(op)
+
+        assert ctx.subscribe_channel == "import.requested"
+        assert ctx.publish_on_error_channel == "import.failed"

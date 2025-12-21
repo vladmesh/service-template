@@ -58,6 +58,26 @@ class OperationContext:
     # Events-specific (populated only for Events operations)
     subscribe_channel: str | None = None
     publish_channel: str | None = None
+    publish_on_error_channel: str | None = None
+
+    # Transport type flags
+    has_rest: bool = False
+    has_events: bool = False
+
+    @property
+    def is_rest_only(self) -> bool:
+        """True if operation only has REST transport."""
+        return self.has_rest and not self.has_events
+
+    @property
+    def is_events_only(self) -> bool:
+        """True if operation only has Events transport."""
+        return self.has_events and not self.has_rest
+
+    @property
+    def is_dual_transport(self) -> bool:
+        """True if operation has both REST and Events transports."""
+        return self.has_rest and self.has_events
 
     @property
     def computed_return_type(self) -> str:
@@ -130,7 +150,7 @@ class OperationContextBuilder:
                 )
             )
 
-        # Build base context
+        # Build base context with transport type flags
         ctx = OperationContext(
             name=operation.name,
             params=params,
@@ -139,6 +159,8 @@ class OperationContextBuilder:
             return_type=operation.return_type,
             imports=imports,
             response_many=operation.response_many,  # Pass the list flag
+            has_rest=operation.rest is not None,
+            has_events=operation.events is not None,
         )
 
         # Add REST-specific context
@@ -151,6 +173,7 @@ class OperationContextBuilder:
         if include_events and operation.events:
             ctx.subscribe_channel = operation.events.subscribe
             ctx.publish_channel = operation.events.publish_on_success
+            ctx.publish_on_error_channel = operation.events.publish_on_error
 
         return ctx
 
