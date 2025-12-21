@@ -11,6 +11,9 @@ from collections.abc import Callable
 from fastapi import APIRouter, Body, Depends, Path, Query  # noqa: F401
 from sqlalchemy.ext.asyncio import AsyncSession
 
+{% if has_events %}
+from faststream.redis import RedisBroker
+{% endif %}
 {% if imports %}
 from shared.generated.schemas import (
     {% for model in imports|sort %}
@@ -24,6 +27,9 @@ from ..protocols import {{ protocol_name }}
 def create_router(
     get_db: Callable[[], AsyncSession],
     get_controller: Callable[[], {{ protocol_name }}],
+    {% if has_events %}
+    get_broker: Callable[[], RedisBroker],
+    {% endif %}
 ) -> APIRouter:
     """
     Create and configure the {{ module_name }} router.
@@ -31,6 +37,9 @@ def create_router(
     Args:
         get_db: Dependency to get DB session
         get_controller: Dependency to get controller implementation
+        {% if has_events %}
+        get_broker: Dependency to get Redis broker
+        {% endif %}
 
     Returns:
         Configured APIRouter instance
@@ -68,9 +77,12 @@ def create_router(
         {% endif %}
         session: AsyncSession = Depends(get_db),  # noqa: B008
         controller: {{ protocol_name }} = Depends(get_controller),  # noqa: B008
+        {% if handler.publish_channel %}
+        broker: RedisBroker = Depends(get_broker),  # noqa: B008
+        {% endif %}
     ) -> {{ handler.return_type }}:
         """{{ handler.docstring }}"""
-        return await controller.{{ handler.name }}(
+        result = await controller.{{ handler.name }}(
             session=session,
             {% for param in handler.params %}
             {{ param.name }}={{ param.name }},
@@ -79,6 +91,10 @@ def create_router(
             payload=payload,
             {% endif %}
         )
+        {% if handler.publish_channel %}
+        await broker.publish(result, "{{ handler.publish_channel }}")
+        {% endif %}
+        return result
 
     {% endfor %}
     return router

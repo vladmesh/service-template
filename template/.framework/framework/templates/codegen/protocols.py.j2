@@ -21,6 +21,11 @@ class {{ router.protocol_name }}(Protocol):
     """Protocol for {{ router.name }} controller."""
 
 {% for handler in router.handlers %}
+{% if handler.is_events_only %}
+    # Events-only operation (no REST endpoint)
+{% elif handler.is_dual_transport %}
+    # Dual transport: REST + Events
+{% endif %}
     {% if async_handlers %}async {% endif %}def {{ handler.name }}(
         self,
         session: AsyncSession,

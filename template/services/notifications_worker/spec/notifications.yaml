@@ -1,0 +1,7 @@
+domain: notifications
+
+operations:
+  on_user_registered:
+    input: UserRegisteredEvent
+    events:
+      subscribe: user_registered

@@ -115,6 +115,9 @@ _tasks:
   - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+  # Auto-fix and format generated code
+  - "ruff check --fix --select I,UP,E,W,F . || true"
+  - "ruff format ."
   # Fix file permissions if running as root in Docker
   - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 

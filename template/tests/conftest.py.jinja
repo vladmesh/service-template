@@ -3,19 +3,19 @@
 This file contains shared fixtures and configuration for all tests.
 """
 
+from collections.abc import Generator
 import os
-from typing import Generator
-{% if 'backend' in modules %}
+
 import pytest
+{%- if 'tg_bot' in modules or 'notifications' in modules %}
+from redis import Redis
+{%- endif %}
+{%- if 'backend' in modules %}
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from shared.shared.generated.database import Base
-{% endif %}
-{% if 'tg_bot' in modules or 'notifications' in modules %}
-import pytest
-from redis import Redis
-{% endif %}
+{%- endif %}
 
 
 {% if 'backend' in modules %}

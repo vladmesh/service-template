@@ -53,10 +53,20 @@ class RestConfig(BaseModel):
 
 
 class EventsConfig(BaseModel):
-    """Events-specific configuration for an operation."""
+    """Events-specific configuration for an operation.
 
-    subscribe: str | None = None  # Channel to subscribe to
-    publish_on_success: str | None = None  # Channel to publish after success
+    Attributes:
+        subscribe: Channel to subscribe to for incoming events.
+        publish_on_success: Channel to publish to after successful execution.
+        publish_on_error: Channel to publish to if execution fails (optional).
+        message_model: Override the message model (defaults to input for subscribe,
+                       output for publish_on_success).
+    """
+
+    subscribe: str | None = None
+    publish_on_success: str | None = None
+    publish_on_error: str | None = None
+    message_model: str | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -91,6 +101,14 @@ class OperationSpec(BaseModel):
         """Ensure at least one transport is configured."""
         if not self.rest and not self.events:
             msg = f"Operation '{self.name}' must have at least one transport (rest or events)"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_events_models(self) -> OperationSpec:
+        """Validate events configuration has required models."""
+        if self.events and self.events.subscribe and not self.input_model:
+            msg = f"Operation '{self.name}' with events.subscribe must have 'input' model"
             raise ValueError(msg)
         return self
 

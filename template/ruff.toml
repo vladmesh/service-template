@@ -3,6 +3,8 @@ indent-width = 4
 target-version = "py311"
 exclude = [
     "shared/shared/generated/**",
+    "**/generated/**",
+    ".framework/**",
 ]
 
 [lint]
@@ -34,6 +36,7 @@ max-statements = 60
 [lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
+known-first-party = ["services", "shared"]
 
 [format]
 quote-style = "double"

@@ -10,9 +10,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import warnings
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from shared.generated.events import publish_command_received
 from shared.generated.schemas import CommandReceived, CommandReceivedCreate
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..generated.protocols import DebugControllerProtocol
 

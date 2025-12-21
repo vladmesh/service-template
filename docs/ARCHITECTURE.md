@@ -60,6 +60,84 @@ Key concepts:
 - **Models** are referenced by name (defined in `shared/spec/models.yaml`)
 - **Params** define path/query parameters
 
+## Unified Handlers Architecture
+
+Operations can be exposed via multiple transports (REST, Events, or both) while sharing a single controller implementation.
+
+### Transport Types
+
+| Type | Transport | Use Case |
+|------|-----------|----------|
+| **Query** | REST only | Synchronous reads, no side effects |
+| **Command** | REST + Events | REST returns result, event published async |
+| **Background** | Events only | No HTTP endpoint, async processing |
+
+### One Controller, Multiple Adapters
+
+```
+┌─────────────────────────────────────────────────┐
+│            UsersController (business logic)     │
+│  ┌──────────────────────────────────────────┐   │
+│  │ get_user(user_id) → UserRead             │   │
+│  │ create_user(payload) → UserRead          │   │
+│  │ process_import(batch) → ImportResult     │   │
+│  └──────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────┘
+                    ▲                 ▲
+                    │                 │
+        ┌───────────┴───────┐   ┌─────┴─────────────┐
+        │   REST Adapter    │   │   Events Adapter  │
+        │   (generated)     │   │   (generated)     │
+        └───────────────────┘   └───────────────────┘
+```
+
+### Event Configuration
+
+Operations can include `events:` section for pub/sub behavior:
+
+```yaml
+operations:
+  create_user:
+    input: UserCreate
+    output: UserRead
+    rest:
+      method: POST
+      status: 201
+    events:
+      publish_on_success: user.created  # Publish after successful creation
+
+  process_import:
+    input: ImportBatch
+    output: ImportResult
+    events:
+      subscribe: import.requested        # Subscribe to incoming events
+      publish_on_success: import.completed
+      publish_on_error: import.failed    # Error handling channel
+```
+
+### Generated Event Adapter
+
+For services with `events.subscribe` operations, the framework generates `event_adapter.py`:
+
+```python
+def create_event_adapter(
+    broker: RedisBroker,
+    get_session: Callable[[], AsyncIterator[AsyncSession]],
+    get_imports_controller: Callable[[], ImportsControllerProtocol],
+) -> None:
+    @broker.subscriber("import.requested")
+    async def handle_process_import(event: ImportBatch) -> None:
+        async with get_session() as session:
+            controller = get_imports_controller()
+            try:
+                result = await controller.process_import(session, payload=event)
+                await broker.publish(result, "import.completed")
+            except Exception as e:
+                await broker.publish({"error": str(e)}, "import.failed")
+                raise
+```
+
+
 ## Client Generation (Service Dependencies)
 
 Consumer services declare dependencies via `manifest.yaml`:
