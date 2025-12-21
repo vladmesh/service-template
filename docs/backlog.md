@@ -452,4 +452,98 @@ init:
 3. Repository pattern (optional)
 4. Future: spec-driven ORM generation
 
+---
+
+## E2E Testing Issues (Unified Handlers)
+
+### Fix Compose Context for Tooling Service
+
+**Status**: DONE
+**Priority**: CRITICAL
+
+**Description**: The `compose.tests.unit.yml.jinja` template has incorrect context and volumes paths for the tooling service. Since compose files are in `infra/`, the context should be `..` not `.`.
+
+**Current (broken)**:
+```yaml
+tooling:
+  build:
+    context: .
+    dockerfile: tooling/Dockerfile
+  volumes:
+    - .:/workspace:delegated
+```
+
+**Fixed**:
+```yaml
+tooling:
+  build:
+    context: ..
+    dockerfile: tooling/Dockerfile
+  volumes:
+    - ..:/workspace:delegated
+```
+
+**Impact**: `make generate-from-spec` fails with "tooling/Dockerfile not found".
+
+---
+
+### Router.py Missing get_broker When Using publish_on_success
+
+**Status**: TODO
+**Priority**: HIGH
+
+**Description**: When adding `events.publish_on_success` to an operation, the generated `registry.py` requires `get_broker` dependency, but the user's `router.py` doesn't have it.
+
+**Problem**: Breaking change in `create_api_router` signature when any operation gets `publish_on_success`.
+
+**Proposed Solutions**:
+1. **Always include get_broker** — even if not used (simple, wasteful)
+2. **Update template router.py** — include broker dependency by default
+3. **Document migration** — clear instructions on how to add broker to existing projects
+
+---
+
+### Spec Compliance Checker False Positive
+
+**Status**: TODO
+**Priority**: MEDIUM
+
+**Description**: The spec compliance checker flags `APIRouter()` in `router.py` as forbidden, even though it's used for health/utility endpoints, not domain logic.
+
+**Proposed Fix**: Update `enforce_spec_compliance.py` to:
+- Allow `APIRouter()` in specific files like `router.py`, `health.py`
+- Or check if the router is used for domain endpoints (has `@router.post/get` with model types)
+
+---
+
+### Copier Root-Owned Files in Generated Project
+
+**Status**: DONE
+**Priority**: HIGH
+
+**Description**: When generating a project via `copier copy`, some files (especially in `.ruff_cache`) are owned by root, requiring `sudo` to delete or modify.
+
+**Root Cause**: Copier's post-generation tasks (`ruff check --fix`, `ruff format`) run as root inside Docker and create cache files.
+
+**Proposed Solutions**:
+1. Add `--no-cache` to ruff commands in `copier.yml` tasks
+2. Run `chown` task at the very end of generation
+3. Ensure tooling image runs as host user (already has `HOST_UID`/`HOST_GID` support)
+
+**Workaround**: Run `docker run --rm -v "$(pwd):/workspace" alpine chown -R $(id -u):$(id -g) /workspace`
+
+---
+
+### Add E2E CI Job for Unified Handlers
+
+**Status**: TODO
+**Priority**: MEDIUM
+
+**Description**: Add a CI job that:
+1. Generates a project via copier with dual-transport operations
+2. Runs `make generate-from-spec`
+3. Runs `make lint`
+4. Runs `make tests`
+
+This would catch integration issues between generated code and user templates.
 

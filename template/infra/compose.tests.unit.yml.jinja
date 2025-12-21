@@ -52,12 +52,12 @@ services:
   tooling:
     image: ${TOOLING_IMAGE:-{{ project_slug }}-tooling:latest}
     build:
-      context: .
+      context: ..
       dockerfile: tooling/Dockerfile
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /workspace
     volumes:
-      - .:/workspace:delegated
+      - ..:/workspace:delegated
     env_file:
       - .env
     environment:
