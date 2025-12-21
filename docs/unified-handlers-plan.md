@@ -330,9 +330,9 @@ register_all_routers(app, get_controller_factory(), get_db)
 
 #### 6.1. Удалить устаревшие файлы/генераторы
 
-- [ ] Удалить `EventHandlersGenerator` (заменён на `EventAdapterGenerator`)
-- [ ] Удалить `event_handlers.py.j2` (заменён на `event_adapter.py.j2`)
-- [ ] Обновить `__init__.py` exports
+- [x] Удалить `EventHandlersGenerator` (заменён на `EventAdapterGenerator`)
+- [x] Удалить `event_handlers.py.j2` (заменён на `event_adapter.py.j2`)
+- [x] Обновить `__init__.py` exports
 
 #### 6.2. Миграция существующих сервисов в template
 
@@ -341,17 +341,17 @@ register_all_routers(app, get_controller_factory(), get_db)
 
 #### 6.3. Обновить документацию
 
-- [ ] `ARCHITECTURE.md` — новая секция про Unified Handlers
+- [x] `ARCHITECTURE.md` — новая секция про Unified Handlers
 - [ ] `AGENTS.md` — обновить инструкции для агентов
 - [ ] `backlog.md` — закрыть связанные задачи
 
 #### 6.4. Тестирование
 
-- [ ] Все существующие тесты проходят
-- [ ] Нет warnings о deprecated imports
-- [ ] Документация актуальна
+- [x] Все существующие тесты проходят
+- [x] Нет warnings о deprecated imports
+- [x] Документация актуальна
 
-**Проверка**: `make lint && make test` проходят, документация обновлена.
+**Проверка**: ✅ `make lint && make test` проходят, документация обновлена.
 
 ---
 

@@ -58,11 +58,31 @@ def create_event_adapter(
         """Handle {{ handler.subscribe_channel }} events."""
         async with get_session() as session:
             controller = get_{{ domain.name }}_controller()
+{% if handler.publish_on_error_channel %}
+            try:
+{% endif %}
 {% if handler.publish_on_success_channel %}
+{% if handler.publish_on_error_channel %}
+                result = await controller.{{ handler.name }}(session, payload=event)
+                await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+{% else %}
             result = await controller.{{ handler.name }}(session, payload=event)
             await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+{% endif %}
+{% else %}
+{% if handler.publish_on_error_channel %}
+                await controller.{{ handler.name }}(session, payload=event)
 {% else %}
             await controller.{{ handler.name }}(session, payload=event)
+{% endif %}
+{% endif %}
+{% if handler.publish_on_error_channel %}
+            except Exception as e:
+                await broker.publish(
+                    {"error": str(e), "original_event": event.model_dump() if hasattr(event, "model_dump") else event},
+                    "{{ handler.publish_on_error_channel }}",
+                )
+                raise
 {% endif %}
 {% endif %}
 {% endfor %}

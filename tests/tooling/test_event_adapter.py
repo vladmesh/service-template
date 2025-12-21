@@ -173,3 +173,45 @@ operations:
         generated = generator.generate()
 
         assert len(generated) == 0
+
+    def test_includes_publish_on_error_with_try_except(self, temp_repo: Path) -> None:
+        """Generated handler includes try/except and publishes to error channel."""
+        models_yaml = """
+models:
+  ImportBatch:
+    fields:
+      items:
+        type: {type: list, of: {type: string}}
+  ImportResult:
+    fields:
+      count:
+        type: int
+"""
+        (temp_repo / "shared" / "spec" / "models.yaml").write_text(models_yaml)
+
+        domain_yaml = """
+domain: imports
+operations:
+  process_import:
+    input: ImportBatch
+    output: ImportResult
+    events:
+      subscribe: import.requested
+      publish_on_success: import.completed
+      publish_on_error: import.failed
+"""
+        (temp_repo / "services" / "worker" / "spec" / "imports.yaml").write_text(domain_yaml)
+
+        specs = load_specs(temp_repo)
+        generator = EventAdapterGenerator(specs, temp_repo)
+        generated = generator.generate()
+
+        assert len(generated) == 1
+        content = generated[0].read_text()
+
+        # Should contain error handling
+        assert "try:" in content
+        assert "except Exception as e:" in content
+        assert "import.failed" in content
+        assert '"error": str(e)' in content
+        assert "raise" in content  # Re-raises after publishing error

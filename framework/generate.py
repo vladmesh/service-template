@@ -8,7 +8,7 @@ import sys
 
 from framework.generators.clients import ClientsGenerator
 from framework.generators.controllers import ControllersGenerator
-from framework.generators.event_handlers import EventHandlersGenerator
+from framework.generators.event_adapter import EventAdapterGenerator
 from framework.generators.events import EventsGenerator
 from framework.generators.protocols import ProtocolsGenerator
 from framework.generators.routers import RoutersGenerator
@@ -41,7 +41,7 @@ def generate_all(repo_root: Path | None = None) -> None:
         ("Protocols", ProtocolsGenerator(specs, repo_root)),
         ("Controllers", ControllersGenerator(specs, repo_root)),
         ("Events", EventsGenerator(specs, repo_root)),
-        ("EventHandlers", EventHandlersGenerator(specs, repo_root)),
+        ("EventAdapters", EventAdapterGenerator(specs, repo_root)),
         ("Clients", ClientsGenerator(specs, repo_root)),
     ]
 

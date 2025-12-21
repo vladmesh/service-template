@@ -16,7 +16,7 @@ from framework.generators.context import OperationContextBuilder
 class EventAdapterGenerator(BaseGenerator):
     """Generate event adapters using unified controller protocols.
 
-    Unlike EventHandlersGenerator, this generator:
+    This generator:
     - Uses the same ControllerProtocol as REST handlers
     - Includes session management in generated handlers
     - Supports publish_on_success and publish_on_error
