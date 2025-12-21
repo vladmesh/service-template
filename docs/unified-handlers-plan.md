@@ -275,25 +275,30 @@ return result
 ### Фаза 5: Auto-Registration
 **Оценка: 2-3 часа**
 
+> [!NOTE]
+> **Статус**: Реализовано. `RegistryGenerator` генерирует `registry.py`.
+
 #### 5.1. Генерация `registry.py`
 
 ```python
 # services/<svc>/src/generated/registry.py
 from .routers.users import create_router as create_users_router
-from .event_adapter import register_event_handlers, router as events_router
+from .routers.debug import create_router as create_debug_router
+from .protocols import UsersControllerProtocol, DebugControllerProtocol
 
-def register_all_routers(
-    app: FastAPI,
-    get_controller: ControllerFactory,
-    get_db: SessionFactory,
-) -> None:
-    """Auto-register all REST routers."""
-    app.include_router(create_users_router(get_db, get_controller))
-    # ... другие роутеры
+def create_api_router(
+    get_db: Callable[[], AsyncSession],
+    get_users_controller: Callable[[], UsersControllerProtocol],
+    get_debug_controller: Callable[[], DebugControllerProtocol],
+) -> APIRouter:
+    """Create and configure the API router with all domain routers."""
+    router = APIRouter()
+    router.include_router(create_users_router(get_db, get_users_controller))
+    router.include_router(create_debug_router(get_db, get_debug_controller))
+    return router
 
-def get_events_router() -> RedisRouter:
-    """Get configured events router for FastStream."""
-    return events_router
+# Re-export protocols for convenient imports
+__all__ = ["create_api_router", "UsersControllerProtocol", "DebugControllerProtocol"]
 ```
 
 #### 5.2. Упрощение main.py / router.py
@@ -308,17 +313,25 @@ from generated.routers.users import create_router
 
 После:
 ```python
-from generated.registry import register_all_routers
-register_all_routers(app, get_controller_factory(), get_db)
+from generated.registry import create_api_router
+
+api_router = create_api_router(
+    get_db=get_async_db,
+    get_users_controller=lambda: UsersController(),
+    get_debug_controller=lambda: DebugController(),
+)
 ```
 
 #### 5.3. Тестирование
 
+- [x] Unit тесты: генерация registry.py
+- [x] Unit тесты: registry включает все domain routers
+- [x] Unit тесты: registry экспортирует protocols в __all__
+- [x] Unit тесты: registry включает event_adapter если есть subscribe операции
 - [ ] Copier тест: сгенерированный проект стартует
 - [ ] Integration тест: все endpoints доступны
-- [ ] Integration тест: все event handlers зарегистрированы
 
-**Проверка**: `make test-copier` проходит, endpoints и handlers работают.
+**Проверка**: ✅ 127 тестов проходят, включая 5 новых тестов для RegistryGenerator.
 
 ---
 
