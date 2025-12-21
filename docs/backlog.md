@@ -489,7 +489,7 @@ tooling:
 
 ### Router.py Missing get_broker When Using publish_on_success
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: HIGH
 
 **Description**: When adding `events.publish_on_success` to an operation, the generated `registry.py` requires `get_broker` dependency, but the user's `router.py` doesn't have it.
