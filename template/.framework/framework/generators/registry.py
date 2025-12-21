@@ -32,10 +32,10 @@ class RegistryGenerator(BaseGenerator):
             # Check what operations this domain has
             rest_ops = domain.get_rest_operations()
             has_rest = bool(rest_ops)
-            
+
             # Check if any REST operation publishes events
             has_rest_events = any(op.events for op in rest_ops) if has_rest else False
-            
+
             has_events_subscribe = any(
                 op.events and op.events.subscribe for op in domain.get_events_operations()
             )
@@ -62,7 +62,7 @@ class RegistryGenerator(BaseGenerator):
 
             services_data[service_name]["domains"].append(domain_ctx)
             services_data[service_name]["protocol_imports"].add(protocol_name)
-            
+
             if has_rest_events:
                 services_data[service_name]["has_rest_events"] = True
 
