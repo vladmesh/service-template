@@ -215,3 +215,37 @@ operations:
         assert "import.failed" in content
         assert '"error": str(e)' in content
         assert "raise" in content  # Re-raises after publishing error
+
+    def test_includes_session_commit_and_rollback(self, temp_repo: Path) -> None:
+        """Generated handler includes explicit session.commit() and session.rollback()."""
+        models_yaml = """
+models:
+  TaskPayload:
+    fields:
+      task_id:
+        type: int
+"""
+        (temp_repo / "shared" / "spec" / "models.yaml").write_text(models_yaml)
+
+        domain_yaml = """
+domain: tasks
+operations:
+  process_task:
+    input: TaskPayload
+    events:
+      subscribe: task.requested
+"""
+        (temp_repo / "services" / "worker" / "spec" / "tasks.yaml").write_text(domain_yaml)
+
+        specs = load_specs(temp_repo)
+        generator = EventAdapterGenerator(specs, temp_repo)
+        generated = generator.generate()
+
+        assert len(generated) == 1
+        content = generated[0].read_text()
+
+        # Should contain session management
+        assert "await session.commit()" in content
+        assert "await session.rollback()" in content
+        # Should use AbstractAsyncContextManager type
+        assert "AbstractAsyncContextManager[AsyncSession]" in content

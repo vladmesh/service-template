@@ -11,8 +11,8 @@ Registers FastStream subscribers that delegate to controller protocols.
 """
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from typing import TYPE_CHECKING
 
 from faststream.redis import RedisBroker
@@ -30,12 +30,12 @@ from .protocols import {{ domain.protocol_name }}
 {% endfor %}
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    pass
 
 
 def create_event_adapter(
     broker: RedisBroker,
-    get_session: Callable[[], AsyncIterator[AsyncSession]],
+    get_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
 {% for domain in domains %}
     get_{{ domain.name }}_controller: Callable[[], {{ domain.protocol_name }}],
 {% endfor %}
@@ -58,32 +58,25 @@ def create_event_adapter(
         """Handle {{ handler.subscribe_channel }} events."""
         async with get_session() as session:
             controller = get_{{ domain.name }}_controller()
-{% if handler.publish_on_error_channel %}
             try:
-{% endif %}
 {% if handler.publish_on_success_channel %}
-{% if handler.publish_on_error_channel %}
                 result = await controller.{{ handler.name }}(session, payload=event)
+                await session.commit()
                 await broker.publish(result, "{{ handler.publish_on_success_channel }}")
 {% else %}
-            result = await controller.{{ handler.name }}(session, payload=event)
-            await broker.publish(result, "{{ handler.publish_on_success_channel }}")
-{% endif %}
-{% else %}
-{% if handler.publish_on_error_channel %}
                 await controller.{{ handler.name }}(session, payload=event)
-{% else %}
-            await controller.{{ handler.name }}(session, payload=event)
+                await session.commit()
 {% endif %}
-{% endif %}
-{% if handler.publish_on_error_channel %}
             except Exception as e:
+                await session.rollback()
+{% if handler.publish_on_error_channel %}
                 await broker.publish(
                     {"error": str(e), "original_event": event.model_dump() if hasattr(event, "model_dump") else event},
                     "{{ handler.publish_on_error_channel }}",
                 )
+{% endif %}
                 raise
 {% endif %}
-{% endif %}
 {% endfor %}
 {% endfor %}
+

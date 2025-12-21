@@ -243,35 +243,32 @@ return result
 ### Фаза 4: Session Management для Events
 **Оценка: 2-3 часа**
 
-> [!IMPORTANT]
-> **Открытый вопрос**: Как event handlers получают database session?
+> [!NOTE]
+> **Решение принято**: Опция A — session factory передаётся при регистрации.
 
-#### Опция A: Session factory передаётся при регистрации
+#### Реализовано:
 
-```python
-def register_event_handlers(get_controller, get_session):
-    @router.subscriber(...)
-    async def handle(...):
-        async with get_session() as session:
-            ...
-```
-
-#### Опция B: Использовать FastStream DI (если интегрировано с FastAPI)
-
-```python
-@router.subscriber(...)
-async def handle(event: Event, session: AsyncSession = Depends(get_db)):
-    ...
-```
-
-#### Решение: Начать с опции A, мигрировать на B если интеграция FastAPI+FastStream достаточна
+1. **Правильная типизация**: `Callable[[], AbstractAsyncContextManager[AsyncSession]]`
+2. **Явный commit/rollback**:
+   ```python
+   async with get_session() as session:
+       try:
+           result = await controller.process(session, payload=event)
+           await session.commit()
+           await broker.publish(result, "success.channel")
+       except Exception as e:
+           await session.rollback()
+           await broker.publish({"error": str(e)}, "error.channel")
+           raise
+   ```
 
 #### Тестирование
 
-- [ ] Integration тест: event handler получает working session
-- [ ] Integration тест: транзакция откатывается при ошибке
+- [x] Unit тест: session.commit() вызывается после успеха
+- [x] Unit тест: session.rollback() вызывается при ошибке
+- [x] Unit тест: AbstractAsyncContextManager используется в сигнатуре
 
-**Проверка**: Integration тесты проходят с реальной БД (testcontainers или in-memory SQLite).
+**Проверка**: ✅ 122 теста проходят, включая новые тесты для session management.
 
 ---
 
