@@ -8,12 +8,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 
-def test_handler_import() -> None:
-    """Test that handlers module can be imported."""
-    from services.notifications_worker.src.handlers import handle_user_registered, router
+def test_imports() -> None:
+    """Test that modules can be imported."""
+    from services.notifications_worker.src.controllers.notifications import (
+        NotificationsController,
+    )
+    from services.notifications_worker.src.generated.event_adapter import create_event_adapter
 
-    assert router is not None
-    assert handle_user_registered is not None
+    assert NotificationsController is not None
+    assert create_event_adapter is not None
 
 
 @pytest.mark.asyncio
@@ -21,9 +24,12 @@ async def test_handle_user_registered_logs_event(caplog: pytest.LogCaptureFixtur
     """Test that handle_user_registered logs the event correctly."""
     import logging
 
-    from shared.generated.schemas import UserRegisteredEvent
+    from sqlalchemy.ext.asyncio import AsyncSession
 
-    from services.notifications_worker.src.handlers import handle_user_registered
+    from services.notifications_worker.src.controllers.notifications import (
+        NotificationsController,
+    )
+    from shared.generated.schemas import UserRegisteredEvent
 
     event = UserRegisteredEvent(
         user_id=123,
@@ -31,10 +37,14 @@ async def test_handle_user_registered_logs_event(caplog: pytest.LogCaptureFixtur
         timestamp=datetime.now(UTC),
     )
 
-    with caplog.at_level(logging.INFO):
-        await handle_user_registered(event)
+    controller = NotificationsController()
+    # Mock session
+    session = AsyncMock(spec=AsyncSession)
 
-    assert "User registered" in caplog.text
+    with caplog.at_level(logging.INFO):
+        await controller.on_user_registered(session, event)
+
+    assert "Controller handled User registered" in caplog.text
     assert "user_id=123" in caplog.text
     assert "test@example.com" in caplog.text
 

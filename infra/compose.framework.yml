@@ -3,48 +3,48 @@ services:
   backend-tests-unit:
     image: ${BACKEND_IMAGE:-service-template-backend:latest}
     build:
-      context: ../..
-      dockerfile: template/services/backend/Dockerfile
+      context: ../template
+      dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     command: >-
-      pytest -q --cov=template/services/backend/src --cov-report=term-missing --cov-fail-under=70 template/services/backend/tests/unit
+      pytest -q --cov=services/backend/src --cov-report=term-missing --cov-fail-under=70 services/backend/tests/unit
     working_dir: /app
     env_file:
-      - ../../.env
+      - ../.env
     environment:
       PYTHONPATH: /app
       ENVIRONMENT: test
       APP_ENV: test
-      DATABASE_URL: sqlite+pysqlite:////app/template/services/backend/tests/.tmp/test.db
+      DATABASE_URL: sqlite+pysqlite:////app/services/backend/tests/.tmp/test.db
 
   tg-bot-tests-unit:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
     build:
-      context: ../..
-      dockerfile: template/services/tg_bot/Dockerfile
+      context: ../template
+      dockerfile: services/tg_bot/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     command: >-
-      pytest -q --cov=template/services/tg_bot/src --cov-report=term-missing --cov-fail-under=70 template/services/tg_bot/tests/unit
+      pytest -q --cov=services/tg_bot/src --cov-report=term-missing --cov-fail-under=70 services/tg_bot/tests/unit
     working_dir: /app
     env_file:
-      - ../../.env
+      - ../.env
     environment:
       PYTHONPATH: /app
 
   notifications-worker-tests-unit:
     image: ${NOTIFICATIONS_WORKER_IMAGE:-service-template-notifications-worker:latest}
     build:
-      context: ../..
-      dockerfile: template/services/notifications_worker/Dockerfile
+      context: ../template
+      dockerfile: services/notifications_worker/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     command: >-
-      pytest -q --cov=template/services/notifications_worker/src --cov-report=term-missing --cov-fail-under=70 template/services/notifications_worker/tests
+      pytest -q --cov=services/notifications_worker/src --cov-report=term-missing --cov-fail-under=70 services/notifications_worker/tests
     working_dir: /app
     env_file:
-      - ../../.env
+      - ../.env
     environment:
       PYTHONPATH: /app
   # <<< services (auto-generated from services.yml)

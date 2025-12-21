@@ -71,6 +71,7 @@ class RoutersGenerator(BaseGenerator):
             prefix = domain.config.rest.prefix
             tags = domain.config.rest.tags
 
+        has_events = False
         for operation in domain.get_rest_operations():
             ctx = self.context_builder.build_for_rest(operation)
 
@@ -92,12 +93,17 @@ class RoutersGenerator(BaseGenerator):
                 "request_model": ctx.input_model,
                 "response_model": ctx.computed_return_type if ctx.output_model else None,
                 "return_type": ctx.computed_return_type,
+                # Events config
+                "publish_channel": ctx.publish_channel,
             }
+
+            if ctx.publish_channel:
+                has_events = True
 
             imports.update(ctx.imports)
             handlers.append(handler_ctx)
 
-        return {
+        context = {
             "module_name": module_name,
             "prefix": prefix,
             "tags": tags,
@@ -105,4 +111,7 @@ class RoutersGenerator(BaseGenerator):
             "imports": imports,
             "handlers": handlers,
             "protocol_name": f"{module_name.capitalize()}ControllerProtocol",
+            "has_events": has_events,
         }
+
+        return context

@@ -189,7 +189,7 @@ class OperationContextBuilder:
         if not operation.rest:
             msg = f"Operation '{operation.name}' has no REST transport configured"
             raise ValueError(msg)
-        return self.build(operation, include_rest=True, include_events=False)
+        return self.build(operation, include_rest=True, include_events=True)
 
     def build_for_events(self, operation: OperationSpec) -> OperationContext:
         """Build context specifically for Events handler generation."""

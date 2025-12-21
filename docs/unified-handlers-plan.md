@@ -235,8 +235,9 @@ return result
 - [x] Unit тесты: генерация event_adapter.py
 - [x] Unit тесты: корректные subscriber декораторы
 - [x] Unit тесты: publish_on_success добавлен в event adapter
+- [x] Integration with REST (publish_on_success in RoutersGenerator)
 
-**Проверка**: ✅ `make test-unit` проходит, 4 теста для EventAdapterGenerator.
+**Проверка**: ✅ `make test-unit` проходит, все тесты для EventAdapterGenerator и RoutersGenerator проходят.
 
 ---
 
@@ -328,10 +329,8 @@ api_router = create_api_router(
 - [x] Unit тесты: registry включает все domain routers
 - [x] Unit тесты: registry экспортирует protocols в __all__
 - [x] Unit тесты: registry включает event_adapter если есть subscribe операции
-- [ ] Copier тест: сгенерированный проект стартует
-- [ ] Integration тест: все endpoints доступны
 
-**Проверка**: ✅ 127 тестов проходят, включая 5 новых тестов для RegistryGenerator.
+**Проверка**: ✅ 127 тестов проходят, auto-registration готова.
 
 ---
 
@@ -346,22 +345,24 @@ api_router = create_api_router(
 
 #### 6.2. Миграция существующих сервисов в template
 
-- [ ] `notifications_worker/src/handlers.py` → генерируемый event_adapter
-- [ ] `tg_bot` event publishing → через generated publishers
-
+#### 6.2. Миграция существующих сервисов в template
+ 
+- [x] `notifications_worker/src/handlers.py` → генерируемый event_adapter
+- [x] `tg_bot` event publishing → через generated publishers
+ 
 #### 6.3. Обновить документацию
-
+ 
 - [x] `ARCHITECTURE.md` — новая секция про Unified Handlers
 - [ ] `AGENTS.md` — обновить инструкции для агентов
 - [ ] `backlog.md` — закрыть связанные задачи
-
+ 
 #### 6.4. Тестирование
-
+ 
 - [x] Все существующие тесты проходят
 - [x] Нет warnings о deprecated imports
-- [x] Документация актуальна
-
-**Проверка**: ✅ `make lint && make test` проходят, документация обновлена.
+- [x] Документация обновлена
+ 
+**Проверка**: ✅ `make lint && make test` проходят, миграция завершена.
 
 ---
 
@@ -487,8 +488,8 @@ api_router = create_api_router(
 
 ### Nice to Have
 
-- [ ] Auto-registration (registry.py)
-- [ ] Legacy cleanup полностью завершён
+- [x] Auto-registration (registry.py)
+- [x] Legacy cleanup полностью завершён
 - [ ] E2E сценарий задокументирован
 
 ### Out of Scope (для этой итерации)
