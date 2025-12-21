@@ -14,6 +14,9 @@ from collections.abc import Callable
 
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
+{% if has_rest_events %}
+from faststream.redis import RedisBroker
+{% endif %}
 
 {% for domain in domains %}
 from .routers.{{ domain.name }} import create_router as create_{{ domain.name }}_router
@@ -30,6 +33,9 @@ from .event_adapter import create_event_adapter
 
 def create_api_router(
     get_db: Callable[[], AsyncSession],
+{% if has_rest_events %}
+    get_broker: Callable[[], RedisBroker],
+{% endif %}
 {% for domain in domains %}
     get_{{ domain.name }}_controller: Callable[[], {{ domain.protocol_name }}],
 {% endfor %}
@@ -38,6 +44,9 @@ def create_api_router(
 
     Args:
         get_db: Dependency to get DB session.
+{% if has_rest_events %}
+        get_broker: Dependency to get Redis broker.
+{% endif %}
 {% for domain in domains %}
         get_{{ domain.name }}_controller: Factory for {{ domain.name }} controller.
 {% endfor %}
@@ -49,7 +58,13 @@ def create_api_router(
 
 {% for domain in domains %}
     router.include_router(
-        create_{{ domain.name }}_router(get_db, get_{{ domain.name }}_controller)
+        create_{{ domain.name }}_router(
+            get_db,
+            get_{{ domain.name }}_controller,
+            {% if domain.has_events %}
+            get_broker,
+            {% endif %}
+        )
     )
 {% endfor %}
 

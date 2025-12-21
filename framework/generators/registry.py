@@ -30,7 +30,12 @@ class RegistryGenerator(BaseGenerator):
             service_name, domain_name = domain_key.split("/")
 
             # Check what operations this domain has
-            has_rest = bool(domain.get_rest_operations())
+            rest_ops = domain.get_rest_operations()
+            has_rest = bool(rest_ops)
+
+            # Check if any REST operation publishes events
+            has_rest_events = any(op.events for op in rest_ops) if has_rest else False
+
             has_events_subscribe = any(
                 op.events and op.events.subscribe for op in domain.get_events_operations()
             )
@@ -42,6 +47,7 @@ class RegistryGenerator(BaseGenerator):
                 services_data[service_name] = {
                     "domains": [],
                     "has_event_adapter": False,
+                    "has_rest_events": False,
                     "protocol_imports": set(),
                 }
 
@@ -51,10 +57,14 @@ class RegistryGenerator(BaseGenerator):
                 "name": domain_name,
                 "protocol_name": protocol_name,
                 "has_rest": has_rest,
+                "has_events": has_rest_events,
             }
 
             services_data[service_name]["domains"].append(domain_ctx)
             services_data[service_name]["protocol_imports"].add(protocol_name)
+
+            if has_rest_events:
+                services_data[service_name]["has_rest_events"] = True
 
             if has_events_subscribe:
                 services_data[service_name]["has_event_adapter"] = True
@@ -83,6 +93,7 @@ class RegistryGenerator(BaseGenerator):
                 domains=rest_domains,
                 protocol_imports=sorted(data["protocol_imports"]),
                 has_event_adapter=data["has_event_adapter"],
+                has_rest_events=data["has_rest_events"],
             )
             self.write_file(output_file, content)
             self.format_file(output_file)
