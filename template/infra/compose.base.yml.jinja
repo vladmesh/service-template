@@ -23,8 +23,8 @@ services:
         condition: service_healthy
     networks:
       - internal
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
 {% endif %}
 
 {% if 'tg_bot' in modules %}
@@ -55,8 +55,8 @@ services:
       - ../.env
     networks:
       - edge
-    expose:
-      - "4321"
+    ports:
+      - "4321:4321"
 {% endif %}
 
 {% if 'notifications' in modules %}
@@ -104,29 +104,10 @@ services:
       - internal
 {% endif %}
 
-  caddy:
-    image: caddy:2
-{% if 'backend' in modules %}
-    depends_on:
-      backend:
-        condition: service_started
-{% endif %}
-    networks:
-      - edge
-      - internal
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
-
 networks:
   internal:
-  edge:
 
 volumes:
 {% if 'backend' in modules %}
   db_data:
 {% endif %}
-  caddy_data:
-  caddy_config:

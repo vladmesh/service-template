@@ -79,20 +79,3 @@ services:
       - "6379:6379"
 {% endif %}
 
-  caddy:
-    extends:
-      file: compose.base.yml
-      service: caddy
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8080:80"
-      - "8000:443"
-
-volumes:
-  caddy_data:
-  caddy_config:

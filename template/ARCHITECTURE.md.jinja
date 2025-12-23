@@ -78,7 +78,6 @@ Services can specify `depends_on` and `profiles` in `services.yml` to customize 
 {% if 'tg_bot' in modules or 'notifications' in modules -%}
 - **Redis:** Message broker for async event processing.
 {% endif -%}
-- **Caddy:** Reverse proxy with automatic HTTPS.
 {% if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
 
 ## Unified Handlers

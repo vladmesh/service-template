@@ -71,6 +71,19 @@ def create_router(get_db, get_controller) -> APIRouter:
     return router
 ```
 
+### Remove Caddy from Template
+
+**Status**: DONE
+**Priority**: MEDIUM
+
+**Description**: Remove Caddy reverse proxy from generated projects. SSL termination and reverse proxying should be handled by the infrastructure layer (prod_infra), not by individual projects.
+
+**Current State**:
+- Removed `template/infra/Caddyfile`
+- Removed `caddy` service from all compose templates
+- Backend and Frontend now expose ports directly (8000 and 4321)
+
+
 ## Infrastructure & Inter-Service Communication
 
 ### Retry Logic for Telegram Bot Backend Communication
