@@ -575,3 +575,31 @@ config:
 
 **Related:** Documented current approach in `ARCHITECTURE.md` → "Wiring Layer" section.
 
+---
+
+### Consider `make format` in Copier Tasks
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Templates should produce clean, lint-passing output. Currently we achieve this by carefully crafting templates with correct import ordering and whitespace control.
+
+**Future consideration**: For complex templates with heavy Jinja conditionals, maintaining perfect formatting may become burdensome. Consider adding `make format` to copier post-generation tasks:
+
+```yaml
+_tasks:
+  # ... module cleanup ...
+  - "cp .env.example infra/.env"
+  - "make format || true"
+  - "chown ..."
+```
+
+**Trade-offs**:
+- ✅ Guaranteed clean output regardless of template complexity
+- ✅ Consistent with dev workflow
+- ❌ Slower first-time generation (+30-60s for Docker build)
+- ❌ Requires Docker available during `copier copy`
+
+**Current approach**: Templates are manually maintained to produce valid Python. Tests in `tests/copier/test_generated_code_quality.py` verify lint compliance.
+
+

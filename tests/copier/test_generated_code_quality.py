@@ -53,6 +53,8 @@ class TestGeneratedCodeQuality:
         # PRO TIP from User: Run auto-fixers on the generated code first!
         # This solves 90% of import sorting and formatting issues that are hard to get perfect
         # in Jinja.
+        fix_cmd = ["ruff", "check", "--config", "ruff.strict.toml", "--fix", "."]
+        subprocess.run(fix_cmd, cwd=generated_project, capture_output=True, text=True)
 
         # Now run the strict check to ensure it's clean and compliant
         cmd = ["ruff", "check", "--config", "ruff.strict.toml", "."]
