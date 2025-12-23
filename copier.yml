@@ -117,6 +117,9 @@ _tasks:
   - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+  # Configure git to use .githooks directory for hooks
+  - "chmod +x .githooks/* 2>/dev/null || true"
+  - "git config core.hooksPath .githooks 2>/dev/null || true"
   # Fix file permissions if running as root in Docker
   - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 
