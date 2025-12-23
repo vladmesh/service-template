@@ -216,6 +216,93 @@ async def health() -> dict:
 > **Note:** The spec compliance linter whitelists these files — `APIRouter` usage is allowed here but forbidden in domain code.
 
 
+## Data Layer
+
+The Data Layer handles persistence using SQLAlchemy ORM. Unlike Pydantic schemas, ORM models are **manual** — not generated from specs.
+
+### Directory Structure
+
+| Path | Purpose |
+|------|---------|
+| `src/core/db.py` | Engine, session factory, `ORMBase` with timestamps |
+| `src/app/models/*.py` | SQLAlchemy ORM models (manual) |
+| `src/app/repositories/*.py` | Repository pattern (recommended) |
+| `migrations/` | Alembic migrations |
+
+### ORM Models vs Pydantic Schemas
+
+- **Pydantic schemas** (`shared/generated/schemas.py`) — generated from `models.yaml`
+- **ORM models** (`src/app/models/`) — **manual**, not generated
+
+Why separate? ORM models often need:
+- Database-specific types (`BigInteger`, `JSONB`, indexes)
+- Relationships and foreign keys
+- Migration-aware defaults (`server_default`)
+
+**Mapping ORM → Pydantic:**
+```python
+def _to_schema(user: User) -> UserRead:
+    return UserRead.model_validate(user, from_attributes=True)
+```
+
+### Transaction Management
+
+`get_async_db()` provides automatic transaction handling:
+
+```python
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    db = AsyncSessionLocal()
+    try:
+        yield db
+        await db.commit()   # ✅ Auto-commit on success
+    except Exception:
+        await db.rollback() # ❌ Auto-rollback on error
+        raise
+```
+
+> **Important:** Do NOT call `session.commit()` in controllers — it's handled automatically.
+
+### Adding a New Model
+
+1. Create ORM model in `src/app/models/myentity.py`
+2. Export in `src/app/models/__init__.py`
+3. Generate migration: `make makemigrations name="add_myentity"`
+4. Verify migration in `migrations/versions/`
+5. Migrations run automatically on service startup
+
+### Repository Pattern (Recommended)
+
+Encapsulate database queries in repository classes:
+
+```python
+class UserRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get(self, user_id: int) -> User | None:
+        return await self.session.get(User, user_id)
+
+    async def create(self, payload: UserCreate) -> User:
+        user = User(**payload.model_dump())
+        self.session.add(user)
+        await self.session.flush()
+        return user
+```
+
+Controllers use repositories via session injection:
+```python
+async def create_user(self, session: AsyncSession, payload: UserCreate) -> UserRead:
+    repo = UserRepository(session)
+    user = await repo.create(payload)
+    return _to_schema(user)
+```
+
+Benefits:
+- Testable (mock repositories, not sessions)
+- Reusable queries across controllers
+- Clear separation of concerns
+
+
 ## Service Modules ("Batteries")
 
 The project is a collection of modular services defined in `services.yml`.

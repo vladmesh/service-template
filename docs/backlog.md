@@ -439,18 +439,14 @@ init:
 
 ### Document Data Layer Pattern
 
-**Status**: TODO
+**Status**: DONE
 
-**Description**: `ARCHITECTURE.md` explains the Spec→Router flow well, but is silent on:
-- How to create SQLAlchemy ORM models
-- Repository pattern recommendations
-- How models relate to Pydantic schemas
-
-**Proposed**: Add a "Data Layer" section to ARCHITECTURE.md covering:
-1. ORM model location (`services/<service>/src/app/models/`)
-2. Relationship to spec models (manual mapping for now)
-3. Repository pattern (optional)
-4. Future: spec-driven ORM generation
+**Description**: `ARCHITECTURE.md` now includes a comprehensive Data Layer section covering:
+- ORM model location (`services/<service>/src/app/models/`)
+- Relationship between ORM models and Pydantic schemas (manual mapping)
+- Transaction management (`get_async_db()` auto-commit/rollback)
+- Migration workflow (`make makemigrations`)
+- Repository pattern (recommended but optional)
 
 ---
 
