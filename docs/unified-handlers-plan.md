@@ -46,10 +46,10 @@ operations:
     
   create_user:    # Command — REST + event publication
     rest: {method: POST, status: 201}
-    events: {publish_on_success: user.created}
+    events: {publish_on_success: user_registered}
     
   process_import: # Background — только events
-    events: {subscribe: user.import.requested}
+    events: {subscribe: user_import_requested}
 ```
 
 ---
@@ -546,7 +546,7 @@ operations:
       path: ""
       status: 201
     events:
-      publish_on_success: user.created
+      publish_on_success: user_registered
 
   delete_user:
     params:
@@ -557,7 +557,7 @@ operations:
       path: "/{user_id}"
       status: 204
     events:
-      publish_on_success: user.deleted
+      publish_on_success: user_deleted
 
   # ═══════════════════════════════════════════════════════════════
   # BACKGROUND — только events, нет REST
@@ -566,9 +566,9 @@ operations:
     input: UserImportBatch
     output: UserImportResult
     events:
-      subscribe: user.import.requested
-      publish_on_success: user.import.completed
-      publish_on_error: user.import.failed
+      subscribe: user_import_requested
+      publish_on_success: user_import_completed
+      publish_on_error: user_import_failed
 ```
 
 ---

@@ -111,13 +111,12 @@ node_version:
 # ============================================================================
 # NOTE: When running copier via Docker, pass -e HOST_UID=$(id -u) -e HOST_GID=$(id -g)
 # to fix file ownership. The last task will chown all files to the host user.
+# NOTE: No ruff/formatting here - templates should produce clean output by design,
+# and any formatting should be done in containers via `make format`.
 _tasks:
   - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
-  # Auto-fix and format generated code (--no-cache prevents root-owned cache files)
-  - "ruff check --no-cache --fix --select I,UP,E,W,F . || true"
-  - "ruff format --no-cache ."
   # Fix file permissions if running as root in Docker
   - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 
