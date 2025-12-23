@@ -26,7 +26,7 @@ class {{ router.protocol_name }}(Protocol):
 {% elif handler.is_dual_transport %}
     # Dual transport: REST + Events
 {% endif %}
-    {% if async_handlers %}async {% endif %}def {{ handler.name }}(
+    async def {{ handler.name }}(
         self,
         session: AsyncSession,
         {% for param in handler.params %}
