@@ -284,12 +284,13 @@ class TestEnvExample:
     """Test .env.example generation."""
 
     def test_backend_only_env(self, tmp_path: Path):
-        """Backend-only should have postgres, no redis."""
+        """Backend-only should have postgres and redis (for events)."""
         output = run_copier(tmp_path, "backend")
         env_content = (output / ".env.example").read_text()
 
         assert "POSTGRES" in env_content
-        assert "REDIS" not in env_content
+        # Backend uses events for debug endpoint, so REDIS is included
+        assert "REDIS" in env_content
         assert "TELEGRAM" not in env_content
 
     def test_with_tg_bot_env(self, tmp_path: Path):
