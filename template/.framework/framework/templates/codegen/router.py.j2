@@ -64,11 +64,7 @@ def create_router(
         tags={{ handler.tags }},
         {% endif %}
     )
-    {% if async_handlers %}
     async def {{ handler.name }}(
-    {% else %}
-    def {{ handler.name }}(
-    {% endif %}
         {% for param in handler.params %}
         {{ param.name }}: {{ param.type }} = {{ param.fastapi_source }},
         {% endfor %}
