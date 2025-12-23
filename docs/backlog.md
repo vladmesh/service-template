@@ -505,14 +505,12 @@ tooling:
 
 ### Spec Compliance Checker False Positive
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: MEDIUM
 
 **Description**: The spec compliance checker flags `APIRouter()` in `router.py` as forbidden, even though it's used for health/utility endpoints, not domain logic.
 
-**Proposed Fix**: Update `enforce_spec_compliance.py` to:
-- Allow `APIRouter()` in specific files like `router.py`, `health.py`
-- Or check if the router is used for domain endpoints (has `@router.post/get` with model types)
+**Solution**: Added whitelist in `enforce_spec_compliance.py` for `router.py` and `health.py` files. Added "Wiring Layer" section to `ARCHITECTURE.md` documenting why these files are manual.
 
 ---
 
@@ -546,4 +544,34 @@ tooling:
 4. Runs `make tests`
 
 This would catch integration issues between generated code and user templates.
+
+---
+
+### Full Router.py Generation (Eliminate Wiring Layer)
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Currently `router.py` is manual (wiring layer). We could generate it fully from specs, making the framework 100% spec-first even for FastAPI services.
+
+**What would be needed:**
+1. Service-level spec (`service.yml`) for config: health endpoints, middleware, DI settings
+2. `MainRouterGenerator` — generates `router.py` with controller imports and wiring
+3. `HealthGenerator` — generates standard health endpoints
+4. Convention-based controller discovery: `controllers/{domain}.py` → `{Domain}Controller`
+
+**Escape hatch:**
+```yaml
+# service.yml
+config:
+  custom_wiring: true  # → router.py is not regenerated
+```
+
+**Why IDEA (not TODO):**
+- This is only needed for FastAPI services (currently just `backend`)
+- Current wiring layer is minimal (~30 lines)
+- May add complexity for rare edge cases (DI containers, async init)
+- Consider implementing when multiple FastAPI services exist
+
+**Related:** Documented current approach in `ARCHITECTURE.md` → "Wiring Layer" section.
 

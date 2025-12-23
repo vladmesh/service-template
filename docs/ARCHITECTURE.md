@@ -167,6 +167,55 @@ async with BackendClient() as client:
     user = await client.create_user(UserCreate(telegram_id=123))
 ```
 
+## Wiring Layer (Manual Files)
+
+While most code is generated from specs, a few files remain **manual by design**:
+
+### `app/api/router.py` — Router Composition
+
+This is the **wiring layer** where generated routers are composed with dependencies:
+
+```python
+# services/backend/src/app/api/router.py
+from services.backend.src.generated.registry import create_api_router
+from services.backend.src.controllers.users import UsersController
+
+def get_users_controller() -> UsersController:
+    return UsersController()
+
+api_router = APIRouter()
+api_router.include_router(health.router, tags=["health"])
+domain_router = create_api_router(
+    get_db=get_async_db,
+    get_broker=get_broker,
+    get_users_controller=get_users_controller,
+)
+api_router.include_router(domain_router)
+```
+
+**Why manual:**
+- Controller instantiation may need custom dependency injection
+- Flexibility for middleware, exception handlers, CORS configuration
+- Single place to understand "how everything connects"
+
+### `app/api/v1/health.py` — Infrastructure Endpoints
+
+Health checks are **infrastructure**, not domain logic:
+
+```python
+@router.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+```
+
+**Why manual:**
+- Standard across all projects
+- May need custom checks (DB, Redis, external APIs)
+- Not part of domain spec
+
+> **Note:** The spec compliance linter whitelists these files — `APIRouter` usage is allowed here but forbidden in domain code.
+
+
 ## Service Modules ("Batteries")
 
 The project is a collection of modular services defined in `services.yml`.

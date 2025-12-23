@@ -88,6 +88,12 @@ def main() -> None:
         if file_path.name == "__init__.py":
             continue
 
+        # Skip wiring layer files - these are allowed to use APIRouter
+        # router.py: top-level router composition that includes generated routers
+        # health.py: infrastructure health endpoints (not domain logic)
+        if file_path.name in ("router.py", "health.py"):
+            continue
+
         file_violations = check_file(file_path)
         if file_violations:
             violations_found = True
