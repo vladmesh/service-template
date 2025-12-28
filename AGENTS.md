@@ -9,6 +9,45 @@ This file serves as the entry point for AI Agents exploring the repository. Use 
 - **Rules & Standards:** `CONTRIBUTING.md` (Strict rules for coding)
 - **Service Registry:** `services.yml` (List of all active services)
 
+## 🚀 Bootstrapping New Projects
+
+**FOR AI AGENTS:** If you are asked to initialize a new project using this template, you **MUST** follow these exact steps.
+
+### 1. The Command
+Run `copier` with the following flags to ensure non-interactive execution and correct module selection:
+
+```bash
+copier copy gh:vladmesh/service-template . \
+  --data project_name="my-project" \
+  --data modules="backend,tg_bot" \
+  --trust \
+  --defaults \
+  --overwrite
+```
+
+**Key Flags:**
+- `--trust`: Required to run template extensions/scripts.
+- `--defaults`: **CRITICAL**. Uses default values for non-specified answers, preventing interactive prompts that hang execution.
+- `--overwrite`: Resolves conflicts automatically (essential if the directory is not empty).
+
+### 2. Available Modules
+Pass these as a comma-separated string to `--data modules=...`:
+
+- `backend`: (Default) FastAPI REST API. **Always include this.**
+- `tg_bot`: Telegram Bot service (Note: internal name is `tg_bot`, NOT `telegram_bot` or `telegram_worker`).
+- `notifications`: Worker for email/telegram notifications.
+- `frontend`: Node.js frontend placeholder.
+
+**Example scenarios:**
+- "Create a telegram bot": `--data modules="backend,tg_bot"`
+- "Full stack app": `--data modules="backend,frontend"`
+
+### 3. Post-Bootstrap Checklist
+After running the command:
+1.  **Read `AGENTS.md` in the new project** (it will be different from this one).
+2.  **Run `make sync-services create`** to generate the initial service structures if they don't exist.
+3.  **Check `services.yml`** to confirm your services are listed.
+
 ## ⚠️ CRITICAL: Environment Variables
 
 **STRICT RULE: NO DEFAULT VALUES FOR ENVIRONMENT VARIABLES**

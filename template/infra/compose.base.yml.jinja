@@ -5,6 +5,7 @@ x-backend-env: &backend-env
 {% endif %}
 
 services:
+  # >>> services (auto-generated from services.yml)
 {% if 'backend' in modules %}
   backend:
     image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
@@ -73,6 +74,8 @@ services:
     networks:
       - internal
 {% endif %}
+  # <<< services (auto-generated from services.yml)
+
 
 {% if 'backend' in modules %}
   db:

@@ -1,4 +1,5 @@
 services:
+  # >>> services (auto-generated from services.yml)
 {% if 'backend' in modules %}
   backend:
     extends:
@@ -60,6 +61,8 @@ services:
     env_file:
       - ../.env
 {% endif %}
+  # <<< services (auto-generated from services.yml)
+
 
 {% if 'backend' in modules %}
   db:

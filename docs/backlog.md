@@ -96,14 +96,7 @@ def create_router(get_db, get_controller) -> APIRouter:
 - `_sync_user_with_backend` now accepts `max_retries` (default: 3) and `initial_delay` (default: 1.0s)
 - Retries on `httpx.ConnectError` (backend unavailable) and 5xx status codes
 - Exponential backoff: 1s → 2s → 4s
-- No retry on 4xx client errors (fail immediately)
-- Logging of retry attempts for debugging
-
-**Tests** (`services/tg_bot/tests/unit/test_command_handler.py`):
-- `test_sync_user_retries_on_5xx` — 5xx triggers retries, succeeds after recovery
-- `test_sync_user_retries_on_connect_error` — ConnectError triggers retries
-- `test_sync_user_no_retry_on_4xx` — 4xx errors do NOT retry
-- `test_sync_user_exhausts_all_retries` — returns None after all retries fail
+- No retry on 4xx client errors (fail immediately)\n- Logging of retry attempts for debugging\n\n**Tests** (`services/tg_bot/tests/unit/test_command_handler.py`):\n- `test_sync_user_retries_on_5xx` — 5xx triggers retries, succeeds after recovery\n- `test_sync_user_retries_on_connect_error` — ConnectError triggers retries\n- `test_sync_user_no_retry_on_4xx` — 4xx errors do NOT retry\n- `test_sync_user_exhausts_all_retries` — returns None after all retries fail
 
 ### Unified Retry Logic in Generated Clients
 
@@ -144,7 +137,55 @@ async with BackendClient(max_retries=5, initial_delay=0.5) as client:
 - **Generation**: Auto-generate consumers and producer wrappers using FastStream.
 - **Validation**: Ensure messages conform to schemas defined in `models.yaml`.
 
+### Spec-Only Module Storage (Long-term Vision)
+
+**Status**: IDEA
+**Priority**: LOW (Long-term architectural evolution)
+
+**Description**: Store only specs and minimal scaffolds for template modules instead of full implementation code. Generate all business logic on project creation.
+
+**Current State**:
+- Template stores complete implementation: controllers, models, repositories, etc.
+- Modules (backend, tg_bot, etc.) are selected via Jinja conditions during `copier copy`
+- Creates distinction between "built-in batteries" and user-added services
+
+**Proposed State**:
+- Template stores only:
+  - Domain specs (`services/backend/spec/*.yaml`)
+  - Infrastructure scaffolds (`src/core/`, `scripts/`, minimal `pyproject.toml`)
+- Delete implementation code: controllers, models, repositories
+- On `copier copy`, automatically run `make sync-services create` and `make generate-from-spec`
+
+**Benefits**:
+- ✅ Perfect spec-first implementation (no code drift from specs)
+- ✅ Massive token economy win (only specs to read/edit)
+- ✅ Zero distinction between built-in and custom services
+- ✅ Simpler compose management (no markers needed, full generation)
+- ✅ Cleaner framework updates via `copier update`
+
+**Challenges**:
+- ❌ Controllers contain business logic hard to specify generically
+- ❌ ORM models need DB-specific types, indexes, relationships
+- ❌ No reference implementation in template (harder to debug framework)
+- ❌ Bootstrap requires generation step (slower initial copy)
+- ❌ Generators must handle validation rules, hooks, complex logic
+
+**Prerequisites for Implementation**:
+1. Create ORM model generator from extended specs
+2. Add validation/constraint rules to operation specs
+3. Implement convention-based controller hooks/stubs
+4. Enhance scaffolding templates for business logic slots
+5. Add reference implementation outside template for framework development
+
+**Recommended Path**:
+1. **Short-term**: Current hybrid approach (Jinja templates + sync markers)
+2. **Medium-term**: Keep specs + minimal scaffolds, delete business logic
+3. **Long-term**: Pure spec-only after generator maturity (2-3 months)
+
+**Related**: See implementation plan in `.gemini/antigravity/brain/*/implementation_plan.md` for detailed analysis.
+
 ### Celery Worker Support
+
 
 **Status**: IDEA
 
