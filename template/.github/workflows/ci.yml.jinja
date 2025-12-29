@@ -22,6 +22,7 @@ jobs:
       - name: Prepare environment files
         run: |
           cp .env.example .env
+          cp .env.example infra/.env
           if [ ! -f infra/.env.test ]; then
             echo "infra/.env.test missing" >&2
             exit 1

@@ -55,8 +55,13 @@ services:
       context: ..
       dockerfile: template/tooling/Dockerfile
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    # Add docker group to access docker socket
+    group_add:
+      - ${DOCKER_GID:-999}
     working_dir: /workspace
     volumes:
       - ../:/workspace:delegated
+      # Mount docker socket for integration tests that need docker
+      - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - ../.env

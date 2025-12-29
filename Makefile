@@ -6,7 +6,7 @@
 
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_FRAMEWORK := -f infra/compose.framework.yml
-COMPOSE_ENV := COMPOSE_PROJECT_NAME=framework-tooling HOST_UID=$$(id -u) HOST_GID=$$(id -g)
+COMPOSE_ENV := COMPOSE_PROJECT_NAME=framework-tooling HOST_UID=$$(id -u) HOST_GID=$$(id -g) DOCKER_GID=$$(getent group docker | cut -d: -f3)
 PYTHON_TOOLING := $(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling python
 
 # Default target

@@ -652,4 +652,43 @@ _tasks:
 
 **Current approach**: Templates are manually maintained to produce valid Python. Tests in `tests/copier/test_generated_code_quality.py` verify lint compliance.
 
+---
+
+### Fix Compose Context for Test Services
+
+**Status**: TODO
+**Priority**: HIGH
+
+**Description**: The `compose.tests.unit.yml.jinja` template has incorrect `context: .` for test services. Since compose files are in `infra/`, the context `.` resolves to `infra/` instead of project root.
+
+**Current (broken)**:
+```yaml
+tg-bot-tests-unit:
+  build:
+    context: .
+    dockerfile: services/tg_bot/Dockerfile
+```
+
+**Problem**: When running `docker compose -f infra/compose.tests.unit.yml run tg-bot-tests-unit`, Docker looks for `infra/services/tg_bot/Dockerfile` which doesn't exist.
+
+**Proposed Solutions**:
+
+1. **Change context to parent directory**:
+```yaml
+tg-bot-tests-unit:
+  build:
+    context: ..
+    dockerfile: services/tg_bot/Dockerfile
+```
+
+2. **Use --project-directory flag** (in Makefile):
+```makefile
+tests:
+	docker compose -f infra/compose.tests.unit.yml --project-directory . run ...
+```
+
+**Note**: The `tooling` service already has `context: ..` (fixed earlier), but test services still have `context: .`.
+
+**Impact**: Docker-based tests fail in coding-worker containers and local development when running from project root.
+
 
