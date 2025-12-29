@@ -654,6 +654,90 @@ _tasks:
 
 ---
 
+### GitHub Secrets Integration for Deployment
+
+**Status**: TODO
+**Priority**: HIGH
+
+**Description**: Modify `main.yml.jinja` workflow to generate `.env` file from GitHub Secrets instead of relying on external Ansible to inject secrets.
+
+**Context**: Currently, `codegen_orchestrator` deploys projects via Ansible, passing secrets through `--extra-vars` CLI arguments. This is insecure (secrets visible in `ps aux`) and creates two sources of truth. The goal is to use GitHub Secrets as the single source of truth for all deployment secrets.
+
+**Current State**:
+- `main.yml.jinja` has a `deploy` job that only runs `docker compose pull && up`
+- No `.env` generation from secrets
+- First deploy relies on external Ansible to create `.env`
+
+**Required Changes**:
+
+1. **Extend deploy job to generate `.env` from secrets**:
+```yaml
+deploy:
+  steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        script: |
+          cd ${{ secrets.DEPLOY_PROJECT_PATH }}
+          git pull origin main
+
+          # Generate .env from GitHub Secrets
+          cat > .env << 'EOF'
+          ENVIRONMENT=production
+          APP_NAME=${{ secrets.APP_NAME }}
+          APP_SECRET_KEY=${{ secrets.APP_SECRET_KEY }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+{% if 'tg_bot' in modules %}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+{% endif %}
+          EOF
+
+          docker compose -f infra/compose.base.yml -f infra/compose.prod.yml pull
+          docker compose -f infra/compose.base.yml -f infra/compose.prod.yml up -d
+```
+
+2. **Add workflow_dispatch trigger with optional inputs**:
+```yaml
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip build, only deploy'
+        type: boolean
+        default: false
+```
+
+3. **Document required GitHub Secrets**:
+   - Infrastructure secrets (set by orchestrator):
+     - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PROJECT_PATH`
+     - `APP_SECRET_KEY`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `REDIS_URL`
+   - User secrets (varies by modules):
+     - `TELEGRAM_BOT_TOKEN` (if tg_bot module)
+     - `OPENAI_API_KEY`, etc.
+
+**Considerations**:
+- Secrets in workflow logs: Use `::add-mask::` for dynamic secrets
+- Heredoc with secrets: Use `'EOF'` (quoted) to prevent variable expansion on runner
+- Module-specific secrets: Jinja conditions for optional modules
+- Idempotency: Overwrite `.env` on each deploy (secrets may have changed)
+
+**Testing**:
+- Update `test-template.yml` to verify generated workflow contains `.env` generation
+- Manual test: trigger workflow_dispatch after setting secrets
+
+**Related**:
+- `codegen_orchestrator` will stop using Ansible for secret injection
+- `codegen_orchestrator` will use `gh workflow run` to trigger deploys
+- Coordination needed: both projects must be updated together
+
+---
+
 ### Fix Compose Context for Test Services
 
 **Status**: DONE
