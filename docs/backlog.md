@@ -656,7 +656,7 @@ _tasks:
 
 ### GitHub Secrets Integration for Deployment
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: HIGH
 
 **Description**: Modify `main.yml.jinja` workflow to generate `.env` file from GitHub Secrets instead of relying on external Ansible to inject secrets.
