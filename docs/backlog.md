@@ -656,7 +656,7 @@ _tasks:
 
 ### Fix Compose Context for Test Services
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: HIGH
 
 **Description**: The `compose.tests.unit.yml.jinja` template has incorrect `context: .` for test services. Since compose files are in `infra/`, the context `.` resolves to `infra/` instead of project root.
