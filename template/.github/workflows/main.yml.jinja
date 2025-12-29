@@ -104,28 +104,33 @@ jobs:
 
             # Generate .env from GitHub Secrets
             echo "Generating .env from secrets..."
-            cat > .env << 'EOF'
-            ENVIRONMENT=production
-            # Standard Config
-            APP_SECRET_KEY={% raw %}${{ secrets.APP_SECRET_KEY }}{% endraw %}
-            POSTGRES_PASSWORD={% raw %}${{ secrets.POSTGRES_PASSWORD }}{% endraw %}
-            DATABASE_URL={% raw %}${{ secrets.DATABASE_URL }}{% endraw %}
-            REDIS_URL={% raw %}${{ secrets.REDIS_URL }}{% endraw %}
-            
-            # Module Specific Secrets
-            {% if 'tg_bot' in modules %}
-            TELEGRAM_BOT_TOKEN={% raw %}${{ secrets.TELEGRAM_BOT_TOKEN }}{% endraw %}
-            {% endif %}
-            {% if 'backend' in modules %}
-            # Backend specific secrets can be added here
-            {% endif %}
-            
-            # Extra secrets (prevent breaking if empty)
-            {% raw %}${{ secrets.EXTRA_ENV_VARS || '' }}{% endraw %}
-            EOF
-            
+            {
+              echo "ENVIRONMENT=production"
+              echo "DEBUG=false"
+              echo "APP_NAME={{ project_name }}"
+              echo "APP_ENV=production"
+              echo "APP_SECRET_KEY={% raw %}${{ secrets.APP_SECRET_KEY }}{% endraw %}"
+              {% if 'backend' in modules %}
+              echo "POSTGRES_HOST=db"
+              echo "POSTGRES_PORT=5432"
+              echo "POSTGRES_DB={{ project_slug }}"
+              echo "POSTGRES_USER=postgres"
+              echo "POSTGRES_PASSWORD={% raw %}${{ secrets.POSTGRES_PASSWORD }}{% endraw %}"
+              {% endif %}
+              {% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %}
+              echo "REDIS_URL=redis://redis:6379"
+              {% endif %}
+              {% if 'backend' in modules %}
+              echo "API_BASE_URL=http://backend:8000"
+              {% endif %}
+              {% if 'tg_bot' in modules %}
+              echo "TELEGRAM_BOT_TOKEN={% raw %}${{ secrets.TELEGRAM_BOT_TOKEN }}{% endraw %}"
+              {% endif %}
+              {% raw %}${{ secrets.EXTRA_ENV_VARS && format('echo "{0}"', secrets.EXTRA_ENV_VARS) || ':' }}{% endraw %}
+            } > .env
+
             echo ".env generated successfully."
-            
+
             compose_files="{% raw %}${{ secrets.DEPLOY_COMPOSE_FILES }}{% endraw %}"
             compose_args=""
             for file in $compose_files; do
