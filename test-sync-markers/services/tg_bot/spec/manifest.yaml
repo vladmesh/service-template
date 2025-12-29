@@ -1,9 +1,0 @@
-# Service manifest for tg_bot
-# Declares dependencies on other services for client generation
-
-consumes:
-  - service: backend
-    domain: users
-    operations:
-      - create_user
-      - get_user

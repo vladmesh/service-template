@@ -1,1 +1,0 @@
-"""Shared spec-first artifacts."""

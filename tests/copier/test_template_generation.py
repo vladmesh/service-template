@@ -388,6 +388,19 @@ class TestComposeServices:
         assert "redis" not in compose_dev.get("services", {})
         assert "tg_bot" not in compose_dev.get("services", {})
 
+    def test_compose_files_have_sync_markers(self, tmp_path: Path):
+        """Compose files should have sync markers for dynamic service addition via sync_services."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+
+        for compose_file in ["compose.base.yml", "compose.dev.yml", "compose.tests.unit.yml"]:
+            content = (output / "infra" / compose_file).read_text()
+            assert "# >>> services (auto-generated from services.yml)" in content, (
+                f"Start marker not found in {compose_file}"
+            )
+            assert "# <<< services (auto-generated from services.yml)" in content, (
+                f"End marker not found in {compose_file}"
+            )
+
 
 @pytest.mark.usefixtures("copier_available")
 class TestIntegration:
@@ -500,6 +513,23 @@ class TestIntegration:
         assert "Backend:" in agents
         assert "Telegram Bot:" in agents
         assert "FastStream Event Architecture" in agents
+
+    def test_sync_services_check_passes(self, tmp_path: Path):
+        """make sync-services check should pass on generated project."""
+        output = run_copier(tmp_path, "backend,tg_bot")
+
+        # Create .env (required by sync-services)
+        shutil.copy(output / ".env.example", output / "infra" / ".env")
+
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "sync-services", "check"],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, (
+            f"sync-services check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
 
 def _init_git_repo(path: Path) -> None:
