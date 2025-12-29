@@ -1,14 +1,12 @@
-{% if 'backend' in modules -%}
 x-backend-env: &backend-env
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
   ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
-{% endif %}
+
 
 services:
-  # >>> services (auto-generated from services.yml)
-{% if 'backend' in modules %}
+
   backend:
-    image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
+    image: ${BACKEND_IMAGE:-test_sync-backend:latest}
     build:
       context: ..
       dockerfile: services/backend/Dockerfile
@@ -24,13 +22,13 @@ services:
         condition: service_healthy
     networks:
       - internal
-    ports:
-      - "8000:8000"
-{% endif %}
+    expose:
+      - "8000"
 
-{% if 'tg_bot' in modules %}
+
+
   tg_bot:
-    image: ${TG_BOT_IMAGE:-{{ project_slug }}-tg:latest}
+    image: ${TG_BOT_IMAGE:-test_sync-tg:latest}
     build:
       context: ..
       dockerfile: services/tg_bot/Dockerfile
@@ -39,45 +37,16 @@ services:
     depends_on:
       backend:
         condition: service_started
-      redis:
-        condition: service_healthy
     profiles: ["tg"]
     networks:
       - internal
-{% endif %}
 
-{% if 'frontend' in modules %}
-  frontend:
-    image: ${FRONTEND_IMAGE:-{{ project_slug }}-frontend:latest}
-    build:
-      context: ..
-      dockerfile: services/frontend/Dockerfile
-    env_file:
-      - ../.env
-    networks:
-      - internal
-    ports:
-      - "4321:4321"
-{% endif %}
 
-{% if 'notifications' in modules %}
-  notifications_worker:
-    image: ${NOTIFICATIONS_WORKER_IMAGE:-{{ project_slug }}-notifications-worker:latest}
-    build:
-      context: ..
-      dockerfile: services/notifications_worker/Dockerfile
-    env_file:
-      - ../.env
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - internal
-{% endif %}
 
-  # <<< services (auto-generated from services.yml)
 
-{% if 'backend' in modules %}
+
+
+
   db:
     image: postgres:16
     environment:
@@ -93,9 +62,9 @@ services:
       - db_data:/var/lib/postgresql/data
     networks:
       - internal
-{% endif %}
 
-{% if 'tg_bot' in modules or 'notifications' in modules %}
+
+
   redis:
     image: redis:7-alpine
     healthcheck:
@@ -105,12 +74,31 @@ services:
       retries: 5
     networks:
       - internal
-{% endif %}
+
+
+  caddy:
+    image: caddy:2
+
+    depends_on:
+      backend:
+        condition: service_started
+
+    networks:
+      - edge
+      - internal
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
 
 networks:
   internal:
+  edge:
 
 volumes:
-{% if 'backend' in modules %}
+
   db_data:
-{% endif %}
+
+  caddy_data:
+  caddy_config:

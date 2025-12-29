@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "shared"
+version = "0.1.0"
+description = "Shared library for service-template services"
+authors = ["Example <example@example.com>"]
+package-mode = true
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.5"
+faststream = {extras = ["redis"], version = "^0.5.1"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

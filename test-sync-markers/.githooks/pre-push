@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_name="${1-}"
+remote_url="${2-}"
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+
+echo "[pre-push] Verifying push to ${remote_name:-unknown} (${remote_url:-})..."
+
+export DOCKER_BUILDKIT=1
+
+# Prepare environment files
+cp .env.example .env
+if [ ! -f infra/.env.test ]; then
+  echo "infra/.env.test missing" >&2
+  exit 1
+fi
+
+# Generate from spec
+make generate-from-spec
+
+# Check generated files are up to date
+git diff --exit-code -- shared/shared/generated/
+
+# Run linters
+make lint
+
+# Check service sync
+make sync-services
+
+# Run tests
+make tests
+
+# Run sync-services tooling tests
+make tooling-tests
+
+# Clean up
+COMPOSE_PROJECT_NAME=tests-unit docker compose -f infra/compose.tests.unit.yml down --volumes --remove-orphans || true
+COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans || true

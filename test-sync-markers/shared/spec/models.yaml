@@ -1,0 +1,46 @@
+models:
+  User:
+    fields:
+      id:
+        type: int
+        readonly: true
+      telegram_id:
+        type: int
+        ge: 0
+      is_admin:
+        type: bool
+        default: false
+      created_at:
+        type: datetime
+        readonly: true
+      updated_at:
+        type: datetime
+        readonly: true
+    variants:
+      Create: {}
+      Update:
+        optional: [telegram_id, is_admin]
+      Read: {}
+
+  UserRegisteredEvent:
+    fields:
+      user_id:
+        type: int
+      email:
+        type: string
+      timestamp:
+        type: datetime
+
+  CommandReceived:
+    fields:
+      command:
+        type: string
+      args:
+        type: list[string]
+      user_id:
+        type: int
+      timestamp:
+        type: datetime
+    variants:
+      Create:
+        optional: [timestamp]

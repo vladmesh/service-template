@@ -1,0 +1,14 @@
+domain: debug
+config:
+  rest:
+    prefix: "/debug"
+    tags: ["debug"]
+
+operations:
+  command:
+    input: CommandReceivedCreate
+    output: CommandReceived
+    rest:
+      method: POST
+      path: "/command"
+      status: 202

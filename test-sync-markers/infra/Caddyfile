@@ -1,0 +1,31 @@
+http://{$PUBLIC_HOST:localhost}, http://localhost, http://127.0.0.1 {
+	# Redirect all HTTP traffic to HTTPS.
+	redir https://{host}{uri} permanent
+}
+
+http://:80 {
+	# Catch-all HTTP redirect for any other hosts (IPs, custom domains).
+	redir https://{host}{uri} permanent
+}
+
+https://{$PUBLIC_HOST:localhost}, https://localhost, https://127.0.0.1 {
+	encode gzip zstd
+
+	# Use Caddy's internal CA when no public certificate can be issued.
+	tls internal
+
+	# Default reverse proxy to the FastAPI backend service.
+	reverse_proxy backend:8000
+}
+
+https://:443 {
+	encode gzip zstd
+
+	# Issue certificates on demand for arbitrary hosts (IPs, temporary domains).
+	tls internal {
+		on_demand
+	}
+
+	# Default reverse proxy to the FastAPI backend service.
+	reverse_proxy backend:8000
+}

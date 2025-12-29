@@ -1,0 +1,39 @@
+services:
+  backend:
+    extends:
+      file: compose.base.yml
+      service: backend
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the published backend image}
+    env_file:
+      - ../.env
+      - ./.env.prod
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+
+  db:
+    extends:
+      file: compose.base.yml
+      service: db
+    env_file:
+      - ./.env.prod
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  caddy:
+    extends:
+      file: compose.base.yml
+      service: caddy
+    image: ${CADDY_IMAGE:-caddy:2}
+    env_file:
+      - ./.env.prod
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      restart_policy:
+        condition: on-failure

@@ -9,14 +9,8 @@ __pycache__/
 .coverage
 pytest.cache/
 .mypy_cache/
-.ruff_cache/
 .eggs/
 *.egg-info/
 build/
 dist/
 apps/backend/tests/.tmp/
-
-# Auto-generated files (created by make generate-from-spec, make openapi)
-**/generated/
-**/docs/openapi.json
-test-sync-markers/
