@@ -80,7 +80,9 @@ modules:
     Modules to include (comma-separated).
     Available: backend, tg_bot, notifications, frontend
     Example: backend,tg_bot
+    Note: backend is always required.
   default: "backend"
+  validator: "{% if 'backend' not in modules %}backend module is required{% endif %}"
 
 # Computed list for easier iteration
 modules_list:
