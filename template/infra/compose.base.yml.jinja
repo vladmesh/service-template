@@ -37,11 +37,12 @@ services:
     env_file:
       - ../.env
     depends_on:
+{% if 'backend' in modules %}
       backend:
         condition: service_started
+{% endif %}
       redis:
         condition: service_healthy
-    profiles: ["tg"]
     networks:
       - internal
 {% endif %}
