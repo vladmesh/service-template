@@ -147,7 +147,7 @@ class TestBackendOnlyGeneration:
         assert (generated_project / "README.md").exists()
         assert (generated_project / "ARCHITECTURE.md").exists()
         assert (generated_project / "CONTRIBUTING.md").exists()
-        assert (generated_project / "AGENTS.md").exists()
+        # AGENTS.md is NOT generated - it's dynamically created by orchestrator
 
     def test_services_yml_generated(self, generated_project: Path):
         """services.yml should contain only backend."""
@@ -505,20 +505,22 @@ class TestIntegration:
         assert "Redis" in arch
         assert "python-faststream" in arch
 
-    def test_agents_md_conditional_content(self, tmp_path: Path):
-        """AGENTS.md should have conditional content based on modules."""
+    def test_contributing_md_conditional_content(self, tmp_path: Path):
+        """CONTRIBUTING.md should have conditional pitfalls based on modules."""
         output = run_copier(tmp_path, "backend")
-        agents = (output / "AGENTS.md").read_text()
-        assert "Backend:" in agents
-        assert "Telegram Bot:" not in agents
+        contributing = (output / "CONTRIBUTING.md").read_text()
+        # Common pitfalls should always be present
+        assert "Common Pitfalls" in contributing
+        assert "Stale Shared Code" in contributing
+        # Broker pitfall should NOT be present for backend-only
+        assert "Missing Broker Connection" not in contributing
 
-    def test_agents_md_with_tg_bot(self, tmp_path: Path):
-        """AGENTS.md should include tg_bot section when selected."""
+    def test_contributing_md_with_tg_bot(self, tmp_path: Path):
+        """CONTRIBUTING.md should include broker pitfall when event modules selected."""
         output = run_copier(tmp_path, "backend,tg_bot")
-        agents = (output / "AGENTS.md").read_text()
-        assert "Backend:" in agents
-        assert "Telegram Bot:" in agents
-        assert "FastStream Event Architecture" in agents
+        contributing = (output / "CONTRIBUTING.md").read_text()
+        assert "Common Pitfalls" in contributing
+        assert "Missing Broker Connection" in contributing
 
     # NOTE: test_sync_services_check_passes was removed because it requires
     # docker-in-docker with framework module. This is already tested by

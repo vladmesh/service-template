@@ -47,3 +47,32 @@ Do not manually edit files in these directories, as they are overwritten by scri
 - `shared/generated/`
 - `services/<name>/` (only specific files like `src/` should be edited; structural files like `Dockerfile` are templated, though currently managed manually after creation - *check templates if you need to change infrastructure*).
 
+## 5. Environment Variables
+
+**STRICT RULE: NO DEFAULT VALUES FOR ENVIRONMENT VARIABLES**
+
+- **NEVER** use default values in `os.getenv("VAR", "default")` or similar patterns
+- If a required environment variable is missing, the application **MUST FAIL IMMEDIATELY** with a clear error
+- Use this pattern:
+  ```python
+  value = os.getenv("REQUIRED_VAR")
+  if not value:
+      raise RuntimeError("REQUIRED_VAR is not set; please add it to your environment variables")
+  ```
+- **Rationale:** Default values hide configuration errors and cause silent failures in production
+- All required environment variables must be documented in `.env.example`
+
+## 6. Common Pitfalls
+
+Avoid these common mistakes:
+
+1. **Stale Shared Code:** In development, ensure `../shared:/app/shared:delegated` is mounted in `compose.dev.yml`. Without this mount, services use stale code from the Docker build, not live changes.
+
+2. **Type Mismatches:** The code generator supports `list[type]` but verify complex types after generation.
+
+3. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields, not naive `datetime.now()`.
+
+4. **Dockerfile Validation:** `sync_services.py` validates COPY sources — use proper Poetry patterns when modifying Dockerfiles.
+{% if 'tg_bot' in modules or 'notifications' in modules %}
+5. **Missing Broker Connection:** Publishing events without calling `broker.connect()` first results in `AssertionError`. Ensure broker lifecycle is managed in application startup/shutdown.
+{% endif %}

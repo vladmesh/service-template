@@ -738,6 +738,33 @@ on:
 
 ---
 
+### Remove AGENTS.md from Template
+
+**Status**: DONE
+**Priority**: MEDIUM
+
+**Description**: Remove `AGENTS.md` from the template repository. This file should be treated as infrastructure and generated dynamically by the orchestrator (codegen_orchestrator) instead of being part of the project template.
+
+**Rationale**:
+- `AGENTS.md` contains instructions for CLI agents (Claude, Factory.ai, etc.)
+- Content depends on agent type and permissions granted by orchestrator
+- Should be generated on-demand by workers-spawner, not stored statically
+- Eliminates conflict between orchestrator-generated and template-provided versions
+
+**Implementation**:
+1. Deleted `template/AGENTS.md.jinja` — new projects no longer get root AGENTS.md
+2. Migrated important rules to `template/CONTRIBUTING.md.jinja`:
+   - Environment Variables (NO DEFAULT VALUES policy)
+   - Common Pitfalls (stale shared code, type mismatches, timezone awareness, Dockerfile validation, broker connection)
+3. Removed AGENTS.md reference from `template/README.md.jinja` documentation section
+4. Updated all service-level AGENTS.md references (backend, notifications_worker) from "корневой AGENTS.md" to "CONTRIBUTING.md"
+5. Updated scaffold templates (`framework/templates/scaffold/services/*/AGENTS.md`) with same reference changes
+6. Service-specific AGENTS.md files preserved (backend, tg_bot, frontend, notifications_worker)
+
+**Note**: This change coordinates with codegen_orchestrator task "Dynamic AGENTS.md/CLAUDE.md Generation".
+
+---
+
 ### Fix Compose Context for Test Services
 
 **Status**: DONE
