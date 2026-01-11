@@ -63,6 +63,32 @@ jobs:
           fi
           echo "No Jinja artifacts found"
 
+      - name: Verify .env generation in workflows
+        run: |
+          cd /tmp/test-project
+          
+          # Check main.yml
+          if ! grep -q "cat > .env << 'EOF'" .github/workflows/main.yml; then
+            echo "ERROR: main.yml missing .env generation logic"
+            exit 1
+          fi
+          
+          if ! grep -q "APP_SECRET_KEY=\${{ secrets.APP_SECRET_KEY }}" .github/workflows/main.yml; then
+             echo "ERROR: main.yml missing secret injection"
+             exit 1
+          fi
+
+          # Check deploy.yml
+          if [ ! -f .github/workflows/deploy.yml ]; then
+             echo "ERROR: deploy.yml not generated"
+             exit 1
+          fi
+          
+          if ! grep -q "cat > .env << 'EOF'" .github/workflows/deploy.yml; then
+             echo "ERROR: deploy.yml missing .env generation logic"
+             exit 1
+          fi
+
       - name: Debug .env.example
         run: |
           cd /tmp/test-project

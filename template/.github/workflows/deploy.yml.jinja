@@ -1,0 +1,70 @@
+name: Deploy Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        default: 'latest'
+        type: string
+      deploy_host:
+        description: 'Target server IP'
+        required: true
+        type: string
+      deploy_port:
+        description: 'SSH port'
+        required: false
+        default: '22'
+        type: string
+      compose_files:
+        description: 'Compose files to use'
+        required: false
+        default: 'infra/compose.base.yml infra/compose.prod.yml'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      deployed_url: {% raw %}${{ steps.output.outputs.url }}{% endraw %}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: {% raw %}${{ inputs.deploy_host }}{% endraw %}
+          port: {% raw %}${{ inputs.deploy_port }}{% endraw %}
+          username: {% raw %}${{ secrets.DEPLOY_USER }}{% endraw %}
+          key: {% raw %}${{ secrets.DEPLOY_SSH_KEY }}{% endraw %}
+          script: |
+            cd {% raw %}${{ secrets.DEPLOY_PROJECT_PATH }}{% endraw %}
+
+            # Generate .env from secrets
+            cat > .env << 'EOF'
+            ENVIRONMENT=production
+            APP_NAME={{ project_name }}
+            APP_SECRET_KEY={% raw %}${{ secrets.APP_SECRET_KEY }}{% endraw %}
+            {% if 'backend' in modules %}
+            POSTGRES_PASSWORD={% raw %}${{ secrets.POSTGRES_PASSWORD }}{% endraw %}
+            {% endif %}
+            REDIS_URL={% raw %}${{ secrets.REDIS_URL || 'redis://redis:6379' }}{% endraw %}
+            {% if 'tg_bot' in modules %}
+            TELEGRAM_BOT_TOKEN={% raw %}${{ secrets.TELEGRAM_BOT_TOKEN }}{% endraw %}
+            {% endif %}
+            {% if 'backend' in modules %}
+            DATABASE_URL={% raw %}${{ secrets.DATABASE_URL }}{% endraw %}
+            {% endif %}
+            {% raw %}${{ secrets.EXTRA_ENV_VARS }}{% endraw %}
+            EOF
+
+            # Pull and restart
+            docker compose -f {% raw %}${{ inputs.compose_files || 'infra/compose.base.yml infra/compose.prod.yml' }}{% endraw %} pull
+            docker compose -f {% raw %}${{ inputs.compose_files || 'infra/compose.base.yml infra/compose.prod.yml' }}{% endraw %} up -d
+
+      - name: Set outputs
+        id: output
+        run: |
+          echo "url=http://{% raw %}${{ inputs.deploy_host }}{% endraw %}:8000" >> $GITHUB_OUTPUT

@@ -803,3 +803,67 @@ tests:
 **Impact**: Docker-based tests fail in coding-worker containers and local development when running from project root.
 
 
+
+
+### Align Template CI with Codegen Orchestrator Deployment Strategy
+
+**Status**: DONE
+**Priority**: CRITICAL
+
+**Description**: The Codegen Orchestrator has finalized its deployment strategy:
+1. **Infra Service**: "Bare metal" provisioning (SSH Setup only, no app deployment).
+2. **Deployment**: Triggered via GitHub Actions `workflow_dispatch` by `LangGraph`'s `DeployerNode`.
+
+We need to make `service_template` 100% compatible.
+
+**Requirements**:
+
+1.  **Refactor `main.yml.jinja`** (Support `workflow_dispatch`):
+    *   Add `inputs`:
+        *   `skip_build` (boolean, default false)
+        *   `deploy_host` (string, optional override)
+        *   `deploy_port` (string, default '22')
+    *   Add `outputs` to `deploy` job:
+        *   `deployed_url`
+    *   Update `deploy` step:
+        *   Use `${{ inputs.deploy_host || secrets.DEPLOY_HOST }}` logic.
+        *   Generate `.env` dynamically from secrets (see below).
+
+2.  **Create `deploy.yml.jinja`** (Dedicated Workflow):
+    *   New workflow strictly for Orchestrator triggering.
+    *   **Inputs**:
+        *   `image_tag` (required, string, default 'latest')
+        *   `deploy_host` (required, string)
+        *   `deploy_port` (default '22')
+    *   **Logic**:
+        *   Checkout → SSH Action.
+        *   Generate `.env` from Secrets.
+        *   `docker compose pull && up -d`.
+    *   **Outputs**:
+        *   Expose `deployed_url` in job outputs.
+
+3.  **Secrets Manifest (The Contract)**:
+    The template MUST assume these secrets exist (injected by Orchestrator):
+    *   **Infrastructure**: `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PROJECT_PATH`
+    *   **Application**: `APP_SECRET_KEY`, `APP_NAME`
+    *   **Database**: `POSTGRES_PASSWORD` (if backend module)
+    *   **Services**: `REDIS_URL`, `DATABASE_URL` (constructed or passed)
+    *   **Modules**: `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, etc.
+
+4.  **Env Generation Logic**:
+    The SSH script in workflows MUST generate `.env` like this:
+    ```bash
+    cat > .env << 'EOF'
+    ENVIRONMENT=production
+    APP_NAME={{ project_name }}
+    APP_SECRET_KEY=${{ secrets.APP_SECRET_KEY }}
+    POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+    # ... module specific secrets ...
+    EOF
+    ```
+
+5.  **Documentation (`ARCHITECTURE.md.jinja`)**:
+    *   Add section "Orchestrated Deployment".
+    *   Document the curl command to trigger deployment manually.
+
+**Reference**: See `codegen_orchestrator/docs/new_architecture/DEPLOYMENT_MIGRATION_CHECKLIST.md` (Part 2) for full examples.

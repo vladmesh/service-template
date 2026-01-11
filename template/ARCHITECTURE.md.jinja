@@ -112,3 +112,30 @@ This generates:
 - Event adapter in subscriber services that handles `user_registered`
 - Unified protocol with all controller methods
 {% endif %}
+
+## Deployment
+
+This project supports two deployment modes:
+
+### 1. Manual (Push to main)
+Push to `main` branch triggers full CI/CD:
+- Build images → Push to GHCR → Deploy to server
+
+### 2. Orchestrated (workflow_dispatch)
+External orchestrator can trigger deployment via GitHub API:
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/OWNER/REPO/actions/workflows/deploy.yml/dispatches \
+  -d '{"ref":"main","inputs":{"deploy_host":"1.2.3.4","image_tag":"latest"}}'
+```
+
+Required repository secrets:
+- `DEPLOY_USER` - SSH username (usually "root")
+- `DEPLOY_SSH_KEY` - SSH private key
+- `DEPLOY_PROJECT_PATH` - Path on server (e.g., `/opt/services/myapp`)
+- `APP_SECRET_KEY` - Application secret
+{% if 'backend' in modules %}
+- `POSTGRES_PASSWORD` - Database password
+{% endif %}
