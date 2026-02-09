@@ -19,7 +19,7 @@ from telegram.ext import Application, ApplicationBuilder, CommandHandler, Contex
 from shared.generated.events import broker, publish_command_received
 from shared.generated.schemas import CommandReceived, UserCreate
 
-from .generated.clients.backend import BackendClient
+from generated.clients.backend import BackendClient
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

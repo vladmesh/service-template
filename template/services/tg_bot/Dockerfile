@@ -11,7 +11,7 @@ FROM python:3.11-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
-    PYTHONPATH=/app
+    PYTHONPATH=/app:/app/services/tg_bot/src
 
 WORKDIR /app
 
