@@ -60,6 +60,11 @@ project_description:
   help: "Short project description"
   default: "A microservice project built with service-template framework"
 
+task_description:
+  type: str
+  help: "Detailed task description for the developer (what to build)"
+  default: ""
+
 author_name:
   type: str
   help: "Author name"

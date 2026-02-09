@@ -1,0 +1,59 @@
+# Task: {{ project_name }}
+
+## Overview
+
+{{ task_description if task_description else "No detailed task description provided." }}
+
+## Project Configuration
+
+- **Name**: {{ project_name }}
+- **Modules**: {{ modules }}
+
+## Implementation Guidelines
+
+1. **Read the codebase structure** - Understand how the scaffolded project is organized
+2. **Follow existing patterns** - Use the same code style and architecture
+3. **Implement the requirements** - Build what's described above
+4. **Write tests** - Add unit tests for new functionality
+5. **Commit with clear messages** - Describe what was implemented
+
+## Files to Focus On
+
+{% if 'backend' in modules %}
+### Backend
+- `services/backend/src/app/` - Business logic
+- `services/backend/src/controllers/` - API controllers
+- `shared/spec/models.yaml` - Data models (run `make generate` after changes)
+{% endif %}
+
+{% if 'tg_bot' in modules %}
+### Telegram Bot
+- `services/tg_bot/src/main.py` - Bot handlers and commands
+- `services/tg_bot/src/handlers/` - Additional handlers (create if needed)
+{% endif %}
+
+{% if 'notifications' in modules %}
+### Notifications
+- `services/notifications_worker/src/` - Notification processing
+{% endif %}
+
+{% if 'frontend' in modules %}
+### Frontend
+- `services/frontend/src/` - Frontend application
+{% endif %}
+
+## Commands
+
+```bash
+# Start development environment
+make dev-start
+
+# Run tests
+make tests
+
+# Generate code from specs
+make generate
+
+# Format code
+make format
+```
