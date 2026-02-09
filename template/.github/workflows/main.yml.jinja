@@ -138,7 +138,7 @@ jobs:
             REDIS_URL={% raw %}${{ secrets.REDIS_URL || 'redis://redis:6379' }}{% endraw %}
             {% endif %}
             {% if 'backend' in modules %}
-            API_BASE_URL=http://backend:8000
+            BACKEND_API_URL=http://backend:8000
             {% endif %}
             {% if 'tg_bot' in modules %}
             TELEGRAM_BOT_TOKEN={% raw %}${{ secrets.TELEGRAM_BOT_TOKEN }}{% endraw %}
