@@ -6,8 +6,19 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
-echo "[pre-commit] Running make format..."
-make format
+# Check if Docker Compose is available and working
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    echo "[pre-commit] Running make format (Docker)..."
+    make format
+else
+    echo "[pre-commit] Docker not available, running ruff directly..."
+    if command -v ruff >/dev/null 2>&1; then
+        ruff format --exclude 'services/**/migrations' --exclude '.venv' .
+        ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' . || true
+    else
+        echo "[pre-commit] WARNING: Neither Docker nor ruff available, skipping format"
+    fi
+fi
 
 echo "[pre-commit] Staging formatting changes..."
 git add -A

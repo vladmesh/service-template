@@ -13,6 +13,12 @@ echo "[pre-push] Verifying push to ${remote_name:-unknown} (${remote_url:-})..."
 
 export DOCKER_BUILDKIT=1
 
+# Detect Docker availability (all checks must pass: binary, compose plugin, daemon)
+DOCKER_AVAILABLE=false
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    DOCKER_AVAILABLE=true
+fi
+
 # Determine what files changed compared to what's already pushed
 changed_files=$(git diff --name-only @{push}...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~1)
 
@@ -68,6 +74,21 @@ if echo "$changed_files" | grep -qE '^\.github/'; then
 fi
 
 # --- Execute checks ---
+
+# Native fallback: when Docker is not available, run ruff directly
+if ! $DOCKER_AVAILABLE; then
+    echo ""
+    echo "[pre-push] Docker not available, running native ruff check..."
+    if command -v ruff >/dev/null 2>&1; then
+        ruff check .
+        echo ""
+        echo "[pre-push] Native lint passed. Full CI will run on GitHub."
+    else
+        echo "[pre-push] WARNING: Neither Docker nor ruff available, skipping checks"
+    fi
+    exit 0
+fi
+
 checks_run=0
 
 if $run_generate; then
