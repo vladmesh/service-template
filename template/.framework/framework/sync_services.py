@@ -18,6 +18,7 @@ from framework.lib.compose_blocks import (
     render_service_templates,
     replace_block,
 )
+from framework.lib.env import get_framework_dir
 from framework.lib.service_scaffold import (
     SERVICES_ROOT,
     ScaffoldReport,
@@ -83,7 +84,7 @@ def sync_dockerfiles(specs: list[ServiceSpec], apply: bool) -> list[str]:
     drift: list[str] = []
 
     env = Environment(
-        loader=FileSystemLoader(str(ROOT / "framework" / "templates" / "docker")),
+        loader=FileSystemLoader(str(get_framework_dir() / "templates" / "docker")),
         autoescape=True,
     )
 

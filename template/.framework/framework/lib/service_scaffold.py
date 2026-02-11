@@ -8,11 +8,12 @@ from pathlib import Path
 import shutil
 from typing import Any
 
-from framework.lib.env import get_repo_root
+from framework.lib.env import get_framework_dir, get_repo_root
 
 ROOT = get_repo_root()
+FRAMEWORK_DIR = get_framework_dir()
 
-TEMPLATES_DIR = ROOT / "framework" / "templates" / "scaffold" / "services"
+TEMPLATES_DIR = FRAMEWORK_DIR / "templates" / "scaffold" / "services"
 SERVICES_ROOT = ROOT / "services"
 PLACEHOLDER = "__SERVICE_NAME__"
 
