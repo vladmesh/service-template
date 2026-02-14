@@ -13,9 +13,13 @@ from framework.generators.events import EventsGenerator
 from framework.generators.protocols import ProtocolsGenerator
 from framework.generators.registry import RegistryGenerator
 from framework.generators.routers import RoutersGenerator
-from framework.generators.schemas import SchemasGenerator
 from framework.lib.env import get_repo_root
 from framework.spec.loader import SpecValidationError, load_specs
+
+try:
+    from framework.generators.schemas import SchemasGenerator
+except ImportError:
+    SchemasGenerator = None  # type: ignore[assignment, misc]
 
 
 def generate_all(repo_root: Path | None = None) -> None:
@@ -36,16 +40,22 @@ def generate_all(repo_root: Path | None = None) -> None:
     print(f"  Manifests: {len(specs.manifests)}")
 
     # Run generators in order
-    generators = [
-        ("Schemas", SchemasGenerator(specs, repo_root)),
-        ("Routers", RoutersGenerator(specs, repo_root)),
-        ("Protocols", ProtocolsGenerator(specs, repo_root)),
-        ("Controllers", ControllersGenerator(specs, repo_root)),
-        ("Events", EventsGenerator(specs, repo_root)),
-        ("EventAdapters", EventAdapterGenerator(specs, repo_root)),
-        ("Registry", RegistryGenerator(specs, repo_root)),
-        ("Clients", ClientsGenerator(specs, repo_root)),
-    ]
+    generators = []
+    if SchemasGenerator is not None:
+        generators.append(("Schemas", SchemasGenerator(specs, repo_root)))
+    else:
+        print("  ⚠ Skipping Schemas (datamodel-code-generator not installed)")
+    generators.extend(
+        [
+            ("Routers", RoutersGenerator(specs, repo_root)),
+            ("Protocols", ProtocolsGenerator(specs, repo_root)),
+            ("Controllers", ControllersGenerator(specs, repo_root)),
+            ("Events", EventsGenerator(specs, repo_root)),
+            ("EventAdapters", EventAdapterGenerator(specs, repo_root)),
+            ("Registry", RegistryGenerator(specs, repo_root)),
+            ("Clients", ClientsGenerator(specs, repo_root)),
+        ]
+    )
 
     for name, generator in generators:
         print(f"\nGenerating {name}...")

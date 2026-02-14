@@ -9,7 +9,11 @@ from framework.generators.events import EventsGenerator
 from framework.generators.protocols import ProtocolsGenerator
 from framework.generators.registry import RegistryGenerator
 from framework.generators.routers import RoutersGenerator
-from framework.generators.schemas import SchemasGenerator
+
+try:
+    from framework.generators.schemas import SchemasGenerator
+except ImportError:
+    SchemasGenerator = None  # type: ignore[assignment, misc]
 
 __all__ = [
     "BaseGenerator",
