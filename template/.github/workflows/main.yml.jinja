@@ -102,8 +102,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
-    # Run if build succeeded OR if we skipped build. AND host must be defined.
-    if: {% raw %}${{ (success() || inputs.skip_build) && (inputs.deploy_host != '' || secrets.DEPLOY_HOST != '') }}{% endraw %}
+    # Run if build succeeded OR if we skipped build. AND deploy_host input must be provided.
+    # Note: secrets cannot be used in job-level if conditions. DEPLOY_HOST fallback is in steps.
+    if: {% raw %}${{ (success() || inputs.skip_build) && inputs.deploy_host != '' }}{% endraw %}
     outputs:
       deployed_url: {% raw %}${{ steps.output.outputs.url }}{% endraw %}
     steps:
