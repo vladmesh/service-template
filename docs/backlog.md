@@ -627,30 +627,24 @@ config:
 
 ---
 
-### Consider `make format` in Copier Tasks
+### Add `ruff check --fix` to Copier Post-Generation Tasks
 
-**Status**: IDEA
-**Priority**: LOW
+**Status**: TODO
+**Priority**: MEDIUM
 
-**Description**: Templates should produce clean, lint-passing output. Currently we achieve this by carefully crafting templates with correct import ordering and whitespace control.
-
-**Future consideration**: For complex templates with heavy Jinja conditionals, maintaining perfect formatting may become burdensome. Consider adding `make format` to copier post-generation tasks:
+**Description**: Add `ruff check --fix . || true` to copier `_tasks` after `sync_services create`. This auto-fixes import sorting and other lint issues caused by Jinja template rendering artifacts (extra blank lines from `{% endif %}`, conditional import blocks producing wrong order with `force-sort-within-sections`).
 
 ```yaml
 _tasks:
   # ... module cleanup ...
-  - "cp .env.example infra/.env"
-  - "make format || true"
-  - "chown ..."
+  - "PYTHONPATH=.framework python3 -m framework.sync_services create"
+  - "ruff check --fix . || true"
+  - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 ```
 
-**Trade-offs**:
-- ✅ Guaranteed clean output regardless of template complexity
-- ✅ Consistent with dev workflow
-- ❌ Slower first-time generation (+30-60s for Docker build)
-- ❌ Requires Docker available during `copier copy`
+**Why**: Jinja conditionals make it impossible to guarantee perfect import ordering in all module combinations. `ruff check --fix` is a lightweight safety net (no Docker needed, ruff is already installed in scaffolder/worker containers).
 
-**Current approach**: Templates are manually maintained to produce valid Python. Tests in `tests/copier/test_generated_code_quality.py` verify lint compliance.
+**Prerequisite**: Ensure `ruff` is available in all environments that run `copier copy` (scaffolder container, worker containers, CI tooling). Currently available everywhere.
 
 ---
 
