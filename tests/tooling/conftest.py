@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from framework import sync_services
+from framework import service_info, sync_services
 from framework.lib import compose_blocks, service_scaffold
 
 
@@ -21,6 +21,7 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
 
     scaffold_mod = importlib.reload(service_scaffold)
     compose_mod = importlib.reload(compose_blocks)
+    importlib.reload(service_info)
     sync_mod = importlib.reload(sync_services)
 
     infra_dir = root / "infra"
@@ -65,6 +66,7 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     monkeypatch.delenv("SERVICE_TEMPLATE_ROOT", raising=False)
     importlib.reload(service_scaffold)
     importlib.reload(compose_blocks)
+    importlib.reload(service_info)
     importlib.reload(sync_services)
 
 

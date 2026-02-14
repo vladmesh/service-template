@@ -12,9 +12,10 @@ from typing import Any
 import yaml
 
 from framework.lib.compose_blocks import compose_template_for_spec
+from framework.lib.env import get_repo_root
 from framework.lib.service_scaffold import build_service_specs
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = get_repo_root()
 SERVICES_ROOT = ROOT / "services"
 UNIT_COMPOSE_FILE = ROOT / "infra" / "compose.tests.unit.yml"
 INTEGRATION_COMPOSE_FILE = ROOT / "infra" / "compose.tests.integration.yml"
