@@ -8,6 +8,7 @@ Integration tests verify that different components work together correctly.
 from httpx import AsyncClient
 import pytest
 
+
 {% if 'backend' in modules -%}
 @pytest.mark.asyncio
 async def test_backend_health_endpoint():

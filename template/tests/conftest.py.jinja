@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from shared.shared.generated.database import Base
 {%- endif %}
 
-
 {% if 'backend' in modules %}
 @pytest.fixture(scope="session")
 def test_db_url() -> str:
