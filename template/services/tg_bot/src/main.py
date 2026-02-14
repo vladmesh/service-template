@@ -12,14 +12,13 @@ import logging
 import os
 from typing import Final
 
+from generated.clients.backend import BackendClient
 import httpx
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 
 from shared.generated.events import broker, publish_command_received
 from shared.generated.schemas import CommandReceived, UserCreate
-
-from generated.clients.backend import BackendClient
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
