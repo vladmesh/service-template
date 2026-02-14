@@ -27,7 +27,7 @@ class ProtocolsGenerator(BaseGenerator):
         services_domains: dict[str, list] = {}
         services_imports: dict[str, set[str]] = {}
 
-        for domain_key, domain in self.specs.domains.items():
+        for domain_key, domain in sorted(self.specs.domains.items()):
             service_name, domain_name = domain_key.split("/")
 
             if service_name not in services_domains:

@@ -24,7 +24,7 @@ class ControllersGenerator(BaseGenerator):
         """Generate controller stubs (only if not existing)."""
         generated = []
 
-        for domain_key, domain in self.specs.domains.items():
+        for domain_key, domain in sorted(self.specs.domains.items()):
             service_name, module_name = domain_key.split("/")
             output_file = (
                 self.repo_root

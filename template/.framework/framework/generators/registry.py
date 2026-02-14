@@ -26,7 +26,7 @@ class RegistryGenerator(BaseGenerator):
         # Group domains by service
         services_data: dict[str, dict] = {}
 
-        for domain_key, domain in self.specs.domains.items():
+        for domain_key, domain in sorted(self.specs.domains.items()):
             service_name, domain_name = domain_key.split("/")
 
             # Check what operations this domain has

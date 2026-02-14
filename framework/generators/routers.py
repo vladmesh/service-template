@@ -20,7 +20,7 @@ class RoutersGenerator(BaseGenerator):
         """Generate routers for all services."""
         generated = []
 
-        for domain_key, domain in self.specs.domains.items():
+        for domain_key, domain in sorted(self.specs.domains.items()):
             service_name, domain_name = domain_key.split("/")
 
             # Only generate if domain has REST operations

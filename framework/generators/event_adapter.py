@@ -34,7 +34,7 @@ class EventAdapterGenerator(BaseGenerator):
         # Group domains by service and collect event operations
         services_data: dict[str, dict] = {}
 
-        for domain_key, domain in self.specs.domains.items():
+        for domain_key, domain in sorted(self.specs.domains.items()):
             service_name, domain_name = domain_key.split("/")
 
             # Get operations that have events configured
