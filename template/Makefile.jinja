@@ -148,7 +148,14 @@ sync-services:
 	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling python -m framework.sync_services $$cmd
 
 tooling-tests:
-	$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 tests/tooling tests/unit
+	@dirs=""; \
+	[ -d tests/tooling ] && dirs="$$dirs tests/tooling"; \
+	[ -d tests/unit ] && dirs="$$dirs tests/unit"; \
+	if [ -z "$$dirs" ]; then \
+		echo "No tooling/unit tests found, skipping"; \
+	else \
+		$(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
+	fi
 
 generate-from-spec:
 	$(PYTHON_TOOLING) -m framework.generate
