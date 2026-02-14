@@ -47,6 +47,6 @@ class BaseGenerator(ABC):
         try:
             subprocess.run(ruff_format_cmd, check=True, capture_output=True)  # noqa: S603, S607
             subprocess.run(ruff_check_cmd, check=False, capture_output=True)  # noqa: S603, S607
-        except subprocess.CalledProcessError:
-            # ruff not available, skip formatting
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # ruff not available or failed, skip formatting
             pass
