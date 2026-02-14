@@ -81,7 +81,7 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     """Return a FastAPI app with the test database wired in."""
 
     application = create_app()
-    # Patch broker connect/close to avoid requiring a live Redis instance in unit tests
+    # Patch broker to avoid requiring a live Redis instance in unit tests
     import importlib
 
     app_lifespan_module = importlib.import_module("services.backend.src.app.lifespan")
@@ -93,16 +93,21 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
             await db_session.flush()
 
     application.dependency_overrides[get_async_db] = _get_test_db
-    original_connect = app_lifespan_module.broker.connect
-    original_close = app_lifespan_module.broker.close
+    originals = {
+        "connect": app_lifespan_module.broker.connect,
+        "close": app_lifespan_module.broker.close,
+        "publish": app_lifespan_module.broker.publish,
+    }
     app_lifespan_module.broker.connect = AsyncMock()
     app_lifespan_module.broker.close = AsyncMock()
+    app_lifespan_module.broker.publish = AsyncMock()
     try:
         yield application
     finally:
         application.dependency_overrides.clear()
-        app_lifespan_module.broker.connect = original_connect
-        app_lifespan_module.broker.close = original_close
+        app_lifespan_module.broker.connect = originals["connect"]
+        app_lifespan_module.broker.close = originals["close"]
+        app_lifespan_module.broker.publish = originals["publish"]
 
 
 @pytest_asyncio.fixture()

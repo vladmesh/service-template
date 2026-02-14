@@ -32,7 +32,7 @@ jobs:
         run: make generate-from-spec
 
       - name: Check generated files are up to date
-        run: git diff --exit-code -- shared/shared/generated/
+        run: git diff --exit-code -- shared/shared/generated/ services/*/src/generated/
 
       - name: Run linters
         run: make lint
