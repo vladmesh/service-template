@@ -1,53 +1,5 @@
 services:
   # >>> services (auto-generated from services.yml)
-  backend-tests-unit:
-    image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
-    build:
-      context: ..
-      dockerfile: services/backend/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: "true"
-    command: >-
-      pytest -q --cov=services/backend/src --cov-report=term-missing --cov-fail-under=70 services/backend/tests/unit
-    working_dir: /app
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /app
-      ENVIRONMENT: test
-      APP_ENV: test
-      DATABASE_URL: sqlite+pysqlite:////app/services/backend/tests/.tmp/test.db
-      REDIS_URL: redis://localhost:6379  # Dummy URL for import-time broker init
-
-  tg-bot-tests-unit:
-    image: ${TG_BOT_IMAGE:-{{ project_slug }}-tg:latest}
-    build:
-      context: ..
-      dockerfile: services/tg_bot/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: "true"
-    command: >-
-      pytest -q --cov=services/tg_bot/src --cov-report=term-missing --cov-fail-under=70 services/tg_bot/tests/unit
-    working_dir: /app
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /app
-
-  notifications-worker-tests-unit:
-    image: ${NOTIFICATIONS_WORKER_IMAGE:-{{ project_slug }}-notifications-worker:latest}
-    build:
-      context: ..
-      dockerfile: services/notifications_worker/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: "true"
-    command: >-
-      pytest -q --cov=services/notifications_worker/src --cov-report=term-missing --cov-fail-under=70 services/notifications_worker/tests
-    working_dir: /app
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /app
   # <<< services (auto-generated from services.yml)
 
   tooling:
@@ -63,4 +15,3 @@ services:
       - .env
     environment:
       PYTHONPATH: /workspace/.framework
-

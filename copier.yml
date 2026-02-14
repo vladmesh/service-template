@@ -127,6 +127,8 @@ _tasks:
   # Configure git to use .githooks directory for hooks
   - "chmod +x .githooks/* 2>/dev/null || true"
   - "git config core.hooksPath .githooks 2>/dev/null || true"
+  # Generate Dockerfiles and compose service blocks from services.yml (single source of truth)
+  - "PYTHONPATH=.framework python3 -m framework.sync_services create"
   # Fix file permissions if running as root in Docker
   - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 

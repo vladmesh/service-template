@@ -13,7 +13,7 @@ services:
     type: python-faststream
     description: >
       Telegram bot used for user onboarding and backend notifications.
-    dev_template: false
+    dev_template: true
     depends_on:
       backend: service_started
       redis: service_healthy
@@ -31,7 +31,7 @@ services:
     type: python-faststream
     description: >
       Service for notifications (email, telegram).
-    dev_template: false
+    dev_template: true
     depends_on:
       redis: service_healthy
 {% endif %}

@@ -70,8 +70,8 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
                   condition: service_healthy
               networks:
                 - internal
-              expose:
-                - "8000"
+              ports:
+                - "8000:8000"
             """
         ),
         dev=textwrap.dedent(
@@ -147,6 +147,8 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
               working_dir: /workspace
               env_file:
                 - ../.env
+              environment:
+                PYTHONPATH: /workspace
             """
         ),
         tests_unit=textwrap.dedent(
@@ -181,9 +183,9 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
               env_file:
                 - ../.env
               networks:
-                - edge
-              expose:
-                - "4321"
+                - internal
+              ports:
+                - "4321:4321"
             """
         ),
         dev=textwrap.dedent(

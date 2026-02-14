@@ -1,67 +1,5 @@
 services:
   # >>> services (auto-generated from services.yml)
-{% if 'backend' in modules %}
-  backend:
-    extends:
-      file: compose.base.yml
-      service: backend
-    build:
-      context: ..
-      dockerfile: services/backend/Dockerfile
-      args:
-        INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
-    command: >-
-      bash -lc "./services/backend/scripts/migrate.sh &&
-      uvicorn services.backend.src.main:app --host 0.0.0.0 --port 8000 --reload"
-    volumes:
-      - ../:/workspace:delegated
-    working_dir: /workspace
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /workspace
-{% endif %}
-
-{% if 'tg_bot' in modules %}
-  tg_bot:
-    extends:
-      file: compose.base.yml
-      service: tg_bot
-    volumes:
-      - ../:/workspace:delegated
-    working_dir: /workspace
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /workspace
-{% endif %}
-
-{% if 'notifications' in modules %}
-  notifications_worker:
-    extends:
-      file: compose.base.yml
-      service: notifications_worker
-    volumes:
-      - ../:/workspace:delegated
-    working_dir: /workspace
-    env_file:
-      - ../.env
-    environment:
-      PYTHONPATH: /workspace
-{% endif %}
-
-{% if 'frontend' in modules %}
-  frontend:
-    extends:
-      file: compose.base.yml
-      service: frontend
-    command: npm run dev -- --host 0.0.0.0 --port 4321
-    volumes:
-      - ../services/frontend:/app:delegated
-    env_file:
-      - ../.env
-{% endif %}
-
   # <<< services (auto-generated from services.yml)
 
 {% if 'backend' in modules %}
@@ -81,4 +19,3 @@ services:
     ports:
       - "6379:6379"
 {% endif %}
-
