@@ -25,7 +25,7 @@ jobs:
           host: {% raw %}${{ secrets.DEPLOY_HOST }}{% endraw %}
           username: {% raw %}${{ secrets.DEPLOY_USER }}{% endraw %}
           key: {% raw %}${{ secrets.DEPLOY_SSH_KEY }}{% endraw %}
-          envs: DOTENV_B64
+          envs: DOTENV_B64,REGISTRY_URL,REGISTRY_USER,REGISTRY_PASSWORD
           script: |
             set -euo pipefail
             PROJECT_DIR="/opt/services/{% raw %}${{ secrets.PROJECT_NAME }}{% endraw %}"
@@ -39,6 +39,9 @@ jobs:
 
             # Open firewall port
             ufw allow {% raw %}${{ secrets.DEPLOY_PORT }}{% endraw %}/tcp || true
+
+            # Log in to Docker registry
+            echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USER" --password-stdin
 
             # Pull and deploy
             cd "$PROJECT_DIR/infra"
@@ -65,3 +68,6 @@ jobs:
             "
         env:
           DOTENV_B64: {% raw %}${{ secrets.DOTENV }}{% endraw %}
+          REGISTRY_URL: {% raw %}${{ secrets.REGISTRY_URL }}{% endraw %}
+          REGISTRY_USER: {% raw %}${{ secrets.REGISTRY_USER }}{% endraw %}
+          REGISTRY_PASSWORD: {% raw %}${{ secrets.REGISTRY_PASSWORD }}{% endraw %}
