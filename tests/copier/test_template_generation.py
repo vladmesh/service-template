@@ -675,47 +675,48 @@ class TestWorkflowGeneration:
         workflows_dir = output / ".github" / "workflows"
 
         assert workflows_dir.exists()
-        assert (workflows_dir / "main.yml").exists()
         assert (workflows_dir / "ci.yml").exists()
+        assert (workflows_dir / "deploy.yml").exists()
+        assert not (workflows_dir / "main.yml").exists()
 
     def test_workflow_no_jinja_source_files(self, tmp_path: Path):
         """Jinja source templates should not be copied."""
         output = run_copier(tmp_path, "backend")
         workflows_dir = output / ".github" / "workflows"
 
-        assert not (workflows_dir / "main.yml.jinja").exists()
         assert not (workflows_dir / "ci.yml.jinja").exists()
+        assert not (workflows_dir / "deploy.yml.jinja").exists()
         assert not (workflows_dir / "test-template.yml").exists()
 
     def test_backend_only_workflow_matrix(self, tmp_path: Path):
         """Backend-only should have only backend in CI matrix."""
         output = run_copier(tmp_path, "backend")
-        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
 
-        assert "id: backend" in main_yml
-        assert "id: tg-bot" not in main_yml
-        assert "id: frontend" not in main_yml
-        assert "id: notifications-worker" not in main_yml
+        assert "id: backend" in ci_yml
+        assert "id: tg-bot" not in ci_yml
+        assert "id: frontend" not in ci_yml
+        assert "id: notifications-worker" not in ci_yml
 
     def test_full_stack_workflow_matrix(self, tmp_path: Path):
         """Full stack should have all services in CI matrix."""
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
 
-        assert "id: backend" in main_yml
-        assert "id: tg-bot" in main_yml
-        assert "id: frontend" in main_yml
-        assert "id: notifications-worker" in main_yml
+        assert "id: backend" in ci_yml
+        assert "id: tg-bot" in ci_yml
+        assert "id: frontend" in ci_yml
+        assert "id: notifications-worker" in ci_yml
 
     def test_partial_modules_workflow_matrix(self, tmp_path: Path):
         """Partial module selection should reflect in CI matrix."""
         output = run_copier(tmp_path, "backend,tg_bot")
-        main_yml = (output / ".github" / "workflows" / "main.yml").read_text()
+        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
 
-        assert "id: backend" in main_yml
-        assert "id: tg-bot" in main_yml
-        assert "id: frontend" not in main_yml
-        assert "id: notifications-worker" not in main_yml
+        assert "id: backend" in ci_yml
+        assert "id: tg-bot" in ci_yml
+        assert "id: frontend" not in ci_yml
+        assert "id: notifications-worker" not in ci_yml
 
     def test_workflow_valid_yaml(self, tmp_path: Path):
         """Generated workflows should be valid YAML."""
@@ -724,7 +725,7 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "ci.yml"]:
+        for workflow_file in ["ci.yml", "deploy.yml"]:
             content = yaml.safe_load((workflows_dir / workflow_file).read_text())
             assert "name" in content
             # YAML parses "on" as boolean True, so check for True key
@@ -736,13 +737,26 @@ class TestWorkflowGeneration:
         output = run_copier(tmp_path, "backend")
         workflows_dir = output / ".github" / "workflows"
 
-        for workflow_file in ["main.yml", "ci.yml"]:
+        for workflow_file in ["ci.yml", "deploy.yml"]:
             content = (workflows_dir / workflow_file).read_text()
             # Check for unrendered Jinja (but allow GitHub Actions ${{ }})
             assert "{% if" not in content
             assert "{% endif" not in content
             assert "{{ modules" not in content
             assert "{{ project_" not in content
+
+    def test_deploy_uses_dotenv_secret(self, tmp_path: Path):
+        """Deploy workflow should use DOTENV base64 approach, not individual secrets."""
+        output = run_copier(tmp_path, "backend")
+        deploy_yml = (output / ".github" / "workflows" / "deploy.yml").read_text()
+
+        assert "DOTENV_B64" in deploy_yml
+        assert "base64 -d" in deploy_yml
+        assert "secrets.DEPLOY_HOST" in deploy_yml
+        assert "secrets.PROJECT_NAME" in deploy_yml
+        # Should NOT have old individual secret pattern
+        assert "secrets.POSTGRES_PASSWORD" not in deploy_yml
+        assert "secrets.APP_SECRET_KEY" not in deploy_yml
 
 
 @pytest.mark.usefixtures("copier_available")

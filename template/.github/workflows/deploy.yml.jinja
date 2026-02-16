@@ -1,70 +1,67 @@
-name: Deploy Only
+name: Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tag:
-        description: 'Docker image tag to deploy'
-        required: true
-        default: 'latest'
-        type: string
-      deploy_host:
-        description: 'Target server IP'
-        required: true
-        type: string
-      deploy_port:
-        description: 'SSH port'
-        required: false
-        default: '22'
-        type: string
-      compose_files:
-        description: 'Compose files to use'
-        required: false
-        default: 'infra/compose.base.yml infra/compose.prod.yml'
-        type: string
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    outputs:
-      deployed_url: {% raw %}${{ steps.output.outputs.url }}{% endraw %}
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Copy compose files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: {% raw %}${{ secrets.DEPLOY_HOST }}{% endraw %}
+          username: {% raw %}${{ secrets.DEPLOY_USER }}{% endraw %}
+          key: {% raw %}${{ secrets.DEPLOY_SSH_KEY }}{% endraw %}
+          source: "infra/compose.base.yml,infra/compose.prod.yml"
+          target: {% raw %}/opt/services/${{ secrets.PROJECT_NAME }}{% endraw %}
+          overwrite: true
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: {% raw %}${{ inputs.deploy_host }}{% endraw %}
-          port: {% raw %}${{ inputs.deploy_port }}{% endraw %}
+          host: {% raw %}${{ secrets.DEPLOY_HOST }}{% endraw %}
           username: {% raw %}${{ secrets.DEPLOY_USER }}{% endraw %}
           key: {% raw %}${{ secrets.DEPLOY_SSH_KEY }}{% endraw %}
+          envs: DOTENV_B64
           script: |
-            cd {% raw %}${{ secrets.DEPLOY_PROJECT_PATH }}{% endraw %}
+            set -euo pipefail
+            PROJECT_DIR="/opt/services/{% raw %}${{ secrets.PROJECT_NAME }}{% endraw %}"
+            mkdir -p "$PROJECT_DIR/infra"
 
-            # Generate .env from secrets
-            cat > .env << 'EOF'
-            ENVIRONMENT=production
-            APP_NAME={{ project_name }}
-            APP_SECRET_KEY={% raw %}${{ secrets.APP_SECRET_KEY }}{% endraw %}
-            {% if 'backend' in modules %}
-            POSTGRES_PASSWORD={% raw %}${{ secrets.POSTGRES_PASSWORD }}{% endraw %}
-            {% endif %}
-            REDIS_URL={% raw %}${{ secrets.REDIS_URL || 'redis://redis:6379' }}{% endraw %}
-            {% if 'tg_bot' in modules %}
-            TELEGRAM_BOT_TOKEN={% raw %}${{ secrets.TELEGRAM_BOT_TOKEN }}{% endraw %}
-            {% endif %}
-            {% if 'backend' in modules %}
-            DATABASE_URL={% raw %}${{ secrets.DATABASE_URL }}{% endraw %}
-            {% endif %}
-            {% raw %}${{ secrets.EXTRA_ENV_VARS }}{% endraw %}
-            EOF
+            # Backup previous .env before overwriting
+            cp "$PROJECT_DIR/.env" "$PROJECT_DIR/.env.bak" 2>/dev/null || true
 
-            # Pull and restart
-            docker compose -f {% raw %}${{ inputs.compose_files || 'infra/compose.base.yml infra/compose.prod.yml' }}{% endraw %} pull
-            docker compose -f {% raw %}${{ inputs.compose_files || 'infra/compose.base.yml infra/compose.prod.yml' }}{% endraw %} up -d
+            # Decode .env from base64 DOTENV secret
+            printf '%s' "$DOTENV_B64" | base64 -d > "$PROJECT_DIR/.env"
 
-      - name: Set outputs
-        id: output
-        run: |
-          echo "url=http://{% raw %}${{ inputs.deploy_host }}{% endraw %}:8000" >> $GITHUB_OUTPUT
+            # Open firewall port
+            ufw allow {% raw %}${{ secrets.DEPLOY_PORT }}{% endraw %}/tcp || true
+
+            # Pull and deploy
+            cd "$PROJECT_DIR/infra"
+            docker compose --env-file ../.env -f compose.base.yml -f compose.prod.yml pull
+            docker compose --env-file ../.env -f compose.base.yml -f compose.prod.yml up -d --remove-orphans
+
+            # Health check: wait and verify all containers are running
+            sleep 15
+            docker compose -f compose.base.yml -f compose.prod.yml ps --format json | python3 -c "
+            import sys, json
+            raw = sys.stdin.read().strip()
+            if not raw:
+                print('No containers found'); sys.exit(1)
+            try:
+                containers = json.loads(raw)
+            except json.JSONDecodeError:
+                containers = [json.loads(line) for line in raw.splitlines() if line.strip()]
+            if not isinstance(containers, list):
+                containers = [containers]
+            failed = [c['Name'] for c in containers if c.get('State') != 'running']
+            if failed:
+                print(f'FAILED: {failed}'); sys.exit(1)
+            print(f'All {len(containers)} containers running')
+            "
+        env:
+          DOTENV_B64: {% raw %}${{ secrets.DOTENV }}{% endraw %}

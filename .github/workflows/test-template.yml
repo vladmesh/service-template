@@ -63,29 +63,40 @@ jobs:
           fi
           echo "No Jinja artifacts found"
 
-      - name: Verify .env generation in workflows
+      - name: Verify workflow files exist
         run: |
           cd /tmp/test-project
-          
-          # Check main.yml
-          if ! grep -q "cat > .env << 'EOF'" .github/workflows/main.yml; then
-            echo "ERROR: main.yml missing .env generation logic"
+
+          # ci.yml must exist with build-and-push job
+          if [ ! -f .github/workflows/ci.yml ]; then
+            echo "ERROR: ci.yml not generated"
             exit 1
           fi
-          
-          if ! grep -q "APP_SECRET_KEY=\${{ secrets.APP_SECRET_KEY }}" .github/workflows/main.yml; then
-             echo "ERROR: main.yml missing secret injection"
-             exit 1
+
+          if ! grep -q "build-and-push" .github/workflows/ci.yml; then
+            echo "ERROR: ci.yml missing build-and-push job"
+            exit 1
           fi
 
-          # Check deploy.yml
+          # deploy.yml must exist with DOTENV approach
           if [ ! -f .github/workflows/deploy.yml ]; then
              echo "ERROR: deploy.yml not generated"
              exit 1
           fi
-          
-          if ! grep -q "cat > .env << 'EOF'" .github/workflows/deploy.yml; then
-             echo "ERROR: deploy.yml missing .env generation logic"
+
+          if ! grep -q "DOTENV_B64" .github/workflows/deploy.yml; then
+             echo "ERROR: deploy.yml missing DOTENV_B64 env decoding"
+             exit 1
+          fi
+
+          if ! grep -q "base64 -d" .github/workflows/deploy.yml; then
+             echo "ERROR: deploy.yml missing base64 decode"
+             exit 1
+          fi
+
+          # main.yml should NOT exist (split into ci.yml + deploy.yml)
+          if [ -f .github/workflows/main.yml ]; then
+             echo "ERROR: main.yml should not exist (replaced by ci.yml + deploy.yml)"
              exit 1
           fi
 
@@ -145,30 +156,30 @@ jobs:
         run: |
           cd /tmp/test-project
           modules="${{ matrix.modules }}"
-          
-          # Check that main.yml has correct services in matrix
+
+          # Check that ci.yml has correct services in build-and-push matrix
           if [[ "$modules" == *"backend"* ]]; then
-            grep -q "id: backend" .github/workflows/main.yml || (echo "backend missing from CI matrix" && exit 1)
+            grep -q "id: backend" .github/workflows/ci.yml || (echo "backend missing from CI matrix" && exit 1)
           fi
-          
+
           if [[ "$modules" == *"tg_bot"* ]]; then
-            grep -q "id: tg-bot" .github/workflows/main.yml || (echo "tg-bot missing from CI matrix" && exit 1)
+            grep -q "id: tg-bot" .github/workflows/ci.yml || (echo "tg-bot missing from CI matrix" && exit 1)
           else
-            ! grep -q "id: tg-bot" .github/workflows/main.yml || (echo "tg-bot should not be in CI matrix" && exit 1)
+            ! grep -q "id: tg-bot" .github/workflows/ci.yml || (echo "tg-bot should not be in CI matrix" && exit 1)
           fi
-          
+
           if [[ "$modules" == *"frontend"* ]]; then
-            grep -q "id: frontend" .github/workflows/main.yml || (echo "frontend missing from CI matrix" && exit 1)
+            grep -q "id: frontend" .github/workflows/ci.yml || (echo "frontend missing from CI matrix" && exit 1)
           else
-            ! grep -q "id: frontend" .github/workflows/main.yml || (echo "frontend should not be in CI matrix" && exit 1)
+            ! grep -q "id: frontend" .github/workflows/ci.yml || (echo "frontend should not be in CI matrix" && exit 1)
           fi
-          
+
           if [[ "$modules" == *"notifications"* ]]; then
-            grep -q "id: notifications-worker" .github/workflows/main.yml || (echo "notifications-worker missing from CI matrix" && exit 1)
+            grep -q "id: notifications-worker" .github/workflows/ci.yml || (echo "notifications-worker missing from CI matrix" && exit 1)
           else
-            ! grep -q "id: notifications-worker" .github/workflows/main.yml || (echo "notifications-worker should not be in CI matrix" && exit 1)
+            ! grep -q "id: notifications-worker" .github/workflows/ci.yml || (echo "notifications-worker should not be in CI matrix" && exit 1)
           fi
-          
+
           echo "Workflow matrix correctly reflects selected modules"
 
   test-pytest:
