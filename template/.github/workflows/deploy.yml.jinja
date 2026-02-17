@@ -48,12 +48,23 @@ jobs:
 
             # Pull and deploy
             cd "$PROJECT_DIR/infra"
-            docker compose --env-file ../.env -f compose.base.yml -f compose.prod.yml pull
-            docker compose --env-file ../.env -f compose.base.yml -f compose.prod.yml up -d --remove-orphans
+            COMPOSE="docker compose --env-file ../.env -f compose.base.yml -f compose.prod.yml"
+
+            # Activate all compose profiles so every service starts in prod
+            COMPOSE_PROFILES=$($COMPOSE config --profiles 2>/dev/null | paste -sd, || echo "")
+            export COMPOSE_PROFILES
+
+            # First deploy: remove stale volumes to avoid DB name mismatch
+            if [ ! -f "$PROJECT_DIR/.env.bak" ]; then
+              $COMPOSE down -v --remove-orphans 2>/dev/null || true
+            fi
+
+            $COMPOSE pull
+            $COMPOSE up -d --remove-orphans
 
             # Health check: wait and verify all containers are running
             sleep 15
-            docker compose -f compose.base.yml -f compose.prod.yml ps --format json | python3 -c "
+            $COMPOSE ps --format json | python3 -c "
             import sys, json
             raw = sys.stdin.read().strip()
             if not raw:
