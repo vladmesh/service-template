@@ -37,6 +37,9 @@ jobs:
             # Decode .env from base64 DOTENV secret
             printf '%s' "$DOTENV_B64" | base64 -d > "$PROJECT_DIR/.env"
 
+            # Ensure .env.prod exists (compose.prod.yml references it for overrides)
+            touch "$PROJECT_DIR/infra/.env.prod"
+
             # Open firewall port
             ufw allow {% raw %}${{ secrets.DEPLOY_PORT }}{% endraw %}/tcp || true
 
