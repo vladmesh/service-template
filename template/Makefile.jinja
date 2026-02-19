@@ -93,13 +93,20 @@ tests:
 	while read -r suite compose_project compose_file compose_service mode; do \
 		[ -z "$$suite" ] && continue; \
 		echo ">> Running $$suite tests ($(basename $$compose_file))"; \
-		if [ "$$mode" = "up" ]; then \
-			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file up --build --abort-on-container-exit --exit-code-from $$compose_service $$compose_service; \
-			status=$$?; \
-			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file down --volumes --remove-orphans; \
-			if [ $$status -ne 0 ]; then exit $$status; fi; \
+		if [ "$(EXEC_MODE)" = "native" ]; then \
+			if [ "$$suite" = "backend" ]; then \
+				cd services/backend && poetry run pytest tests/ -q; \
+				cd ../..; \
+			fi; \
 		else \
-			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service; \
+			if [ "$$mode" = "up" ]; then \
+				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file up --build --abort-on-container-exit --exit-code-from $$compose_service $$compose_service; \
+				status=$$?; \
+				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file down --volumes --remove-orphans; \
+				if [ $$status -ne 0 ]; then exit $$status; fi; \
+			else \
+				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service; \
+			fi; \
 		fi; \
 	done < "$$tmp_file"; \
 	if [ "$$run_tooling" = "1" ]; then \
@@ -162,7 +169,11 @@ tooling-tests:
 	if [ -z "$$dirs" ]; then \
 		echo "No tooling/unit tests found, skipping"; \
 	else \
-		$(RUN_TOOLING) pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
+		if [ "$(EXEC_MODE)" = "native" ]; then \
+			uv run pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
+		else \
+			$(RUN_TOOLING) pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
+		fi; \
 	fi
 
 generate-from-spec:
