@@ -55,6 +55,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
             """\
             __SLUG__:
               image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
               build:
                 context: ..
                 dockerfile: services/__SLUG__/Dockerfile
@@ -99,6 +100,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
             """\
             __SLUG_DASH__-tests-unit:
               image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
               build:
                 context: ..
                 dockerfile: services/__SLUG__/Dockerfile
@@ -125,6 +127,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
             """\
             __SLUG__:
               image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
               build:
                 context: ..
                 dockerfile: services/__SLUG__/Dockerfile
@@ -151,6 +154,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
             """\
             __SLUG_DASH__-tests-unit:
               image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
               build:
                 context: ..
                 dockerfile: services/__SLUG__/Dockerfile
@@ -173,6 +177,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
             """\
             __SLUG__:
               image: ${__IMAGE_ENV__:-service-template-__IMAGE_SLUG__:latest}
+              user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
               build:
                 context: ..
                 dockerfile: services/__SLUG__/Dockerfile
