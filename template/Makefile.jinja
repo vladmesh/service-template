@@ -12,8 +12,8 @@ COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling HOST_UID=$$(id -u) HOST_GID=
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 
 ifeq ($(EXEC_MODE),native)
-RUN_TOOLING := uv run
-PYTHON_TOOLING := uv run python
+RUN_TOOLING := PYTHONPATH=.framework
+PYTHON_TOOLING := PYTHONPATH=.framework python3
 else
 RUN_TOOLING := $(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling
 PYTHON_TOOLING := $(RUN_TOOLING) python
@@ -170,7 +170,7 @@ tooling-tests:
 		echo "No tooling/unit tests found, skipping"; \
 	else \
 		if [ "$(EXEC_MODE)" = "native" ]; then \
-			uv run pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
+			PYTHONPATH=.framework pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
 		else \
 			$(RUN_TOOLING) pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
 		fi; \

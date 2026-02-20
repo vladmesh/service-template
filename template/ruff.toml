@@ -5,6 +5,7 @@ exclude = [
     "shared/shared/generated/**",
     "**/generated/**",
     ".framework/**",
+    ".venv/**",
 ]
 
 [lint]
