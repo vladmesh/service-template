@@ -41,4 +41,7 @@ COPY services/{{ service_name }} ./services/{{ service_name }}
 COPY services/{{ service_name }}/README.md ./README.md
 COPY shared ./shared
 
+RUN chown -R 1000:1000 /app
+USER 1000
+
 CMD ["python", "services/{{ service_name }}/src/main.py"]
