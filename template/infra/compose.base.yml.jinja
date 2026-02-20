@@ -23,8 +23,6 @@ services:
       retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
-    networks:
-      - internal
 {% endif %}
 
 {% if 'tg_bot' in modules or 'notifications' in modules %}
@@ -35,12 +33,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - internal
 {% endif %}
-
-networks:
-  internal:
 
 {% if 'backend' in modules %}
 volumes:

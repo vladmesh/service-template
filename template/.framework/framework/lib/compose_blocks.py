@@ -68,8 +68,6 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
               depends_on:
                 db:
                   condition: service_healthy
-              networks:
-                - internal
               ports:
                 - "8000:8000"
             """
@@ -132,8 +130,6 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
               env_file:
                 - ../.env
-              networks:
-                - internal
             """
         ),
         dev=textwrap.dedent(
@@ -182,8 +178,6 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
                 dockerfile: services/__SLUG__/Dockerfile
               env_file:
                 - ../.env
-              networks:
-                - internal
               ports:
                 - "4321:4321"
             """
@@ -274,7 +268,7 @@ def _apply_placeholders(template: str, spec: ServiceSpec, key: str = "base") -> 
         lines = rendered.splitlines()
         insert_idx = len(lines)
         for i, line in enumerate(lines):
-            if line.strip().startswith("networks:"):
+            if line.strip().startswith("ports:"):
                 insert_idx = i
                 break
         extra_lines: list[str] = []
