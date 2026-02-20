@@ -41,4 +41,7 @@ COPY services/notifications_worker ./services/notifications_worker
 COPY services/notifications_worker/README.md ./README.md
 COPY shared ./shared
 
+RUN chown -R 1000:1000 /app
+USER 1000
+
 CMD ["python", "services/notifications_worker/src/main.py"]
