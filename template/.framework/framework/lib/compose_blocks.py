@@ -117,7 +117,7 @@ DEFAULT_TEMPLATES: dict[str, ServiceComposeTemplate] = {
                 PYTHONPATH: /app
                 ENVIRONMENT: test
                 APP_ENV: test
-                DATABASE_URL: sqlite+pysqlite:////app/services/__SLUG__/tests/.tmp/test.db
+                DATABASE_URL: sqlite+pysqlite:////tmp/backend_tests/test.db
                 REDIS_URL: redis://localhost:6379
             """
         ),

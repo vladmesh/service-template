@@ -19,9 +19,12 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # Ensure the backend uses a lightweight SQLite database for tests.
-TESTS_DIR = Path(__file__).resolve().parent
-TEST_DB_PATH = TESTS_DIR / ".tmp" / "test.db"
-TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Use /tmp to avoid PermissionError when running as non-root inside Docker.
+import tempfile
+
+_test_tmp = Path(tempfile.gettempdir()) / "backend_tests"
+_test_tmp.mkdir(parents=True, exist_ok=True)
+TEST_DB_PATH = _test_tmp / "test.db"
 os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{TEST_DB_PATH}")
 os.environ.setdefault("ASYNC_DATABASE_URL", f"sqlite+aiosqlite:///{TEST_DB_PATH}")
 

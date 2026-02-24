@@ -16,7 +16,7 @@ services:
       PYTHONPATH: /app
       ENVIRONMENT: test
       APP_ENV: test
-      DATABASE_URL: sqlite+pysqlite:////app/services/backend/tests/.tmp/test.db
+      DATABASE_URL: sqlite+pysqlite:////tmp/backend_tests/test.db
 
   tg-bot-tests-unit:
     image: ${TG_BOT_IMAGE:-service-template-tg:latest}
