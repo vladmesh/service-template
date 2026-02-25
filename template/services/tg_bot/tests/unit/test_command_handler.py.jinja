@@ -145,6 +145,7 @@ async def test_post_shutdown_closes_broker(mock_broker: MagicMock) -> None:
 
     mock_broker.close.assert_awaited_once()
 
+{% if 'backend' in modules %}
 
 class TestSyncUserWithBackend:
     """Tests for _sync_user_with_backend function.
@@ -367,3 +368,45 @@ class TestHandleStart:
         await handle_start(update, context)
 
         mock_sync_user.assert_not_awaited()
+{% else %}
+
+class TestHandleStart:
+    """Tests for handle_start function (standalone mode, no backend)."""
+
+    @pytest.mark.asyncio
+    async def test_handle_start_greets_user(self) -> None:
+        """Test greeting for user in standalone mode."""
+        from services.tg_bot.src.main import DEFAULT_GREETING, handle_start
+
+        update = MagicMock()
+        update.effective_user = MagicMock()
+        update.effective_user.id = TEST_TELEGRAM_USER_ID
+        update.effective_user.first_name = "John"
+        update.message = MagicMock()
+        update.message.reply_text = AsyncMock()
+
+        context = MagicMock()
+
+        await handle_start(update, context)
+
+        update.message.reply_text.assert_awaited_once()
+        call_args = update.message.reply_text.await_args[0][0]
+        assert DEFAULT_GREETING in call_args
+        assert "John" in call_args
+
+    @pytest.mark.asyncio
+    async def test_handle_start_no_user(self) -> None:
+        """Test that handler skips if no user."""
+        from services.tg_bot.src.main import handle_start
+
+        update = MagicMock()
+        update.effective_user = None
+        update.message = MagicMock()
+        update.message.reply_text = AsyncMock()
+
+        context = MagicMock()
+
+        await handle_start(update, context)
+
+        update.message.reply_text.assert_not_awaited()
+{% endif %}

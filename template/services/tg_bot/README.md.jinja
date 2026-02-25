@@ -23,7 +23,11 @@ commands, message handlers, or background jobs as you iterate.
 ## Docker compose integration
 
 The base Compose stack already includes this service, so `make dev-start`
+{% if 'backend' in modules %}
 will build and start it automatically alongside the backend and database.
+{% else %}
+will build and start it automatically.
+{% endif %}
 If you only need the bot (or want to force a rebuild), target the service
 explicitly:
 

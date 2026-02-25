@@ -85,9 +85,9 @@ modules:
     Modules to include (comma-separated).
     Available: backend, tg_bot, notifications, frontend
     Example: backend,tg_bot
-    Note: backend is always required.
+    Note: at least one module must be selected.
   default: "backend"
-  validator: "{% if 'backend' not in modules %}backend module is required{% endif %}"
+  validator: "{% if not modules or modules.strip() == '' %}At least one module must be selected{% endif %}"
 
 # Computed list for easier iteration
 modules_list:
@@ -123,7 +123,9 @@ node_version:
 _tasks:
   - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
+  - "{% if 'backend' not in modules %}rm -rf services/backend{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+  - "{% if 'tg_bot' in modules and 'backend' not in modules %}rm -rf services/tg_bot/src/generated/clients && mkdir -p services/tg_bot/src/generated/clients && touch services/tg_bot/src/generated/clients/__init__.py{% endif %}"
   # Configure git to use .githooks directory for hooks
   - "chmod +x .githooks/* 2>/dev/null || true"
   - "git config core.hooksPath .githooks 2>/dev/null || true"

@@ -1,3 +1,4 @@
+{% if 'backend' in modules %}
 services:
   backend:
     extends:
@@ -48,4 +49,6 @@ services:
         condition: service_started
       db:
         condition: service_healthy
-
+{% else %}
+services: {}
+{% endif %}

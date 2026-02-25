@@ -14,20 +14,17 @@
 
 ---
 
-## Текущее состояние связки backend ↔ tg_bot
+## ~~Текущее состояние связки backend ↔ tg_bot~~ DONE
 
-`backend` захардкожен как обязательный модуль — в `copier.yml` валидация:
-```
-"{% if 'backend' not in modules %}backend module is required{% endif %}"
-```
+**Сделано.** Backend теперь опциональный модуль. Убрали хардкод `backend module is required` из `copier.yml`, заменили на `at least one module must be selected`.
 
-`tg_bot` зависит от backend тремя способами:
+Все три зависимости tg_bot → backend стали условными через Jinja-шаблоны:
+- Compose `depends_on: backend` — только при `'backend' in modules`
+- `manifest.yaml` → `.jinja` — `consumes: []` без backend (ClientsGenerator не генерирует BackendClient)
+- `main.py` → `.jinja` — без backend нет импортов httpx/BackendClient/UserCreate, нет `_sync_user_with_backend()`, `/start` отвечает простым приветствием
+- Тесты, документация (AGENTS.md, README.md) — аналогично обёрнуты
 
-1. **Compose**: `depends_on: backend: service_started`
-2. **manifest.yaml**: `consumes: backend/users` → генерируется `BackendClient`
-3. **Shared schemas**: импортирует `UserCreate` и т.п. из `shared.generated.schemas`
-
-Сейчас tg_bot — это фронтенд к бэкенду через Telegram. Standalone бот невозможен.
+Теперь работают три режима: `modules="tg_bot"` (standalone бот), `modules="backend,tg_bot"` (полный стек), `modules="backend"` (только API).
 
 ---
 
@@ -67,7 +64,7 @@
 
 | # | Что делать | Импакт | Сложность |
 |---|------------|--------|-----------|
-| 1 | Сделать backend опциональным в copier.yml (standalone tg_bot) | Высокий — разблокирует простых ботов | Средняя — пройтись по зависимостям |
+| ~~1~~ | ~~Сделать backend опциональным в copier.yml (standalone tg_bot)~~ **DONE** | Высокий | Средняя |
 | 2 | Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services | Высокий — упрощает шаблон вдвое | Низкая — удалить + обновить pipeline |
 | 3 | Сделать specs опциональными (не требовать YAML для простых сервисов) | Средний — упрощает простые проекты | Средняя — ветка "с генерацией / без" |
 | 4 | Убрать tooling-контейнер, перейти на `uv run` | Средний — ускоряет dev-цикл | Низкая |

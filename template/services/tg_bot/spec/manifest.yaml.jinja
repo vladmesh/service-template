@@ -1,5 +1,6 @@
 # Service manifest for tg_bot
 # Declares dependencies on other services for client generation
+{% if 'backend' in modules %}
 
 consumes:
   - service: backend
@@ -7,3 +8,7 @@ consumes:
     operations:
       - create_user
       - get_user
+{% else %}
+
+consumes: []
+{% endif %}

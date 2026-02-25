@@ -7,18 +7,26 @@ extended with real handlers later on.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+{% if 'backend' in modules %}
 from http import HTTPStatus
+{% endif %}
 import logging
 import os
 from typing import Final
 
+{% if 'backend' in modules %}
 from generated.clients.backend import BackendClient
 import httpx
+{% endif %}
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 
 from shared.generated.events import broker, publish_command_received
+{% if 'backend' in modules %}
 from shared.generated.schemas import CommandReceived, UserCreate
+{% else %}
+from shared.generated.schemas import CommandReceived
+{% endif %}
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -29,10 +37,12 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_GREETING: Final[str] = (
     "Привет! Мы Service Template и этот бот помогает подключиться к нашему сервису."
 )
+{% if 'backend' in modules %}
 WELCOME_BACK_GREETING: Final[str] = "Хай, добро пожаловать назад!"
 REGISTRATION_ERROR: Final[str] = (
     "Не получилось зарегистрировать вас в сервисе, попробуйте ещё раз позже."
 )
+{% endif %}
 
 
 def _get_token() -> str:
@@ -44,6 +54,7 @@ def _get_token() -> str:
         )
     return token
 
+{% if 'backend' in modules %}
 
 async def _sync_user_with_backend(telegram_id: int) -> bool | None:
     """Ensure the user exists in the backend or create it if missing.
@@ -83,6 +94,7 @@ async def _sync_user_with_backend(telegram_id: int) -> bool | None:
         LOGGER.exception("Failed to sync Telegram user after retries")
         return None
 
+{% endif %}
 
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Reply to the /start command with a friendly greeting."""
@@ -91,6 +103,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if telegram_user is None or telegram_user.id is None:
         LOGGER.warning("/start received without a valid Telegram user")
         return
+{% if 'backend' in modules %}
 
     sync_result = await _sync_user_with_backend(telegram_user.id)
     if sync_result is None:
@@ -101,6 +114,12 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
     else:
         reply_text = f"{WELCOME_BACK_GREETING} {telegram_user.first_name or ''}".strip()
+{% else %}
+
+    reply_text = (
+        f"{DEFAULT_GREETING}\nДобро пожаловать, {telegram_user.first_name or 'друг'}!"
+    )
+{% endif %}
 
     if update.message:
         await update.message.reply_text(reply_text)

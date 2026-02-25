@@ -12,10 +12,12 @@ services:
   - name: tg_bot
     type: python-faststream
     description: >
-      Telegram bot used for user onboarding and backend notifications.
+      Telegram bot for user interaction and event publishing.
     dev_template: true
     depends_on:
+{% if 'backend' in modules %}
       backend: service_started
+{% endif %}
       redis: service_healthy
     profiles:
       - tg
