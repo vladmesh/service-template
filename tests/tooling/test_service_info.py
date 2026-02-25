@@ -10,7 +10,7 @@ import pytest
 
 from tests.tooling.conftest import create_python_template
 
-FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType, ModuleType]
+FakeRepo: TypeAlias = tuple[Path, ModuleType, ModuleType]
 
 
 def _write_services_file(root: Path, slug: str = "test_service") -> None:
@@ -34,7 +34,7 @@ def _write_compose_unit(root: Path, service_name: str) -> None:
 
 def test_service_info_load_registry(fake_repo: FakeRepo) -> None:
     """Test load_registry function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     _write_services_file(root)
 
     import framework.service_info as service_info_mod
@@ -46,7 +46,7 @@ def test_service_info_load_registry(fake_repo: FakeRepo) -> None:
 
 def test_service_info_load_registry_invalid(fake_repo: FakeRepo) -> None:
     """Test load_registry with non-dict YAML."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     # Write YAML that is valid but not a dict (e.g., a list)
     (root / "services.yml").write_text("- item1\n- item2\n", encoding="utf-8")
 
@@ -65,7 +65,7 @@ def test_service_info_load_registry_invalid(fake_repo: FakeRepo) -> None:
 
 def test_service_info_iter_services(fake_repo: FakeRepo) -> None:
     """Test iter_services function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     _write_services_file(root, slug="test_service")
 
     import framework.service_info as service_info_mod
@@ -79,7 +79,7 @@ def test_service_info_iter_services(fake_repo: FakeRepo) -> None:
 
 def test_service_info_gather_logs(fake_repo: FakeRepo) -> None:
     """Test gather_logs function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     create_python_template(root)
     _write_services_file(root, slug="test_service")
 
@@ -94,7 +94,7 @@ def test_service_info_gather_logs(fake_repo: FakeRepo) -> None:
 
 def test_service_info_gather_tests(fake_repo: FakeRepo) -> None:
     """Test gather_tests function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     _write_services_file(root, slug="test_service")
     _write_compose_unit(root, "test-service")
 
@@ -109,7 +109,7 @@ def test_service_info_gather_tests(fake_repo: FakeRepo) -> None:
 
 def test_service_info_cmd_logs(fake_repo: FakeRepo, capsys: pytest.CaptureFixture[str]) -> None:
     """Test cmd_logs command."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     create_python_template(root)
     _write_services_file(root, slug="test_service")
 
@@ -131,7 +131,7 @@ def test_service_info_cmd_logs(fake_repo: FakeRepo, capsys: pytest.CaptureFixtur
 
 def test_service_info_cmd_tests(fake_repo: FakeRepo, capsys: pytest.CaptureFixture[str]) -> None:
     """Test cmd_tests command."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     _write_services_file(root, slug="test_service")
     _write_compose_unit(root, "test-service")
 
@@ -157,7 +157,7 @@ def test_service_info_cmd_tests(fake_repo: FakeRepo, capsys: pytest.CaptureFixtu
 
 def test_service_info_build_parser(fake_repo: FakeRepo) -> None:
     """Test build_parser function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
 
     import framework.service_info as service_info_mod
 
@@ -170,7 +170,7 @@ def test_service_info_build_parser(fake_repo: FakeRepo) -> None:
 
 def test_service_info_main(fake_repo: FakeRepo) -> None:
     """Test main function."""
-    root, _scaffold, _compose, _sync = fake_repo
+    root, _scaffold, _compose = fake_repo
     _write_services_file(root, slug="test_service")
     _write_compose_unit(root, "test-service")
 

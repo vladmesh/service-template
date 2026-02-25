@@ -14,7 +14,7 @@ graph TD
 ```
 
 1.  **Define:** You edit `shared/spec/models.yaml`{% if 'tg_bot' in modules or 'notifications' in modules %} or `shared/spec/events.yaml`{% endif %}.
-2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models{% if 'backend' in modules %} and FastAPI router stubs{% endif %} in `shared/generated/`.
+2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models, protocols, and event adapters.
 3.  **Implement:** Services import these generated assets. You only write the business logic to satisfy the interfaces.
 
 ## Service Modules
@@ -22,7 +22,6 @@ graph TD
 The project is a collection of modular services defined in `services.yml`.
 
 - **Definition:** A service is simply an entry in `services.yml` with a `name`, `type`, and `description`.
-- **Scaffolding:** The `make sync-services` command ensures that for every entry in `services.yml`, a corresponding directory exists in `services/` with the correct boilerplate.
 - **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure (DB{% if 'tg_bot' in modules or 'notifications' in modules %}, Queue{% endif %}).
 
 ### Service Types
@@ -46,8 +45,8 @@ Services can specify `depends_on` and `profiles` in `services.yml` to customize 
 
 **Rule:** Nothing runs on the host machine except `docker`, `make`, and `git`.
 
-- **Tooling Container:** We use a dedicated `tooling` service in `docker-compose` to run administrative tasks ({% if 'backend' in modules %}migrations, {% endif %}linting, scaffolding). This ensures all developers and agents use the exact same versions of tools.
-- **Service Containers:** Each service has its own `Dockerfile` generated from a template.
+- **Tooling Container:** We use a dedicated `tooling` service in `docker-compose` to run administrative tasks ({% if 'backend' in modules %}migrations, {% endif %}linting, code generation). This ensures all developers and agents use the exact same versions of tools.
+- **Service Containers:** Each service has its own `Dockerfile`.
 
 ## Directory Structure
 

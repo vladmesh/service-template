@@ -7,7 +7,7 @@ from framework.openapi import generator
 
 def test_generate_openapi(fake_repo) -> None:
     """Test OpenAPI generation from specs."""
-    root, _, _, _ = fake_repo
+    root, _, _ = fake_repo
 
     # Create specs
     spec_dir = root / "shared" / "spec"

@@ -15,15 +15,15 @@ import os
 from typing import Final
 
 {% if 'backend' in modules %}
-from generated.clients.backend import BackendClient
 import httpx
+from shared.shared.http_client import ServiceClient
 {% endif %}
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 
 from shared.generated.events import broker, publish_command_received
 {% if 'backend' in modules %}
-from shared.generated.schemas import CommandReceived, UserCreate
+from shared.generated.schemas import CommandReceived, UserCreate, UserRead
 {% else %}
 from shared.generated.schemas import CommandReceived
 {% endif %}
@@ -42,6 +42,21 @@ WELCOME_BACK_GREETING: Final[str] = "Хай, добро пожаловать н�
 REGISTRATION_ERROR: Final[str] = (
     "Не получилось зарегистрировать вас в сервисе, попробуйте ещё раз позже."
 )
+
+
+class BackendClient(ServiceClient):
+    """Typed HTTP client for the backend service."""
+
+    def __init__(self) -> None:
+        super().__init__(base_url_env="BACKEND_API_URL")
+
+    async def create_user(self, payload: UserCreate) -> UserRead:
+        resp = await self._request("post", "/users", json=payload.model_dump(mode="json"))
+        return UserRead.model_validate(resp.json())
+
+    async def get_user(self, user_id: int) -> UserRead:
+        resp = await self._request("get", f"/users/{user_id}")
+        return UserRead.model_validate(resp.json())
 {% endif %}
 
 

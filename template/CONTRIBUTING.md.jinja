@@ -7,7 +7,6 @@ Never run tools directly. Always use the `make` target.
 - `make lint`: Runs all linters (ruff, xenon, spec validation, spec compliance).
 - `make format`: Runs auto-formatters.
 - `make tests`: Runs the test suite.
-- `make sync-services`: Scaffolds new services.
 - `make validate-specs`: Validates YAML specs before code generation.
 - `make generate-from-spec`: Generates code from YAML specs.
 
@@ -28,8 +27,8 @@ We use `ruff` for linting and formatting, and `mypy` for static typing.
 
 ### Adding a New Service
 1.  Add entry to `services.yml`.
-2.  Run `make sync-services create`.
-3.  Implement the business logic in the generated `services/<name>/` directory.
+2.  Create the service directory structure under `services/<name>/`.
+3.  Implement the business logic.
 
 ### Modifying the API
 1.  Edit `shared/spec/models.yaml` or service-level `services/<name>/spec/*.yaml`.
@@ -72,7 +71,7 @@ Avoid these common mistakes:
 
 3. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields, not naive `datetime.now()`.
 
-4. **Dockerfile Validation:** `sync_services.py` validates COPY sources — use proper Poetry patterns when modifying Dockerfiles.
+4. **Dockerfile Copies:** COPY sources in Dockerfiles should stay within the service directory or use `shared/`.
 {% if 'tg_bot' in modules or 'notifications' in modules %}
 5. **Missing Broker Connection:** Publishing events without calling `broker.connect()` first results in `AssertionError`. Ensure broker lifecycle is managed in application startup/shutdown.
 {% endif %}

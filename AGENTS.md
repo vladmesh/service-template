@@ -45,8 +45,8 @@ Pass these as a comma-separated string to `--data modules=...`:
 ### 3. Post-Bootstrap Checklist
 After running the command:
 1.  **Read `AGENTS.md` in the new project** (it will be different from this one).
-2.  **Run `make sync-services create`** to generate the initial service structures if they don't exist.
-3.  **Check `services.yml`** to confirm your services are listed.
+2.  **Check `services.yml`** to confirm your services are listed.
+3.  **Run `make generate-from-spec`** to regenerate code from specs if needed.
 
 ## ⚠️ CRITICAL: Environment Variables
 
@@ -76,8 +76,6 @@ Detailed documentation for each service can be found in its respective directory
 
 Agents should interact with the system primarily through `make`.
 
-- **Check State:** `make sync-services check`
-- **Scaffold:** `make sync-services create`
 - **Verify:** `make lint && make tests`
 - **Generate Code:** `make generate-from-spec`
 - **Generate OpenAPI:** `make openapi` (Outputs to `services/<service>/docs/openapi.json`)
@@ -89,13 +87,12 @@ Agents should interact with the system primarily through `make`.
 See `ARCHITECTURE.md` for detailed spec format documentation.
 
 **Quick Reference:**
-- Domain specs: `services/<svc>/spec/<domain>.yaml` → generates routers, protocols
-- Manifests: `services/<svc>/spec/manifest.yaml` → generates typed clients (set `<PROVIDER>_API_URL` env var)
+- Domain specs: `services/<svc>/spec/<domain>.yaml` → generates protocols, controllers, event adapters
 
 ### Shared Module Architecture
 
 1. **Shared generated:** `shared/shared/generated/` — schemas, events
-2. **Service generated:** `services/<svc>/src/generated/` — routers, protocols, clients
+2. **Service generated:** `services/<svc>/src/generated/` — protocols, event adapters
 3. **CRITICAL:** Mount `../shared:/app/shared:delegated` in dev for live reloads
 4. **Workflow:** Edit specs → `make generate-from-spec` → changes applied
 
@@ -178,11 +175,8 @@ await publish_command_received(event)
      profiles:
        - workers
    ```
-3. **Scaffold:** Run `make sync-services create` to generate:
-   - Service directory structure
-   - Dockerfile (generated from type-specific template)
-   - Docker Compose integration (auto-generated blocks in compose files)
-4. **Development Setup:** Volume mounts are auto-configured in `infra/compose.dev.yml`
+3. **Create:** Create the service directory, Dockerfile, and add compose entries in `infra/compose.*.yml.jinja`.
+4. **Development Setup:** Volume mounts are configured in `infra/compose.dev.yml`
 
 ### Common Pitfalls
 
@@ -190,4 +184,4 @@ await publish_command_received(event)
 2. **Stale Shared Code:** Forgetting volume mount → services use old generated code
 3. **Type Mismatches:** Code generator now supports `list[type]` but verify complex types
 4. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields
-5. **Dockerfile Validation:** `sync_services.py` validates COPY sources - use proper Poetry patterns
+5. **Dockerfile Copies:** COPY sources should stay within the service directory or use `shared/`

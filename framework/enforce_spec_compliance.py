@@ -55,9 +55,7 @@ def check_file(file_path: Path) -> list[tuple[int, str]]:
                     "Use shared/spec/models.yaml."
                 )
             elif isinstance(node, ast.Call):
-                msg = (
-                    "Instantiating APIRouter manually is forbidden. Use shared/spec/routers/*.yaml."
-                )
+                msg = "Instantiating APIRouter manually is forbidden outside app/api/routers/."
 
             violations.append((node.lineno, msg))
 
@@ -76,11 +74,12 @@ def main() -> None:
     violations_found = False
 
     for file_path in services_dir.rglob("*.py"):
-        # Skip migrations, tests, and generated code
+        # Skip migrations, tests, generated code, and router wiring
         if (
             "migrations" in file_path.parts
             or "tests" in file_path.parts
             or "generated" in file_path.parts
+            or "routers" in file_path.parts
         ):
             continue
 

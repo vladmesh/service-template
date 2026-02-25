@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from framework.generators.routers import RoutersGenerator
+
 from framework.spec.operations import DomainSpec
 
 

@@ -125,12 +125,9 @@ _tasks:
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'backend' not in modules %}rm -rf services/backend{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
-  - "{% if 'tg_bot' in modules and 'backend' not in modules %}rm -rf services/tg_bot/src/generated/clients && mkdir -p services/tg_bot/src/generated/clients && touch services/tg_bot/src/generated/clients/__init__.py{% endif %}"
   # Configure git to use .githooks directory for hooks
   - "chmod +x .githooks/* 2>/dev/null || true"
   - "git config core.hooksPath .githooks 2>/dev/null || true"
-  # Generate Dockerfiles and compose service blocks from services.yml (single source of truth)
-  - "PYTHONPATH=.framework python3 -m framework.sync_services create"
   # Regenerate code from specs so scaffolded files match what CI produces
   - "PYTHONPATH=.framework python3 -m framework.generate"
   # Fix file permissions if running as root in Docker

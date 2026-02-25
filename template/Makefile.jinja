@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations {% endif %}log sync-services tooling-tests generate-from-spec validate-specs lint-controllers openapi typescript
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations {% endif %}log tooling-tests generate-from-spec validate-specs lint-controllers openapi typescript
 
 DOCKER_COMPOSE ?= docker compose
 EXEC_MODE ?= docker
@@ -30,13 +30,6 @@ ifeq ($(word 1,$(MAKECMDGOALS)),tests)
 TEST_TARGET := $(word 2,$(MAKECMDGOALS))
 ifneq ($(TEST_TARGET),)
 $(eval $(TEST_TARGET):;@:)
-endif
-endif
-
-ifeq ($(word 1,$(MAKECMDGOALS)),sync-services)
-SYNC_MODE := $(word 2,$(MAKECMDGOALS))
-ifneq ($(SYNC_MODE),)
-$(eval $(SYNC_MODE):;@:)
 endif
 endif
 
@@ -152,15 +145,6 @@ prod-start:
 
 prod-stop:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROD) down --remove-orphans
-
-sync-services:
-	@mode="$(if $(mode),$(mode),$(if $(SYNC_MODE),$(SYNC_MODE),check))"; \
-	case "$$mode" in \
-		create) cmd="create" ;; \
-		check|"") cmd="check" ;; \
-		*) echo "Unknown sync mode: $$mode (expected 'check' or 'create')" >&2; exit 1 ;; \
-	esac; \
-	$(RUN_TOOLING) python -m framework.sync_services $$cmd
 
 tooling-tests:
 	@dirs=""; \
