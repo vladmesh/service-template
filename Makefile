@@ -2,24 +2,14 @@
 # This Makefile is for developing the service-template framework itself.
 # For product development commands, see the generated project's Makefile.
 
-.PHONY: lint format test test-copier test-all help sync-framework sync-framework-preview check-sync
+.PHONY: setup lint format test test-copier test-all help sync-framework sync-framework-preview check-sync
 
-DOCKER_COMPOSE ?= docker compose
-EXEC_MODE ?= docker
-COMPOSE_FRAMEWORK := -f infra/compose.framework.yml
-COMPOSE_ENV := COMPOSE_PROJECT_NAME=framework-tooling HOST_UID=$$(id -u) HOST_GID=$$(id -g) DOCKER_GID=$$(getent group docker | cut -d: -f3)
-
-ifeq ($(EXEC_MODE),native)
-RUN_TOOLING := uv run
-PYTHON_TOOLING := uv run python
-else
-RUN_TOOLING := $(COMPOSE_ENV) $(DOCKER_COMPOSE) $(COMPOSE_FRAMEWORK) run --build --rm tooling
-PYTHON_TOOLING := $(RUN_TOOLING) python
-endif
+VENV := .venv/bin
 
 # Default target
 help:
 	@echo "Framework Development Commands:"
+	@echo "  make setup                 - Create venv and install dev dependencies"
 	@echo "  make lint                  - Run linters on framework code"
 	@echo "  make format                - Format framework code"
 	@echo "  make test                  - Run framework unit tests"
@@ -29,20 +19,25 @@ help:
 	@echo "  make sync-framework-preview - Preview sync changes (dry-run)"
 	@echo "  make check-sync            - Check if framework/ and template/.framework/ are in sync"
 
+setup:
+	uv venv
+	uv pip install ruff pytest pytest-cov copier
+
 lint:
-	$(RUN_TOOLING) sh -c "ruff check --no-cache framework/ tests/"
+	$(VENV)/ruff check --no-cache framework/ tests/
 
 lint-template:
-	$(RUN_TOOLING) sh -c "cd template && ruff check ."
+	cd template && ../.venv/bin/ruff check .
 
 format:
-	$(RUN_TOOLING) sh -c "ruff format framework/ tests/ && ruff check --no-cache --fix framework/ tests/"
+	$(VENV)/ruff format framework/ tests/
+	$(VENV)/ruff check --no-cache --fix framework/ tests/
 
 test:
-	$(RUN_TOOLING) pytest -q --cov=framework --cov-report=term-missing tests/unit tests/tooling
+	$(VENV)/pytest -q --cov=framework --cov-report=term-missing tests/unit tests/tooling
 
 test-copier:
-	$(RUN_TOOLING) pytest -v tests/copier/
+	$(VENV)/pytest -v tests/copier/
 
 test-all: test test-copier
 

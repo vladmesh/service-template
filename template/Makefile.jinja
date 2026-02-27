@@ -1,23 +1,14 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations generate-from-spec validate-specs lint-controllers openapi typescript{% endif %} log tooling-tests
+.PHONY: setup lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests
 
 DOCKER_COMPOSE ?= docker compose
-EXEC_MODE ?= docker
 COMPOSE_BASE := -f infra/compose.base.yml
 COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
 COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
-COMPOSE_TEST_UNIT := -f infra/compose.tests.unit.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
-COMPOSE_ENV_UNIT := COMPOSE_PROJECT_NAME=tests-unit
-COMPOSE_ENV_TOOLING := COMPOSE_PROJECT_NAME=tooling HOST_UID=$$(id -u) HOST_GID=$$(id -g)
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 
-ifeq ($(EXEC_MODE),native)
-RUN_TOOLING := PYTHONPATH=.framework
-PYTHON_TOOLING := PYTHONPATH=.framework python3
-else
-RUN_TOOLING := $(COMPOSE_ENV_TOOLING) $(DOCKER_COMPOSE) $(COMPOSE_TEST_UNIT) run --build --rm tooling
-PYTHON_TOOLING := $(RUN_TOOLING) python
-endif
+VENV := .venv/bin
+PYTHON := $(VENV)/python
 
 ifeq ($(word 1,$(MAKECMDGOALS)),log)
 LOG_SERVICE := $(word 2,$(MAKECMDGOALS))
@@ -33,78 +24,58 @@ $(eval $(TEST_TARGET):;@:)
 endif
 endif
 
+setup:
+	uv venv
+	uv pip install -e .framework/ ruff xenon
+	@for svc in services/*/; do \
+		[ -f "$$svc/pyproject.toml" ] || continue; \
+		echo ">> Setting up $$svc"; \
+		(cd "$$svc" && uv sync --frozen); \
+	done
+
 lint:
-	$(RUN_TOOLING) sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' . && python -c 'from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)' && python -m framework.enforce_spec_compliance && python -c 'from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)'"
+	$(VENV)/ruff check .
+	$(VENV)/xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' .
+	$(PYTHON) -c "from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
+	$(PYTHON) -m framework.enforce_spec_compliance
+	$(PYTHON) -c "from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
 
 lint-complexity:
-	$(RUN_TOOLING) xenon --max-absolute B --max-modules A --max-average A --exclude ".framework/*,tests/*" .
+	$(VENV)/xenon --max-absolute B --max-modules A --max-average A --exclude ".framework/*,tests/*" .
 {% if 'backend' in modules %}
 validate-specs:
-	$(PYTHON_TOOLING) -c "from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
+	$(PYTHON) -c "from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
 
 lint-specs:
-	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
+	$(PYTHON) -m framework.enforce_spec_compliance
 {% endif %}
 format:
-	$(RUN_TOOLING) sh -c "ruff format --exclude 'services/**/migrations' --exclude '.venv' . && ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' ."
+	$(VENV)/ruff format --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
+	$(VENV)/ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
 
 typecheck:
-	$(RUN_TOOLING) mypy tests
-	@set -eu; \
-	tmp_file="$$(mktemp)"; \
-	trap 'rm -f "$$tmp_file"' EXIT; \
-	$(PYTHON_TOOLING) -m framework.service_info tests > "$$tmp_file"; \
-	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
-	mv "$$tmp_file.filtered" "$$tmp_file"; \
-	while read -r suite compose_project compose_file compose_service mode; do \
-		if [ "$$mode" = "run" ]; then \
-			echo ">> Typechecking $$suite ($$compose_service)"; \
-			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service mypy .; \
-		fi; \
-	done < "$$tmp_file"
+	@for svc in services/*/; do \
+		[ -f "$$svc/.venv/bin/mypy" ] || continue; \
+		echo ">> Typechecking $$(basename $$svc)"; \
+		PYTHONPATH=. MYPYPATH=. "$$svc/.venv/bin/mypy" "$$svc"; \
+	done
 
 tests:
-	@set -eu; \
-	target="$(if $(suite),$(suite),$(if $(service),$(service),$(TEST_TARGET)))"; \
-	if [ "$$target" = "tooling" ]; then \
-		$(MAKE) tooling-tests; \
+	@target="$(TEST_TARGET)"; \
+	if [ "$$target" = "tooling" ]; then $(MAKE) tooling-tests; exit 0; fi; \
+	if [ -n "$$target" ] && [ "$$target" != "all" ]; then \
+		svc="services/$$target"; \
+		[ -d "$$svc/tests" ] || { echo "No tests for $$target"; exit 1; }; \
+		echo ">> Testing $$target"; \
+		PYTHONPATH=. "$$svc/.venv/bin/pytest" "$$svc/tests/" -q; \
 		exit 0; \
 	fi; \
-	run_tooling="0"; \
-	if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
-		run_tooling="1"; \
-	fi; \
-	tmp_file="$$(mktemp)"; \
-	trap 'rm -f "$$tmp_file"' EXIT; \
-		if [ -z "$$target" ] || [ "$$target" = "all" ]; then \
-			$(PYTHON_TOOLING) -m framework.service_info tests > "$$tmp_file"; \
-		else \
-				$(PYTHON_TOOLING) -m framework.service_info tests --suite "$$target" > "$$tmp_file"; \
-		fi; \
-	grep -E '^[[:alnum:]_]+ ' "$$tmp_file" > "$$tmp_file.filtered"; \
-	mv "$$tmp_file.filtered" "$$tmp_file"; \
-	while read -r suite compose_project compose_file compose_service mode; do \
-		[ -z "$$suite" ] && continue; \
-		echo ">> Running $$suite tests ($(basename $$compose_file))"; \
-		if [ "$(EXEC_MODE)" = "native" ]; then \
-			if [ "$$suite" = "backend" ]; then \
-				cd services/backend && pytest tests/ -q; \
-				cd ../..; \
-			fi; \
-		else \
-			if [ "$$mode" = "up" ]; then \
-				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file up --build --abort-on-container-exit --exit-code-from $$compose_service $$compose_service; \
-				status=$$?; \
-				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file down --volumes --remove-orphans; \
-				if [ $$status -ne 0 ]; then exit $$status; fi; \
-			else \
-				COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service; \
-			fi; \
-		fi; \
-	done < "$$tmp_file"; \
-	if [ "$$run_tooling" = "1" ]; then \
-		$(MAKE) tooling-tests; \
-	fi
+	for svc in services/*/; do \
+		[ -d "$$svc/tests" ] || continue; \
+		echo ">> Testing $$(basename $$svc)"; \
+		PYTHONPATH=. "$$svc/.venv/bin/pytest" "$$svc/tests/" -q; \
+	done; \
+	$(MAKE) tooling-tests
 {% if 'backend' in modules %}
 makemigrations:
 	@if [ -z "$(name)" ]; then \
@@ -112,6 +83,10 @@ makemigrations:
 		exit 1; \
 	fi
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
+
+test-integration:
+	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests
+	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) down --volumes --remove-orphans
 {% endif %}
 log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
@@ -120,17 +95,8 @@ log:
 		echo "       make log service=\"<service_name>\""; \
 		exit 1; \
 	fi; \
-	tmp_file="$$(mktemp)"; \
-	trap 'rm -f "$$tmp_file"' EXIT; \
-		$(PYTHON_TOOLING) -m framework.service_info logs --service $$service > "$$tmp_file"; \
-	target_line="$$(grep -E '^[[:alnum:]_]+ ' "$$tmp_file" | head -n 1)"; \
-	if [ -z "$$target_line" ]; then \
-		exit 1; \
-	fi; \
-	set -- $$target_line; \
-	compose_service="$$2"; \
-	echo ">> Showing logs for $$service (compose service: $$compose_service)"; \
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$compose_service
+	echo ">> Showing logs for $$service"; \
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$service
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build
@@ -151,22 +117,18 @@ tooling-tests:
 	if [ -z "$$dirs" ]; then \
 		echo "No tooling/unit tests found, skipping"; \
 	else \
-		if [ "$(EXEC_MODE)" = "native" ]; then \
-			PYTHONPATH=.framework pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
-		else \
-			$(RUN_TOOLING) pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
-		fi; \
+		PYTHONPATH=.framework $(VENV)/pytest -q --cov=framework --cov-report=term-missing --cov-fail-under=70 $$dirs; \
 	fi
 {% if 'backend' in modules %}
 generate-from-spec:
-	$(PYTHON_TOOLING) -m framework.generate
+	$(PYTHON) -m framework.generate
 
 lint-controllers:
-	$(PYTHON_TOOLING) -c "from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
+	$(PYTHON) -c "from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
 
 openapi:
-	$(PYTHON_TOOLING) -m framework.openapi.generator
+	$(PYTHON) -m framework.openapi.generator
 
 typescript:
-	$(PYTHON_TOOLING) -m framework.frontend.generator
+	$(PYTHON) -m framework.frontend.generator
 {% endif %}

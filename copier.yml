@@ -35,7 +35,6 @@ _exclude:
 _skip_if_exists:
   - .env
   - .env.example
-  - infra/.env
   - shared/spec/models.yaml
   - shared/spec/events.yaml
   - "services/*/src/app/**"

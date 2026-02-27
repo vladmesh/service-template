@@ -19,10 +19,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python {{ python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "{{ python_version }}"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up project
+        run: make setup
+
       - name: Prepare environment files
         run: |
           cp .env.example .env
-          cp .env.example infra/.env
           if [ ! -f infra/.env.test ]; then
             echo "infra/.env.test missing" >&2
             exit 1
@@ -39,12 +49,14 @@ jobs:
 
       - name: Run tests
         run: make tests
-
+{% if 'backend' in modules %}
+      - name: Run integration tests
+        run: make test-integration
+{% endif %}
       - name: Clean up
         if: always()
         run: |
-          COMPOSE_PROJECT_NAME=tests-unit docker compose -f infra/compose.tests.unit.yml down --volumes --remove-orphans
-          COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans
+          COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans 2>/dev/null || true
 
   build-and-push:
     runs-on: ubuntu-latest
