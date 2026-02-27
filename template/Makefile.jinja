@@ -34,11 +34,8 @@ endif
 endif
 
 lint:
-{% if 'backend' in modules -%}
 	$(RUN_TOOLING) sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' . && python -c 'from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)' && python -m framework.enforce_spec_compliance && python -c 'from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)'"
-{% else -%}
-	$(RUN_TOOLING) sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' . && python -m framework.enforce_spec_compliance"
-{% endif %}
+
 lint-complexity:
 	$(RUN_TOOLING) xenon --max-absolute B --max-modules A --max-average A --exclude ".framework/*,tests/*" .
 {% if 'backend' in modules %}
