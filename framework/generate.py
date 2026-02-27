@@ -45,7 +45,8 @@ def generate_all(repo_root: Path | None = None) -> None:
     if SchemasGenerator is not None:
         generators.append(("Schemas", SchemasGenerator(specs, repo_root)))
     else:
-        print("  ⚠ Skipping Schemas (datamodel-code-generator not installed)")
+        print("  ⚠ Skipping Schemas (datamodel-code-generator not installed).")
+        print("    schemas.py may be stale. Run `make generate-from-spec` in Docker to regenerate.")
     generators.extend(
         [
             ("Protocols", ProtocolsGenerator(specs, repo_root)),
