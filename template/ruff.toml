@@ -6,6 +6,7 @@ exclude = [
     "**/generated/**",
     ".framework/**",
     ".venv/**",
+    "**/.venv/**",
 ]
 
 [lint]
