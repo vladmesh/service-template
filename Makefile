@@ -21,7 +21,7 @@ help:
 
 setup:
 	uv venv
-	uv pip install ruff pytest pytest-cov copier
+	uv pip install ruff pytest pytest-cov copier "datamodel-code-generator[http]>=0.25" pyyaml jinja2 pydantic
 
 lint:
 	$(VENV)/ruff check --no-cache framework/ tests/
