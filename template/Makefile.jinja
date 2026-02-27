@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations {% endif %}log tooling-tests generate-from-spec validate-specs lint-controllers openapi typescript
+.PHONY: lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations generate-from-spec validate-specs lint-controllers openapi typescript{% endif %} log tooling-tests
 
 DOCKER_COMPOSE ?= docker compose
 EXEC_MODE ?= docker
@@ -34,16 +34,22 @@ endif
 endif
 
 lint:
+{% if 'backend' in modules %}
 	$(RUN_TOOLING) sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' . && python -c 'from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)' && python -m framework.enforce_spec_compliance && python -c 'from framework.lint.controller_sync import lint_controllers_cli; from framework.lib.env import get_repo_root; ok, msg = lint_controllers_cli(get_repo_root()); print(msg); exit(0 if ok else 1)'"
+{% else %}
+	$(RUN_TOOLING) sh -c "ruff check . && xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' . && python -m framework.enforce_spec_compliance"
+{% endif %}
 
 lint-complexity:
 	$(RUN_TOOLING) xenon --max-absolute B --max-modules A --max-average A --exclude ".framework/*,tests/*" .
 
+{% if 'backend' in modules %}
 validate-specs:
 	$(PYTHON_TOOLING) -c "from framework.spec.loader import validate_specs_cli; from framework.lib.env import get_repo_root; ok, msg = validate_specs_cli(get_repo_root()); print(msg); exit(0 if ok else 1)"
 
 lint-specs:
 	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
+{% endif %}
 
 format:
 	$(RUN_TOOLING) sh -c "ruff format --exclude 'services/**/migrations' --exclude '.venv' . && ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' ."
@@ -160,6 +166,7 @@ tooling-tests:
 		fi; \
 	fi
 
+{% if 'backend' in modules %}
 generate-from-spec:
 	$(PYTHON_TOOLING) -m framework.generate
 
@@ -171,3 +178,4 @@ openapi:
 
 typescript:
 	$(PYTHON_TOOLING) -m framework.frontend.generator
+{% endif %}

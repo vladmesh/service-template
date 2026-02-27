@@ -1,14 +1,15 @@
-"""Unit tests for command handler with direct Redis publishing."""
+"""Unit tests for the Telegram bot handlers."""
 
 from __future__ import annotations
 
 from typing import Final
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock{% if 'backend' in modules %}, patch{% endif %}
 
 import pytest
 
 TEST_TELEGRAM_USER_ID: Final[int] = 123456789
 
+{% if 'backend' in modules %}
 
 @pytest.fixture
 def mock_broker() -> MagicMock:
@@ -145,7 +146,6 @@ async def test_post_shutdown_closes_broker(mock_broker: MagicMock) -> None:
 
     mock_broker.close.assert_awaited_once()
 
-{% if 'backend' in modules %}
 
 class TestSyncUserWithBackend:
     """Tests for _sync_user_with_backend function.

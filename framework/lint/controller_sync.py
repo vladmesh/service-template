@@ -172,6 +172,9 @@ def lint_controllers_cli(repo_root: Path) -> tuple[bool, str]:
     except Exception as e:  # noqa: BLE001
         return False, f"Failed to load specs: {e}"
 
+    if not specs.models.models:
+        return True, "No specs found. Skipping controller sync check."
+
     results = check_controller_sync(specs, repo_root)
 
     all_synced = True

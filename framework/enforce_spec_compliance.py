@@ -7,10 +7,16 @@ import sys
 from framework.lib.env import get_repo_root
 
 
-def is_violation(node: ast.AST, content: str) -> bool:
+def is_violation(
+    node: ast.AST,
+    content: str,
+    *,
+    check_base_model: bool = True,
+    check_api_router: bool = True,
+) -> bool:
     """Check if node represents a violation."""
     # Check for Pydantic BaseModel inheritance
-    if isinstance(node, ast.ClassDef):
+    if check_base_model and isinstance(node, ast.ClassDef):
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == "BaseModel":
                 return True
@@ -18,7 +24,7 @@ def is_violation(node: ast.AST, content: str) -> bool:
                 return True
 
     # Check for APIRouter instantiation
-    if isinstance(node, ast.Call):
+    if check_api_router and isinstance(node, ast.Call):
         if isinstance(node.func, ast.Name) and node.func.id == "APIRouter":
             return True
         if isinstance(node.func, ast.Attribute) and node.func.attr == "APIRouter":
@@ -27,7 +33,12 @@ def is_violation(node: ast.AST, content: str) -> bool:
     return False
 
 
-def check_file(file_path: Path) -> list[tuple[int, str]]:
+def check_file(
+    file_path: Path,
+    *,
+    check_base_model: bool = True,
+    check_api_router: bool = True,
+) -> list[tuple[int, str]]:
     """Check a single file for violations."""
     try:
         content = file_path.read_text(encoding="utf-8")
@@ -40,7 +51,9 @@ def check_file(file_path: Path) -> list[tuple[int, str]]:
     lines = content.splitlines()
 
     for node in ast.walk(tree):
-        if is_violation(node, content):
+        if is_violation(
+            node, content, check_base_model=check_base_model, check_api_router=check_api_router
+        ):
             # Check for noqa on the same line
             lineno = node.lineno
             if lineno <= len(lines):
@@ -55,7 +68,7 @@ def check_file(file_path: Path) -> list[tuple[int, str]]:
                     "Use shared/spec/models.yaml."
                 )
             elif isinstance(node, ast.Call):
-                msg = "Instantiating APIRouter manually is forbidden outside app/api/routers/."
+                msg = "APIRouter should be defined in app/api/routers/, not here."
 
             violations.append((node.lineno, msg))
 
@@ -71,29 +84,36 @@ def main() -> None:
         print("No services directory found.")
         return
 
+    models_file = repo_root / "shared" / "spec" / "models.yaml"
+    if not models_file.exists():
+        print("No specs found. Skipping spec compliance check.")
+        return
+
     violations_found = False
 
     for file_path in services_dir.rglob("*.py"):
-        # Skip migrations, tests, generated code, and router wiring
+        # Global skips
         if (
             "migrations" in file_path.parts
             or "tests" in file_path.parts
             or "generated" in file_path.parts
-            or "routers" in file_path.parts
         ):
             continue
 
-        # Skip __init__.py files (usually safe)
         if file_path.name == "__init__.py":
             continue
 
-        # Skip wiring layer files - these are allowed to use APIRouter
-        # router.py: top-level router composition that includes generated routers
-        # health.py: infrastructure health endpoints (not domain logic)
-        if file_path.name in ("router.py", "health.py"):
-            continue
+        in_controllers = "controllers" in file_path.parts
+        in_routers = "routers" in file_path.parts
+        is_wiring = file_path.name in ("router.py", "health.py")
 
-        file_violations = check_file(file_path)
+        # APIRouter check: everywhere except routers/, router.py, health.py
+        # BaseModel check: only in controllers/
+        file_violations = check_file(
+            file_path,
+            check_base_model=in_controllers,
+            check_api_router=not in_routers and not is_wiring,
+        )
         if file_violations:
             violations_found = True
             print(f"\nIn {file_path.relative_to(repo_root)}:")

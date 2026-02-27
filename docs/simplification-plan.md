@@ -88,8 +88,91 @@
 |---|------------|--------|-----------|
 | ~~1~~ | ~~Сделать backend опциональным в copier.yml (standalone tg_bot)~~ **DONE** | Высокий | Средняя |
 | ~~2~~ | ~~Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services; добавить ServiceClient в shared~~ **DONE** | Высокий — упрощает шаблон вдвое (−1092 строк) | Низкая — удалить + обновить pipeline |
-| 3 | Сделать specs опциональными (не требовать YAML для простых сервисов) | Средний — упрощает простые проекты | Средняя — ветка "с генерацией / без" |
+| 3 | Сделать specs опциональными (подробности ниже) | Средний — упрощает простые проекты | Средняя |
 | 4 | Убрать tooling-контейнер, перейти на `uv run` | Средний — ускоряет dev-цикл | Низкая |
+
+---
+
+## Пункт 3: Specs опциональны
+
+### Проблема
+
+Specs (models.yaml, events.yaml, domain YAML) — это контракты между сервисами. Для standalone tg_bot без backend контрактов нет, но фреймворк требует их наличия: `load_specs()` падает без models.yaml, `make lint` включает spec-валидацию, CI проверяет generated files. Standalone бот не может даже определить `class FSMState(BaseModel)` — enforce_spec_compliance запрещает.
+
+### Принцип
+
+- **Specs = контракты между сервисами.** Один сервис → нет контрактов → specs не нужны.
+- **Инфраструктура генерации (`.framework/`) — всегда присутствует.** Хочешь добавить backend → `copier update`, specs появляются, генерация включается.
+- **Качество кода enforce'ится всегда**, но scope проверок адаптируется к наличию specs.
+
+### Что менять
+
+**3.1. Copier: не копировать specs для tg_bot-only**
+
+`shared/spec/models.yaml` и `shared/spec/events.yaml` — обернуть в `{% if 'backend' in modules %}`. При `modules=tg_bot` директория `shared/spec/` пустая или отсутствует.
+
+`shared/shared/generated/` (schemas.py, events.py) — аналогично conditional. Без specs нечего генерировать.
+
+Добавление backend: `copier update --data 'modules=backend,tg_bot'` — specs появляются, Makefile и CI перегенерируются.
+
+**3.2. tg_bot main.py.jinja: standalone = plain aiogram бот**
+
+В standalone режиме (`'backend' not in modules`):
+- Не импортировать `shared.generated.events`, `shared.generated.schemas`
+- Не использовать event bus (некому подписываться)
+- Простой aiogram бот с хендлерами напрямую
+
+**3.3. framework/spec/loader.py: graceful при отсутствии specs**
+
+`load_specs()` — если `models.yaml` не существует, возвращать пустой `AllSpecs` вместо `SpecValidationError`. Это defensive coding: фреймворк не должен падать от отсутствия файла, он должен корректно обрабатывать пустое состояние.
+
+**3.4. framework/generate.py: no-op при пустых specs**
+
+Если `load_specs()` вернул пустые specs (нет моделей) — вывести "No specs found. Skipping generation." и выйти. Генераторы не запускаются.
+
+**3.5. enforce_spec_compliance: B+C**
+
+Комбинация двух изменений:
+
+**C — conditional**: если `shared/spec/models.yaml` не существует → skip целиком, exit 0. Нет specs — нечего enforce'ить, сервис свободен писать свои модели.
+
+**B — сужение scope**: если specs существуют, проверять BaseModel **только в `controllers/`**. Контроллеры реализуют протоколы из spec → должны использовать сгенерированные схемы. В остальных местах (`utils/`, `handlers/`, `models/`) — пиши что хочешь.
+
+APIRouter check — оставить как организационное правило (роутеры в `routers/`, не разбросаны). Обновить сообщение: ~~"forbidden"~~ → "APIRouter should be defined in app/api/routers/, not here." (без намёка на генерацию, просто правило организации).
+
+**3.6. Makefile.jinja и CI: conditional spec targets**
+
+Обернуть в `{% if 'backend' in modules %}`:
+- `make validate-specs`, `make lint-specs`, `make lint-controllers`, `make generate-from-spec`
+- CI шаги: "Generate from spec", "Check generated files are up to date"
+
+`make lint` — ruff и xenon работают всегда; spec-зависимые проверки включаются только при наличии backend.
+
+### Результат
+
+**`modules=tg_bot`:**
+```
+project/
+├── .framework/              ← генераторы готовы к работе
+├── shared/shared/
+│   └── http_client.py       ← ServiceClient (если понадобится)
+├── services/tg_bot/         ← plain aiogram бот, свободен в BaseModel
+├── Makefile                 ← lint = ruff + xenon (без spec checks)
+└── .github/workflows/ci.yml ← без spec generation
+```
+
+**`modules=backend,tg_bot`:**
+```
+project/
+├── .framework/
+├── shared/
+│   ├── spec/models.yaml, events.yaml
+│   └── shared/generated/schemas.py, events.py
+├── services/backend/        ← spec-driven, BaseModel enforce в controllers/
+├── services/tg_bot/         ← event-driven, uses shared schemas
+├── Makefile                 ← lint = ruff + xenon + spec checks
+└── .github/workflows/ci.yml ← с spec generation + drift check
+```
 
 ---
 

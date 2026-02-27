@@ -266,7 +266,10 @@ def load_specs(repo_root: Path) -> AllSpecs:
     models_file = shared_spec_dir / "models.yaml"
 
     if not models_file.exists():
-        raise SpecValidationError("models.yaml not found", str(models_file))
+        return AllSpecs(
+            models=ModelsSpec(models={}),
+            events=EventsSpec(events=[]),
+        )
 
     models = load_models(models_file)
 
@@ -303,6 +306,8 @@ def validate_specs_cli(repo_root: Path) -> tuple[bool, str]:
     """
     try:
         specs = load_specs(repo_root)
+        if not specs.models.models:
+            return True, "No specs found. Skipping validation."
         model_count = len(specs.models.models)
         domain_count = len(specs.domains)
         event_count = len(specs.events.events)

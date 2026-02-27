@@ -2,6 +2,7 @@
 
 This document describes how the principles in `MANIFESTO.md` are implemented technically.
 
+{% if 'backend' in modules %}
 ## The "Spec-First" Flow
 
 The heart of the framework is the `shared/spec/` directory. This is the single source of truth for the data model and API surface.
@@ -16,6 +17,7 @@ graph TD
 1.  **Define:** You edit `shared/spec/models.yaml`{% if 'tg_bot' in modules or 'notifications' in modules %} or `shared/spec/events.yaml`{% endif %}.
 2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models, protocols, and event adapters.
 3.  **Implement:** Services import these generated assets. You only write the business logic to satisfy the interfaces.
+{% endif %}
 
 ## Service Modules
 
@@ -65,8 +67,10 @@ Services can specify `depends_on` and `profiles` in `services.yml` to customize 
   - `frontend/`: Node.js frontend.
 {% endif %}
 - `shared/`:
+{% if 'backend' in modules %}
     - `spec/`: YAML specifications (Source of Truth).
     - `generated/`: Auto-generated code (Do Not Edit).
+{% endif %}
 - `templates/`: Jinja2 templates for scaffolding new services.
 
 ## Infrastructure Components

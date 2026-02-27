@@ -31,6 +31,10 @@ def generate_all(repo_root: Path | None = None) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    if not specs.models.models:
+        print("No specs found. Skipping generation.")
+        return
+
     print(f"  Models: {len(specs.models.models)}")
     print(f"  Domains: {len(specs.domains)}")
     print(f"  Events: {len(specs.events.events)}")

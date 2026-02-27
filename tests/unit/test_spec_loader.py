@@ -70,10 +70,14 @@ operations:
         assert "User" in specs.models.models
         assert "backend/users" in specs.domains
 
-    def test_missing_models_yaml(self, temp_repo: Path) -> None:
-        """Missing models.yaml should fail."""
-        with pytest.raises(SpecValidationError, match="not found"):
-            load_specs(temp_repo)
+    def test_missing_models_yaml_returns_empty(self, temp_repo: Path) -> None:
+        """Missing models.yaml should return empty specs (graceful)."""
+        specs = load_specs(temp_repo)
+
+        assert specs.models.models == {}
+        assert specs.events.events == []
+        assert specs.domains == {}
+        assert specs.manifests == {}
 
     def test_invalid_yaml_syntax(self, temp_repo: Path) -> None:
         """Invalid YAML syntax should fail."""
@@ -167,9 +171,9 @@ models:
         assert "PASSED" in message
         assert "Models: 1" in message
 
-    def test_invalid_specs_fail(self, temp_repo: Path) -> None:
-        """Invalid specs return failure."""
+    def test_no_specs_skips(self, temp_repo: Path) -> None:
+        """Missing specs return success with skip message."""
         success, message = validate_specs_cli(temp_repo)
 
-        assert success is False
-        assert "FAILED" in message
+        assert success is True
+        assert "No specs found" in message

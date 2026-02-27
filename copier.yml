@@ -125,6 +125,7 @@ _tasks:
   - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
   - "{% if 'backend' not in modules %}rm -rf services/backend{% endif %}"
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+  - "{% if 'backend' not in modules %}rm -rf shared/spec shared/shared/generated{% endif %}"
   # Configure git to use .githooks directory for hooks
   - "chmod +x .githooks/* 2>/dev/null || true"
   - "git config core.hooksPath .githooks 2>/dev/null || true"
