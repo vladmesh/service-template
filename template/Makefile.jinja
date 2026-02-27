@@ -70,12 +70,14 @@ tests:
 		PYTHONPATH=. "$$svc/.venv/bin/pytest" "$$svc/tests/" -q; \
 		exit 0; \
 	fi; \
+	failed=0; \
 	for svc in services/*/; do \
 		[ -d "$$svc/tests" ] || continue; \
 		echo ">> Testing $$(basename $$svc)"; \
-		PYTHONPATH=. "$$svc/.venv/bin/pytest" "$$svc/tests/" -q; \
+		PYTHONPATH=. "$$svc/.venv/bin/pytest" "$$svc/tests/" -q || failed=1; \
 	done; \
-	$(MAKE) tooling-tests
+	$(MAKE) tooling-tests || failed=1; \
+	exit $$failed
 {% if 'backend' in modules %}
 makemigrations:
 	@if [ -z "$(name)" ]; then \
