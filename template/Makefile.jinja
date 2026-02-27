@@ -47,8 +47,7 @@ validate-specs:
 
 lint-specs:
 	$(PYTHON_TOOLING) -m framework.enforce_spec_compliance
-{% endif -%}
-
+{% endif %}
 format:
 	$(RUN_TOOLING) sh -c "ruff format --exclude 'services/**/migrations' --exclude '.venv' . && ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' ."
 
@@ -116,8 +115,7 @@ makemigrations:
 		exit 1; \
 	fi
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
-{% endif -%}
-
+{% endif %}
 log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
 	if [ -z "$$service" ]; then \
@@ -174,4 +172,4 @@ openapi:
 
 typescript:
 	$(PYTHON_TOOLING) -m framework.frontend.generator
-{% endif -%}
+{% endif %}

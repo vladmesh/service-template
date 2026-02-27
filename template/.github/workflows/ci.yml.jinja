@@ -33,8 +33,7 @@ jobs:
 
       - name: Check generated files are up to date
         run: git diff --exit-code -- shared/shared/generated/ services/*/src/generated/
-{% endif -%}
-
+{% endif %}
       - name: Run linters
         run: make lint
 
