@@ -97,6 +97,7 @@ def main() -> None:
             "migrations" in file_path.parts
             or "tests" in file_path.parts
             or "generated" in file_path.parts
+            or ".venv" in file_path.parts
         ):
             continue
 
