@@ -4,17 +4,17 @@ Issues found during testing of simplification plan item 3 (specs optional).
 
 ## Functional
 
-### 1. `services/tg_bot/spec/manifest.yaml` remains in standalone
+### ~~1. `services/tg_bot/spec/manifest.yaml` remains in standalone~~ FIXED
 
-Standalone tg_bot still has `services/tg_bot/spec/manifest.yaml`. This is a dead artifact — spec infrastructure shouldn't exist when there's no backend. Need either a copier task to remove it, or make the spec dir conditional in the template.
+Added `rm -rf services/*/spec` to copier `_tasks` for standalone projects.
 
-### 2. `shared/shared/http_client.py` remains in standalone
+### ~~2. `shared/shared/http_client.py` remains in standalone~~ FIXED
 
-Contains `ServiceClient` (httpx-based HTTP client) used only by `BackendClient` in full-stack mode. Dead code for standalone bot, plus pulls httpx dependency. Should be conditional on backend module.
+Added `rm -f shared/shared/http_client.py` to copier `_tasks` for standalone projects.
 
-### 3. `shared/shared/generated/schemas.py` is stale in full-stack after copier copy
+### ~~3. `shared/shared/generated/schemas.py` is stale in full-stack after copier copy~~ FIXED
 
-Copier task runs `framework.generate` locally (not in Docker). Since `datamodel-code-generator` is only installed in the tooling Docker image, `SchemasGenerator` is skipped and `schemas.py` remains as a template placeholder (`# THIS FILE IS GENERATED...`), not actual Pydantic models. In Docker CI it gets regenerated correctly, but first local `make lint` may be confusing.
+Added explicit warning in `generate.py` when `datamodel-code-generator` is unavailable: "schemas.py may be stale. Run `make generate-from-spec` in Docker to regenerate."
 
 ## Cosmetic (Jinja whitespace)
 

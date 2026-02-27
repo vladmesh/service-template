@@ -17,7 +17,7 @@ graph TD
 1.  **Define:** You edit `shared/spec/models.yaml`{% if 'tg_bot' in modules or 'notifications' in modules %} or `shared/spec/events.yaml`{% endif %}.
 2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models, protocols, and event adapters.
 3.  **Implement:** Services import these generated assets. You only write the business logic to satisfy the interfaces.
-{% endif %}
+{% endif -%}
 
 ## Service Modules
 
@@ -65,12 +65,12 @@ Services can specify `depends_on` and `profiles` in `services.yml` to customize 
 {% endif -%}
 {% if 'frontend' in modules -%}
   - `frontend/`: Node.js frontend.
-{% endif %}
+{% endif -%}
+{% if 'backend' in modules -%}
 - `shared/`:
-{% if 'backend' in modules %}
     - `spec/`: YAML specifications (Source of Truth).
     - `generated/`: Auto-generated code (Do Not Edit).
-{% endif %}
+{% endif -%}
 - `templates/`: Jinja2 templates for scaffolding new services.
 
 ## Infrastructure Components
@@ -114,7 +114,7 @@ This generates:
 - REST endpoint that calls controller and publishes event after success
 - Event adapter in subscriber services that handles `user_registered`
 - Unified protocol with all controller methods
-{% endif %}
+{% endif -%}
 
 ## Deployment
 
@@ -139,6 +139,6 @@ Required repository secrets:
 - `DEPLOY_SSH_KEY` - SSH private key
 - `DEPLOY_PROJECT_PATH` - Path on server (e.g., `/opt/services/myapp`)
 - `APP_SECRET_KEY` - Application secret
-{% if 'backend' in modules %}
+{% if 'backend' in modules -%}
 - `POSTGRES_PASSWORD` - Database password
-{% endif %}
+{% endif -%}
