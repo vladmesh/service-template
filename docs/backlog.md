@@ -2,130 +2,6 @@
 
 ## Spec-First API Generation — Future Improvements
 
-### Readonly Fields Support
-
-**Status**: DONE
-
-**Description**: Уточнить поддержку `readonly` полей в генераторе. Решить, как правильно трактовать `readonly` поля (например, делать их необязательными в create/update схемах, выставлять `Field(..., const=True)` и т.д.) и расширить генератор, чтобы эти правила соблюдались автоматически.
-
-**Current State**: Implemented. Fields marked as `readonly: true` in `models.yaml` are automatically excluded from `Create` and `Update` variants.
-
-
-### Split Routers by Service
-
-**Status**: DONE
-
-**Description**: Currently, `routers/rest.py` is a monolith containing all endpoints. This will become unmaintainable. We need to split generated routers into `shared/generated/routers/<service_name>/<tag>.py` so each service only imports what it needs.
-
-### Custom Linter for Spec Enforcement
-
-**Status**: DONE
-
-**Description**: We need to ensure that agents (and devs) don't bypass the spec. A custom linter/AST script should run in CI/pre-commit to forbid:
-1. Defining `BaseModel` subclasses inside `services/` (except migrations/tests).
-2. Instantiating `APIRouter` manually inside `services/` (except the main app composition).
-
-### Spec Validation Before Code Generation
-
-**Status**: DONE
-
-**Description**: Validate YAML specifications before code generation to catch errors early.
-- **Implementation**: `framework/spec/loader.py` validates with Pydantic:
-  - `models.yaml`: field types, constraints, variant references (exclude/optional)
-  - `routers/*.yaml`: HTTP methods, model/variant existence
-  - `events.yaml`: message type existence
-- **Integration**: Runs as part of `make lint` and available separately via `make validate-specs`.
-- **Benefit**: Clear error messages like "Unknown variant 'Patch' for model 'User'" instead of cryptic generation failures.
-
-### Implement Controller Pattern for Generated Routers
-
-**Status**: DONE
-
-**Description**: Protocol-based Controller Pattern for generated routers.
-
-**Implementation**:
-- Generated protocols in `services/<service>/src/generated/protocols.py` using `typing.Protocol`
-- Router factory pattern: `create_router(get_db, get_controller)` with DI
-- Controller stubs generated in `services/<service>/src/controllers/<router>.py` (skipped if exists)
-- Controllers implement protocols and contain business logic
-- Routers delegate all calls to injected controller
-
-**Pattern**:
-```python
-# Protocol (generated)
-class UsersControllerProtocol(Protocol):
-    async def create_user(self, session: AsyncSession, payload: UserCreate) -> UserRead: ...
-
-# Controller (user-implemented)
-class UsersController(UsersControllerProtocol):
-    async def create_user(self, session: AsyncSession, payload: UserCreate) -> UserRead:
-        # Business logic here
-        ...
-
-# Router factory (generated)
-def create_router(get_db, get_controller) -> APIRouter:
-    router = APIRouter(...)
-    @router.post(...)
-    async def create_user(..., controller = Depends(get_controller)):
-        return await controller.create_user(...)
-    return router
-```
-
-### Remove Caddy from Template
-
-**Status**: DONE
-**Priority**: MEDIUM
-
-**Description**: Remove Caddy reverse proxy from generated projects. SSL termination and reverse proxying should be handled by the infrastructure layer (prod_infra), not by individual projects.
-
-**Current State**:
-- Removed `template/infra/Caddyfile`
-- Removed `caddy` service from all compose templates
-- Backend and Frontend now expose ports directly (8000 and 4321)
-
-
-## Infrastructure & Inter-Service Communication
-
-### Retry Logic for Telegram Bot Backend Communication
-
-**Status**: DONE
-
-**Description**: Exponential backoff retry for transient backend errors.
-
-**Implementation** (`services/tg_bot/src/main.py`):
-- `_sync_user_with_backend` now accepts `max_retries` (default: 3) and `initial_delay` (default: 1.0s)
-- Retries on `httpx.ConnectError` (backend unavailable) and 5xx status codes
-- Exponential backoff: 1s → 2s → 4s
-- No retry on 4xx client errors (fail immediately)\n- Logging of retry attempts for debugging\n\n**Tests** (`services/tg_bot/tests/unit/test_command_handler.py`):\n- `test_sync_user_retries_on_5xx` — 5xx triggers retries, succeeds after recovery\n- `test_sync_user_retries_on_connect_error` — ConnectError triggers retries\n- `test_sync_user_no_retry_on_4xx` — 4xx errors do NOT retry\n- `test_sync_user_exhausts_all_retries` — returns None after all retries fail
-
-### Unified Retry Logic in Generated Clients
-
-**Status**: DONE
-
-**Description**: Add configurable retry logic to generated REST clients (from `ClientsGenerator`).
-
-**Implementation**:
-- Modified `framework/templates/codegen/client.py.j2` to include `_request_with_retry` method
-- Generated clients now accept `max_retries` (default: 3) and `initial_delay` (default: 1.0s)
-- Retry behavior:
-  - Retries on `httpx.ConnectError` (service unavailable)
-  - Retries on 5xx status codes (server errors)
-  - No retry on 4xx client errors (fails immediately)
-  - Exponential backoff: 1s → 2s → 4s
-- Simplified `tg_bot/src/main.py` from ~80 lines to ~35 lines by using built-in client retry
-- Tests in `tests/tooling/test_client_generator.py` verify generated code structure
-
-**Usage**:
-```python
-# Default retry (3 attempts, 1s initial delay)
-async with BackendClient() as client:
-    user = await client.create_user(payload)
-
-# Custom retry settings
-async with BackendClient(max_retries=5, initial_delay=0.5) as client:
-    user = await client.get_user(user_id=123)
-```
-
 ### Spec-First Async Messaging (Queues)
 
 **Status**: IN PROGRESS
@@ -206,42 +82,6 @@ async with BackendClient(max_retries=5, initial_delay=0.5) as client:
     - `consumes: [auth-service.v1.verify_token]`
 - **Outcome**: Generate explicit typed clients ("SDKs") for internal services and firewall rules/network policies in Docker Compose.
 
-### Direct Event Publishing for Services
-
-**Status**: DONE
-
-**Description**: Enable services to publish events directly to message broker instead of using REST API intermediaries.
-
-**Implementation**:
-- Telegram bot (`tg_bot`) now publishes `command_received` events directly to Redis Streams
-- Added `shared` as dependency to tg_bot for access to generated events module
-- Broker lifecycle managed via `post_init`/`post_shutdown` hooks in telegram Application
-- Backend debug endpoint marked as DEPRECATED (kept for manual testing)
-- tg_bot now depends on `redis: service_healthy` in `services.yml`
-
-**Pattern for other services**:
-```python
-from shared.generated.events import broker, publish_<event_name>
-from shared.generated.schemas import <EventModel>
-
-# On startup
-await broker.connect()
-
-# Publishing
-event = EventModel(...)
-await publish_<event_name>(event)
-
-# On shutdown
-await broker.close()
-```
-
-**Benefits achieved**:
-- True decoupling: tg_bot no longer depends on backend for event publishing
-- Better performance: Direct Redis operations instead of HTTP round-trips
-- Architectural consistency: Events as primary communication pattern
-
-## Quality Assurance & Observability
-
 ### Auto-fuzzing and Contract Testing
 
 **Status**: IDEA
@@ -259,23 +99,6 @@ await broker.close()
 - **Goal**: Zero-config observability. Defining an endpoint `POST /users` in the spec automatically yields metrics like `http_requests_total{route="/users"}` and traces with propagated Request-IDs.
 
 ## Distribution & Usage Evolution
-
-### 1. Updatable Template (Copier)
-
-**Status**: DONE
-
-**Description**: Move from a static repository to a template compatible with `copier` or `cruft`.
-- **Why**: To solve the "Upgrade Problem". Users should be able to pull updates from the upstream template (e.g., fixes to Makefile or Dockerfiles) even after they have started developing their services.
-- **Goal**: `copier update` should work seamlessly for infrastructure files while respecting user code in `services/`.
-
-**Implementation**:
-- `copier.yml` with module selection (backend, tg_bot, notifications, frontend)
-- Jinja templates for conditional generation of services, compose files, documentation
-- `_skip_if_exists` preserves user code in `services/*/src/app/`, `services/*/src/controllers/`, specs
-- `_tasks` clean up unselected modules after copy
-- Comprehensive test suite in `tests/copier/` (41 tests covering generation, updates, module exclusion, workflows)
-- GitHub workflows templatized with conditional CI matrix based on selected modules
-- Template CI workflow (`test-template.yml`) for testing template generation
 
 ### 1.1 Add Predefined Module to Existing Project
 
@@ -336,60 +159,6 @@ await broker.close()
 
 ## Template / Copier Issues
 
-### Copier Shows "version None"
-
-**Status**: DONE
-
-**Description**: During `copier copy`, the output shows `Copying from template version None` instead of the actual git tag or branch.
-
-**Implementation**: Created git tag `v0.1.0` to enable Copier's automatic version detection. Copier uses git tags sorted by PEP 440 to determine template version. The `vcs_ref` is a CLI argument, not a `copier.yml` setting.
-
----
-
-## Spec-First Features — Wishlist
-
-### Query Parameters in Domain Specs
-
-**Status**: DONE
-
-**Description**: Add support for query parameters in domain operation specs for filtering and pagination.
-
-**Implementation**:
-- Extended `ParamSpec` in `framework/spec/operations.py` with `source: Literal["path", "query"]` and `default` fields
-- Updated `OperationContextBuilder` in `framework/generators/context.py` to generate `Query(...)` syntax for query params
-- Modified router template (`router.py.j2`) to use `fastapi_source` for parameter FastAPI dependencies
-- Modified client template (`client.py.j2`) to separate path and query params, passing query params as `params=` dict
-- Added tests in `tests/tooling/test_generators.py` verifying `Query(default=...)` generation
-
-**Example**:
-```yaml
-list_books:
-  output: list[BookRead]
-  params:
-    - name: status
-      type: string
-      source: query
-      required: false
-    - name: limit
-      type: int
-      source: query
-      default: 20
-  rest:
-    method: GET
-    path: ""
-```
-
-**Generated Router Code**:
-```python
-async def list_books(
-    status: str = Query(default=None),  # optional query param
-    limit: int = Query(default=20),     # query param with default
-    session: AsyncSession = Depends(get_db),
-    controller: BooksControllerProtocol = Depends(get_controller),
-) -> list[BookRead]:
-    ...
-```
-
 ### Enum Types in Model Fields
 
 **Status**: IDEA
@@ -412,50 +181,6 @@ models:
 ---
 
 ## Usability Issues (from Testing Feedback)
-
-### Fix Root-Owned Generated Files
-
-**Status**: DONE
-**Priority**: CRITICAL
-
-**Description**: Files generated by `make generate-from-spec` are owned by `root`, causing "Permission Denied" errors when the user tries to edit them in VSCode.
-
-**Root Cause**: The `tooling` container in `compose.tests.unit.yml` runs as root and writes directly to the bind mount.
-
-**Proposed Solution**:
-- Add `user: "${HOST_UID:-1000}:${HOST_GID:-1000}"` to `tooling` service in compose files
-- Update Makefile to pass `HOST_UID=$(id -u) HOST_GID=$(id -g)` when invoking docker compose
-
-**Workaround**: `sudo chown -R $(id -u):$(id -g) .` after generation
-
----
-
-### Fix Nullable Field Inheritance in Schema Generation
-
-**Status**: DONE
-
-**Description**: When a field is marked `optional: true` in `models.yaml`, this should propagate to all variants unless overridden.
-
-**Implementation**:
-- Added `optional: bool = False` attribute to `FieldSpec` in `framework/spec/models.py`
-- `to_json_schema()` now adds `nullable: true` when field has `optional: true`
-- `_model_to_schema()` now excludes optional fields from `required` list in all variants
-- Added 4 unit tests in `tests/unit/test_spec_models.py`
-
-**Example**:
-```yaml
-Subscription:
-  fields:
-    telegram_id:
-      type: int
-      optional: true  # Makes it `int | None` in ALL variants
-  variants:
-    Create: {}
-    Read: {}  # telegram_id is now nullable here too
-```
-
----
-
 
 ### Auto-Register Routers
 
@@ -488,97 +213,6 @@ init:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example"; fi
 	$(MAKE) sync-services check
 ```
-
----
-
-### Document Data Layer Pattern
-
-**Status**: DONE
-
-**Description**: `ARCHITECTURE.md` now includes a comprehensive Data Layer section covering:
-- ORM model location (`services/<service>/src/app/models/`)
-- Relationship between ORM models and Pydantic schemas (manual mapping)
-- Transaction management (`get_async_db()` auto-commit/rollback)
-- Migration workflow (`make makemigrations`)
-- Repository pattern (recommended but optional)
-
----
-
-## E2E Testing Issues (Unified Handlers)
-
-### Fix Compose Context for Tooling Service
-
-**Status**: DONE
-**Priority**: CRITICAL
-
-**Description**: The `compose.tests.unit.yml.jinja` template has incorrect context and volumes paths for the tooling service. Since compose files are in `infra/`, the context should be `..` not `.`.
-
-**Current (broken)**:
-```yaml
-tooling:
-  build:
-    context: .
-    dockerfile: tooling/Dockerfile
-  volumes:
-    - .:/workspace:delegated
-```
-
-**Fixed**:
-```yaml
-tooling:
-  build:
-    context: ..
-    dockerfile: tooling/Dockerfile
-  volumes:
-    - ..:/workspace:delegated
-```
-
-**Impact**: `make generate-from-spec` fails with "tooling/Dockerfile not found".
-
----
-
-### Router.py Missing get_broker When Using publish_on_success
-
-**Status**: DONE
-**Priority**: HIGH
-
-**Description**: When adding `events.publish_on_success` to an operation, the generated `registry.py` requires `get_broker` dependency, but the user's `router.py` doesn't have it.
-
-**Problem**: Breaking change in `create_api_router` signature when any operation gets `publish_on_success`.
-
-**Proposed Solutions**:
-1. **Always include get_broker** — even if not used (simple, wasteful)
-2. **Update template router.py** — include broker dependency by default
-3. **Document migration** — clear instructions on how to add broker to existing projects
-
----
-
-### Spec Compliance Checker False Positive
-
-**Status**: DONE
-**Priority**: MEDIUM
-
-**Description**: The spec compliance checker flags `APIRouter()` in `router.py` as forbidden, even though it's used for health/utility endpoints, not domain logic.
-
-**Solution**: Added whitelist in `enforce_spec_compliance.py` for `router.py` and `health.py` files. Added "Wiring Layer" section to `ARCHITECTURE.md` documenting why these files are manual.
-
----
-
-### Copier Root-Owned Files in Generated Project
-
-**Status**: DONE
-**Priority**: HIGH
-
-**Description**: When generating a project via `copier copy`, some files (especially in `.ruff_cache`) are owned by root, requiring `sudo` to delete or modify.
-
-**Root Cause**: Copier's post-generation tasks (`ruff check --fix`, `ruff format`) run as root inside Docker and create cache files.
-
-**Proposed Solutions**:
-1. Add `--no-cache` to ruff commands in `copier.yml` tasks
-2. Run `chown` task at the very end of generation
-3. Ensure tooling image runs as host user (already has `HOST_UID`/`HOST_GID` support)
-
-**Workaround**: Run `docker run --rm -v "$(pwd):/workspace" alpine chown -R $(id -u):$(id -g) /workspace`
 
 ---
 
@@ -648,216 +282,72 @@ _tasks:
 
 ---
 
-### GitHub Secrets Integration for Deployment
+## Infrastructure Audit Fixes
 
-**Status**: DONE
+### Reduce Docker Build Context with .dockerignore
+
+**Status**: TODO
 **Priority**: HIGH
 
-**Description**: Modify `main.yml.jinja` workflow to generate `.env` file from GitHub Secrets instead of relying on external Ansible to inject secrets.
+**Description**: Create a `.dockerignore` file in the root to prevent copying unnecessary files (like `.venv`, `__pycache__`, `.git`) into the Docker build context. This will significantly reduce the build context size from ~50MB to ~5MB.
 
-**Context**: Currently, `codegen_orchestrator` deploys projects via Ansible, passing secrets through `--extra-vars` CLI arguments. This is insecure (secrets visible in `ps aux`) and creates two sources of truth. The goal is to use GitHub Secrets as the single source of truth for all deployment secrets.
+### Update Frontend Dockerfile to use npm ci
 
-**Current State**:
-- `main.yml.jinja` has a `deploy` job that only runs `docker compose pull && up`
-- No `.env` generation from secrets
-- First deploy relies on external Ansible to create `.env`
-
-**Required Changes**:
-
-1. **Extend deploy job to generate `.env` from secrets**:
-```yaml
-deploy:
-  steps:
-    - name: Deploy via SSH
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        key: ${{ secrets.DEPLOY_SSH_KEY }}
-        script: |
-          cd ${{ secrets.DEPLOY_PROJECT_PATH }}
-          git pull origin main
-
-          # Generate .env from GitHub Secrets
-          cat > .env << 'EOF'
-          ENVIRONMENT=production
-          APP_NAME=${{ secrets.APP_NAME }}
-          APP_SECRET_KEY=${{ secrets.APP_SECRET_KEY }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          REDIS_URL=${{ secrets.REDIS_URL }}
-{% if 'tg_bot' in modules %}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-{% endif %}
-          EOF
-
-          docker compose -f infra/compose.base.yml -f infra/compose.prod.yml pull
-          docker compose -f infra/compose.base.yml -f infra/compose.prod.yml up -d
-```
-
-2. **Add workflow_dispatch trigger with optional inputs**:
-```yaml
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      skip_build:
-        description: 'Skip build, only deploy'
-        type: boolean
-        default: false
-```
-
-3. **Document required GitHub Secrets**:
-   - Infrastructure secrets (set by orchestrator):
-     - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PROJECT_PATH`
-     - `APP_SECRET_KEY`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `REDIS_URL`
-   - User secrets (varies by modules):
-     - `TELEGRAM_BOT_TOKEN` (if tg_bot module)
-     - `OPENAI_API_KEY`, etc.
-
-**Considerations**:
-- Secrets in workflow logs: Use `::add-mask::` for dynamic secrets
-- Heredoc with secrets: Use `'EOF'` (quoted) to prevent variable expansion on runner
-- Module-specific secrets: Jinja conditions for optional modules
-- Idempotency: Overwrite `.env` on each deploy (secrets may have changed)
-
-**Testing**:
-- Update `test-template.yml` to verify generated workflow contains `.env` generation
-- Manual test: trigger workflow_dispatch after setting secrets
-
-**Related**:
-- `codegen_orchestrator` will stop using Ansible for secret injection
-- `codegen_orchestrator` will use `gh workflow run` to trigger deploys
-- Coordination needed: both projects must be updated together
-
----
-
-### Remove AGENTS.md from Template
-
-**Status**: DONE
+**Status**: TODO
 **Priority**: MEDIUM
 
-**Description**: Remove `AGENTS.md` from the template repository. This file should be treated as infrastructure and generated dynamically by the orchestrator (codegen_orchestrator) instead of being part of the project template.
+**Description**: Replace `npm install` with `npm ci` in `services/frontend/Dockerfile` to ensure strict installation from `package-lock.json` and avoid unintentional dependency updates during build.
 
-**Rationale**:
-- `AGENTS.md` contains instructions for CLI agents (Claude, Factory.ai, etc.)
-- Content depends on agent type and permissions granted by orchestrator
-- Should be generated on-demand by workers-spawner, not stored statically
-- Eliminates conflict between orchestrator-generated and template-provided versions
+### Remove poetry lock from Backend Dockerfile
 
-**Implementation**:
-1. Deleted `template/AGENTS.md.jinja` — new projects no longer get root AGENTS.md
-2. Migrated important rules to `template/CONTRIBUTING.md.jinja`:
-   - Environment Variables (NO DEFAULT VALUES policy)
-   - Common Pitfalls (stale shared code, type mismatches, timezone awareness, Dockerfile validation, broker connection)
-3. Removed AGENTS.md reference from `template/README.md.jinja` documentation section
-4. Updated all service-level AGENTS.md references (backend, notifications_worker) from "корневой AGENTS.md" to "CONTRIBUTING.md"
-5. Updated scaffold templates (`framework/templates/scaffold/services/*/AGENTS.md`) with same reference changes
-6. Service-specific AGENTS.md files preserved (backend, tg_bot, frontend, notifications_worker)
-
-**Note**: This change coordinates with codegen_orchestrator task "Dynamic AGENTS.md/CLAUDE.md Generation".
-
----
-
-### Fix Compose Context for Test Services
-
-**Status**: DONE
+**Status**: TODO
 **Priority**: HIGH
 
-**Description**: The `compose.tests.unit.yml.jinja` template has incorrect `context: .` for test services. Since compose files are in `infra/`, the context `.` resolves to `infra/` instead of project root.
+**Description**: The current `services/backend/Dockerfile` runs `poetry lock`, which can generate different lock files upon each build if dependencies update. This breaks build reproducibility. We should use the existing lock file and just run `poetry install`.
 
-**Current (broken)**:
-```yaml
-tg-bot-tests-unit:
-  build:
-    context: .
-    dockerfile: services/tg_bot/Dockerfile
-```
+### Add Cache Mounts to Dockerfiles
 
-**Problem**: When running `docker compose -f infra/compose.tests.unit.yml run tg-bot-tests-unit`, Docker looks for `infra/services/tg_bot/Dockerfile` which doesn't exist.
+**Status**: TODO
+**Priority**: LOW
 
-**Proposed Solutions**:
+**Description**: Use `--mount=type=cache,target=/root/.cache/pip` and `/root/.cache/pypoetry` in Tooling and Backend Dockerfiles to speed up rebuilds.
 
-1. **Change context to parent directory**:
-```yaml
-tg-bot-tests-unit:
-  build:
-    context: ..
-    dockerfile: services/tg_bot/Dockerfile
-```
+### Audit Scaffold Templates
 
-2. **Use --project-directory flag** (in Makefile):
-```makefile
-tests:
-	docker compose -f infra/compose.tests.unit.yml --project-directory . run ...
-```
+**Status**: TODO
+**Priority**: LOW
 
-**Note**: The `tooling` service already has `context: ..` (fixed earlier), but test services still have `context: .`.
+**Description**: Review templates in `framework/templates/scaffold/services/` to ensure they use the latest best practices adopted by main services.
 
-**Impact**: Docker-based tests fail in coding-worker containers and local development when running from project root.
+## Simplification & Unification Tasks
 
+### Tooling Removal: Migrate to uv and Run Tools Natively
 
+**Status**: TODO
+**Priority**: HIGH
 
+**Description**: As discussed in `brainstorm-tooling-removal.md`, remove the `tooling` container to avoid Docker-in-Docker complexities for agents. 
+- Migrate `pyproject.toml` from Poetry to `uv` (PEP 621).
+- Run linters (`ruff`, `mypy`) and unit tests natively without docker using `uv run`.
+- Update Makefile and CI workflows accordingly.
 
-### Align Template CI with Codegen Orchestrator Deployment Strategy
+### Unified Handlers: Error Handling Strategy
 
-**Status**: DONE
-**Priority**: CRITICAL
+**Status**: TODO
+**Priority**: MEDIUM
 
-**Description**: The Codegen Orchestrator has finalized its deployment strategy:
-1. **Infra Service**: "Bare metal" provisioning (SSH Setup only, no app deployment).
-2. **Deployment**: Triggered via GitHub Actions `workflow_dispatch` by `LangGraph`'s `DeployerNode`.
+**Description**: Formulate a strategy for handling errors in event handlers. Should we use Dead Letter Queues (DLQ), publish an error event (`events.publish_on_error`), or implement retries with exponential backoff?
 
-We need to make `service_template` 100% compatible.
+### Unified Handlers: Transactional Outbox Pattern
 
-**Requirements**:
+**Status**: IDEA
+**Priority**: LOW
 
-1.  **Refactor `main.yml.jinja`** (Support `workflow_dispatch`):
-    *   Add `inputs`:
-        *   `skip_build` (boolean, default false)
-        *   `deploy_host` (string, optional override)
-        *   `deploy_port` (string, default '22')
-    *   Add `outputs` to `deploy` job:
-        *   `deployed_url`
-    *   Update `deploy` step:
-        *   Use `${{ inputs.deploy_host || secrets.DEPLOY_HOST }}` logic.
-        *   Generate `.env` dynamically from secrets (see below).
+**Description**: Currently, events are published directly after DB writes. Consider implementing the Transactional Outbox pattern to avoid the dual write problem and ensure reliable event publishing.
 
-2.  **Create `deploy.yml.jinja`** (Dedicated Workflow):
-    *   New workflow strictly for Orchestrator triggering.
-    *   **Inputs**:
-        *   `image_tag` (required, string, default 'latest')
-        *   `deploy_host` (required, string)
-        *   `deploy_port` (default '22')
-    *   **Logic**:
-        *   Checkout → SSH Action.
-        *   Generate `.env` from Secrets.
-        *   `docker compose pull && up -d`.
-    *   **Outputs**:
-        *   Expose `deployed_url` in job outputs.
+### Unified Handlers: Event Channel Naming Convention
 
-3.  **Secrets Manifest (The Contract)**:
-    The template MUST assume these secrets exist (injected by Orchestrator):
-    *   **Infrastructure**: `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PROJECT_PATH`
-    *   **Application**: `APP_SECRET_KEY`, `APP_NAME`
-    *   **Database**: `POSTGRES_PASSWORD` (if backend module)
-    *   **Services**: `REDIS_URL`, `DATABASE_URL` (constructed or passed)
-    *   **Modules**: `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, etc.
+**Status**: TODO
+**Priority**: LOW
 
-4.  **Env Generation Logic**:
-    The SSH script in workflows MUST generate `.env` like this:
-    ```bash
-    cat > .env << 'EOF'
-    ENVIRONMENT=production
-    APP_NAME={{ project_name }}
-    APP_SECRET_KEY=${{ secrets.APP_SECRET_KEY }}
-    POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-    # ... module specific secrets ...
-    EOF
-    ```
-
-5.  **Documentation (`ARCHITECTURE.md.jinja`)**:
-    *   Add section "Orchestrated Deployment".
-    *   Document the curl command to trigger deployment manually.
-
-**Reference**: See `codegen_orchestrator/docs/new_architecture/DEPLOYMENT_MIGRATION_CHECKLIST.md` (Part 2) for full examples.
+**Description**: Standardize the format for event channel names (e.g., `<entity>.<action>` like `user.created`).

@@ -10,9 +10,8 @@ The heart of the framework is the specification system. Specs define the data mo
 graph TD
     Models[shared/spec/models.yaml] -->|generate| Schemas[shared/generated/schemas.py]
     Events[shared/spec/events.yaml] -->|generate| EventsPy[shared/generated/events.py]
-    Domain[services/*/spec/*.yaml] -->|generate| Routers[src/generated/routers/]
-    Domain -->|generate| Protocols[src/generated/protocols.py]
-    Manifest[services/*/spec/manifest.yaml] -->|generate| Clients[src/generated/clients/]
+    Domain[services/*/spec/*.yaml] -->|generate| Protocols[src/generated/protocols.py]
+    Domain -->|generate| EventAdapters[src/generated/event_adapter.py]
 ```
 
 ### Spec Locations
@@ -21,8 +20,9 @@ graph TD
 |------|----------|-----------|
 | Models | `shared/spec/models.yaml` | Pydantic schemas |
 | Events | `shared/spec/events.yaml` | FastStream pub/sub |
-| Domain | `services/<service>/spec/<domain>.yaml` | Routers, protocols, controllers |
-| Manifest | `services/<service>/spec/manifest.yaml` | Typed REST clients |
+| Domain | `services/<service>/spec/<domain>.yaml` | Protocols, controllers, event adapters |
+
+**Note**: Specs act as contracts between services. For standalone modules (e.g. `tg_bot` without `backend`), specs are optional and their validation is gracefully skipped.
 
 ## Domain Specification Format
 
@@ -138,33 +138,29 @@ def create_event_adapter(
 ```
 
 
-## Client Generation (Service Dependencies)
+## Inter-Service Communication
 
-Consumer services declare dependencies via `manifest.yaml`:
+Inter-service communication should primarily be done via **events** (Redis Streams). Synchronous REST calls between services are considered an anti-pattern in event-driven architecture.
 
-```yaml
-# services/tg_bot/spec/manifest.yaml
-consumes:
-  - service: backend
-    domain: users
-    operations:
-      - create_user
-      - get_user
-```
-
-This generates a typed HTTP client:
+However, if a service (like a standalone `tg_bot`) strictly needs to query another service via HTTP, it should inherit from the shared `ServiceClient` utility which provides retry logic and exponential backoff:
 
 ```python
-# services/tg_bot/src/generated/clients/backend.py
-class BackendClient:
-    async def create_user(self, payload: UserCreate) -> UserRead: ...
-    async def get_user(self, user_id: int) -> UserRead: ...
+# services/tg_bot/src/client.py
+from shared.shared.http_client import ServiceClient
+from shared.generated.schemas import UserCreate, UserRead
+
+class BackendClient(ServiceClient):
+    async def create_user(self, payload: UserCreate) -> UserRead:
+        response = await self._request_with_retry(
+            "POST", "/users", json=payload.model_dump()
+        )
+        return UserRead.model_validate(response.json())
 ```
 
-Usage:
+Usage follows the context manager pattern:
 ```python
-async with BackendClient() as client:
-    user = await client.create_user(UserCreate(telegram_id=123))
+async with BackendClient(base_url=config.API_BASE_URL) as client:
+    user = await client.create_user(payload)
 ```
 
 ## Wiring Layer (Manual Files)
@@ -311,7 +307,7 @@ The project is a collection of modular services defined in `services.yml`.
 - **Scaffolding:** The `make sync-services` command ensures that for every entry in `services.yml`, a corresponding directory exists in `services/` with the correct boilerplate.
 - **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure (DB, Queue).
 - **Types:**
-    - `python-fastapi`: HTTP API service using FastAPI with uvicorn (exposes port 8000).
+    - `python-fastapi`: HTTP API service using FastAPI with uvicorn (exposes port 8000). E.g. `backend` (optional).
     - `python-faststream`: Event-driven worker using FastStream (no HTTP, consumes from message broker).
     - `node`: Node.js service (exposes port 4321).
     - `default`: Generic container placeholder.
@@ -328,8 +324,8 @@ The project is a collection of modular services defined in `services.yml`.
 
 - `infra/`: Docker Compose files and infrastructure config.
 - `services/`: Source code for individual microservices.
-  - `<service>/spec/`: Domain and manifest specs for this service
-  - `<service>/src/generated/`: Auto-generated routers, protocols, clients
+  - `<service>/spec/`: Domain specs for this service
+  - `<service>/src/generated/`: Auto-generated protocols, event adapters
   - `<service>/src/controllers/`: Business logic (manual)
 - `shared/`:
     - `spec/`: YAML specifications (models, events)

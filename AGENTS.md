@@ -19,7 +19,7 @@ Run `copier` with the following flags to ensure non-interactive execution and co
 ```bash
 copier copy gh:vladmesh/service-template . \
   --data project_name="my-project" \
-  --data modules="backend,tg_bot" \
+  --data modules="tg_bot" \
   --trust \
   --defaults \
   --overwrite
@@ -33,13 +33,13 @@ copier copy gh:vladmesh/service-template . \
 ### 2. Available Modules
 Pass these as a comma-separated string to `--data modules=...`:
 
-- `backend`: (Default) FastAPI REST API. **Always include this.**
-- `tg_bot`: Telegram Bot service (Note: internal name is `tg_bot`, NOT `telegram_bot` or `telegram_worker`).
+- `backend`: (Optional) FastAPI REST API + PostgreSQL.
+- `tg_bot`: Telegram Bot service (Note: internal name is `tg_bot`, NOT `telegram_bot` or `telegram_worker`). Can be used as a standalone bot if `backend` is NOT selected.
 - `notifications`: Worker for email/telegram notifications.
 - `frontend`: Node.js frontend placeholder.
 
 **Example scenarios:**
-- "Create a telegram bot": `--data modules="backend,tg_bot"`
+- "Standalone telegram bot": `--data modules="tg_bot"`
 - "Full stack app": `--data modules="backend,frontend"`
 
 ### 3. Post-Bootstrap Checklist

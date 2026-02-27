@@ -15,18 +15,18 @@ pip install copier
 # Generate a new project
 copier copy gh:your-org/service-template my-project
 
-# Or with specific modules
+# Or with specific modules (e.g. standalone bot)
 copier copy gh:your-org/service-template my-project \
   --data project_name=my-project \
-  --data modules=backend,tg_bot
+  --data modules=tg_bot
 ```
 
 ### Available Modules
 
 | Module | Description |
 |--------|-------------|
-| `backend` | FastAPI REST API + PostgreSQL |
-| `tg_bot` | Telegram bot (FastStream) |
+| `backend` | FastAPI REST API + PostgreSQL (Optional) |
+| `tg_bot` | Telegram bot (FastStream, can be standalone) |
 | `notifications` | Email/Telegram notification worker |
 | `frontend` | Node.js frontend |
 
@@ -74,7 +74,6 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed framework developmen
 - **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: How the framework works
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: How to develop the framework
-- **[docs/RESTRUCTURING_PLAN.md](docs/RESTRUCTURING_PLAN.md)**: Current restructuring progress
 - **[docs/backlog.md](docs/backlog.md)**: Framework roadmap
 
 ## Roadmap
