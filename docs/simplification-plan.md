@@ -88,12 +88,12 @@
 |---|------------|--------|-----------|
 | ~~1~~ | ~~Сделать backend опциональным в copier.yml (standalone tg_bot)~~ **DONE** | Высокий | Средняя |
 | ~~2~~ | ~~Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services; добавить ServiceClient в shared~~ **DONE** | Высокий — упрощает шаблон вдвое (−1092 строк) | Низкая — удалить + обновить pipeline |
-| 3 | Сделать specs опциональными (подробности ниже) | Средний — упрощает простые проекты | Средняя |
+| ~~3~~ | ~~Сделать specs опциональными (подробности ниже)~~ **DONE** | Средний — упрощает простые проекты | Средняя |
 | 4 | Убрать tooling-контейнер, перейти на `uv run` | Средний — ускоряет dev-цикл | Низкая |
 
 ---
 
-## Пункт 3: Specs опциональны
+## ~~Пункт 3: Specs опциональны~~ DONE
 
 ### Проблема
 
@@ -105,48 +105,65 @@ Specs (models.yaml, events.yaml, domain YAML) — это контракты ме
 - **Инфраструктура генерации (`.framework/`) — всегда присутствует.** Хочешь добавить backend → `copier update`, specs появляются, генерация включается.
 - **Качество кода enforce'ится всегда**, но scope проверок адаптируется к наличию specs.
 
-### Что менять
+### Что сделано
 
-**3.1. Copier: не копировать specs для tg_bot-only**
+**3.1. Copier: cleanup для standalone** ✅
 
-`shared/spec/models.yaml` и `shared/spec/events.yaml` — обернуть в `{% if 'backend' in modules %}`. При `modules=tg_bot` директория `shared/spec/` пустая или отсутствует.
+Вместо Jinja-условий в самих файлах specs — добавлены `_tasks` в `copier.yml` для post-copy удаления:
+```yaml
+- "{% if 'backend' not in modules %}rm -rf shared/spec shared/shared/generated shared/shared/http_client.py{% endif %}"
+- "{% if 'backend' not in modules %}rm -rf services/*/spec{% endif %}"
+```
 
-`shared/shared/generated/` (schemas.py, events.py) — аналогично conditional. Без specs нечего генерировать.
+> **Отклонение от плана**: план предлагал обернуть spec-файлы в `{% if %}`, но post-copy cleanup через `_tasks` проще и надёжнее — не нужно трогать каждый YAML/Python файл в `shared/spec/`. Также удаляется `http_client.py` (не было в плане) и `services/*/spec/manifest.yaml` (не было в плане, но нужно для чистого standalone).
 
-Добавление backend: `copier update --data 'modules=backend,tg_bot'` — specs появляются, Makefile и CI перегенерируются.
+**3.2. tg_bot main.py.jinja: standalone = plain PTB бот** ✅
 
-**3.2. tg_bot main.py.jinja: standalone = plain aiogram бот**
+> **Отклонение от плана**: план упоминал aiogram, но шаблон использует python-telegram-bot (PTB). Это не баг плана — просто неточность в тексте. Реализация корректна.
 
 В standalone режиме (`'backend' not in modules`):
-- Не импортировать `shared.generated.events`, `shared.generated.schemas`
-- Не использовать event bus (некому подписываться)
-- Простой aiogram бот с хендлерами напрямую
+- Нет импортов `shared.generated.events`, `shared.generated.schemas`, `httpx`, `ServiceClient`
+- Нет event bus, broker lifecycle (post_init/post_shutdown)
+- Нет `BackendClient`, `_sync_user_with_backend()`
+- `/start` отвечает простым приветствием, без синхронизации с backend
+- Тесты (test_command_handler.py.jinja) аналогично — standalone вариант без mock broker
 
-**3.3. framework/spec/loader.py: graceful при отсутствии specs**
+**3.3. framework/spec/loader.py: graceful при отсутствии specs** ✅
 
-`load_specs()` — если `models.yaml` не существует, возвращать пустой `AllSpecs` вместо `SpecValidationError`. Это defensive coding: фреймворк не должен падать от отсутствия файла, он должен корректно обрабатывать пустое состояние.
+Реализовано по плану. `load_specs()` возвращает пустой `AllSpecs` если `models.yaml` не существует. `validate_specs_cli()` возвращает `(True, "No specs found. Skipping validation.")`.
 
-**3.4. framework/generate.py: no-op при пустых specs**
+**3.4. framework/generate.py: no-op при пустых specs** ✅
 
-Если `load_specs()` вернул пустые specs (нет моделей) — вывести "No specs found. Skipping generation." и выйти. Генераторы не запускаются.
+Реализовано по плану. Плюс добавлен warning при отсутствии `datamodel-code-generator` в native mode: "schemas.py may be stale. Run `make generate-from-spec` in Docker to regenerate."
 
-**3.5. enforce_spec_compliance: B+C**
+**3.5. enforce_spec_compliance: B+C** ✅
 
-Комбинация двух изменений:
+Реализовано по плану:
+- **C — conditional**: skip если нет `shared/spec/models.yaml`
+- **B — сужение scope**: BaseModel check только в `controllers/`
+- APIRouter message обновлён
 
-**C — conditional**: если `shared/spec/models.yaml` не существует → skip целиком, exit 0. Нет specs — нечего enforce'ить, сервис свободен писать свои модели.
+**3.6. Makefile.jinja и CI: conditional spec targets** ✅
 
-**B — сужение scope**: если specs существуют, проверять BaseModel **только в `controllers/`**. Контроллеры реализуют протоколы из spec → должны использовать сгенерированные схемы. В остальных местах (`utils/`, `handlers/`, `models/`) — пиши что хочешь.
+Spec-only targets обёрнуты в `{% if 'backend' in modules %}`: `validate-specs`, `lint-specs`, `generate-from-spec`, `lint-controllers`, `openapi`, `typescript`, `makemigrations`.
 
-APIRouter check — оставить как организационное правило (роутеры в `routers/`, не разбросаны). Обновить сообщение: ~~"forbidden"~~ → "APIRouter should be defined in app/api/routers/, not here." (без намёка на генерацию, просто правило организации).
+CI шаги "Generate from spec" и "Check generated files are up to date" — обёрнуты.
 
-**3.6. Makefile.jinja и CI: conditional spec targets**
+> **Отклонение от плана**: план предлагал `{% if %}...{% else %}...{% endif %}` для `lint:` target с разными командами в standalone vs full-stack. В реализации обнаружился баг: `{% else -%}` в Jinja стирает `\n\t`, а tab — обязательный префикс рецепта в Makefile. Вместо этого **lint использует одну универсальную команду** в обоих режимах. Это работает т.к. `validate_specs_cli()` и `lint_controllers_cli()` graceful — в standalone печатают "No specs found" и выходят с 0.
 
-Обернуть в `{% if 'backend' in modules %}`:
-- `make validate-specs`, `make lint-specs`, `make lint-controllers`, `make generate-from-spec`
-- CI шаги: "Generate from spec", "Check generated files are up to date"
+**3.7. Документация** ✅
 
-`make lint` — ruff и xenon работают всегда; spec-зависимые проверки включаются только при наличии backend.
+- `ARCHITECTURE.md.jinja`: Spec-First Flow, shared/ directory, Unified Handlers — обёрнуты в `{% if 'backend' in modules %}`
+- `CONTRIBUTING.md.jinja`: spec-зависимые разделы обёрнуты
+
+**3.8. Косметика: Jinja whitespace** ✅
+
+> **Не было в плане** — обнаружено при тестировании. `{% endif -%}` стирает ВСЕ whitespace (включая пробелы и табы), что ломает:
+> - Python-отступы в `main.py` (`if update.message:` оказывался на column 0)
+> - YAML-отступы в `ci.yml` (`- name: Run linters` терял 6 пробелов)
+> - Makefile recipe tab в `lint:` target
+>
+> Решение: `{% endif -%}` безопасен только на column 0 (import blocks, markdown). Для остального — `{% endif %}` + управление количеством blank lines в шаблоне (каждый `{% endif %}` добавляет 1 `\n`).
 
 ### Результат
 
@@ -154,10 +171,10 @@ APIRouter check — оставить как организационное пр�
 ```
 project/
 ├── .framework/              ← генераторы готовы к работе
-├── shared/shared/
-│   └── http_client.py       ← ServiceClient (если понадобится)
-├── services/tg_bot/         ← plain aiogram бот, свободен в BaseModel
-├── Makefile                 ← lint = ruff + xenon (без spec checks)
+├── shared/shared/           ← без http_client.py, без generated/
+├── services/tg_bot/         ← plain PTB бот, свободен в BaseModel
+│   └── (без spec/)
+├── Makefile                 ← lint = ruff + xenon + graceful spec checks
 └── .github/workflows/ci.yml ← без spec generation
 ```
 
@@ -168,6 +185,7 @@ project/
 ├── shared/
 │   ├── spec/models.yaml, events.yaml
 │   └── shared/generated/schemas.py, events.py
+│   └── shared/http_client.py
 ├── services/backend/        ← spec-driven, BaseModel enforce в controllers/
 ├── services/tg_bot/         ← event-driven, uses shared schemas
 ├── Makefile                 ← lint = ruff + xenon + spec checks
