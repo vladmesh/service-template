@@ -16,30 +16,24 @@ Added `rm -f shared/shared/http_client.py` to copier `_tasks` for standalone pro
 
 Added explicit warning in `generate.py` when `datamodel-code-generator` is unavailable: "schemas.py may be stale. Run `make generate-from-spec` in Docker to regenerate."
 
-## Cosmetic (Jinja whitespace)
+## ~~Cosmetic (Jinja whitespace)~~ ALL FIXED
 
-### 4. main.py — up to 3 consecutive blank lines
+### ~~4. main.py — up to 3 consecutive blank lines~~ FIXED
 
-11 occurrences in standalone, 17 in full-stack. Jinja `{% if %}` blocks leave extra blank lines when their content is excluded. PEP 8 allows max 2 at top-level; ruff E303 catches triples. Fix: use `{%-` / `-%}` trimming on conditional blocks.
+Replaced `{% endif -%}` with `{% endif %}` where `-%}` destroyed indentation or spacing. Adjusted surrounding blank lines to produce correct PEP 8 output in both standalone and full-stack modes.
 
-### 5. ARCHITECTURE.md — `shared/` section renders empty without backend
+### ~~5. ARCHITECTURE.md — `shared/` section renders empty without backend~~ FIXED
 
-```markdown
-- `shared/`:
+Wrapped entire `shared/` bullet in `{% if 'backend' in modules %}`. Changed `{% endif -%}` before `## Deployment` to `{% endif %}` to preserve section separation.
 
-- `templates/`: Jinja2 templates...
-```
+### ~~6. CONTRIBUTING.md — double blank lines after removed sections~~ FIXED
 
-The two nested items (spec, generated) are removed and `shared/` becomes an empty bullet with a dangling dash. The whole `shared/` bullet should be conditional or restructured.
+Applied `{% endif -%}` trimming on markdown sections (safe at column 0). Restructured conditional blocks.
 
-### 6. CONTRIBUTING.md — double blank lines after removed sections
+### ~~7. ci.yml — triple blank line between steps~~ FIXED
 
-Lines 33-34 after "Modifying the API" section removal, and around "Read-Only Zones". Fix: Jinja whitespace trimming.
+Changed `{% endif -%}` to `{% endif %}` before indented YAML step to preserve 6-space indentation. Removed blank line to compensate.
 
-### 7. ci.yml — triple blank line between steps
+### ~~8. Makefile — extra blank lines around conditional sections~~ FIXED
 
-Between "Prepare environment files" and "Run linters" where spec steps were removed.
-
-### 8. Makefile — extra blank lines around conditional sections
-
-Around `lint:` target and between sections after removed `validate-specs` / `lint-specs` targets.
+Removed if/else from lint target (framework is already graceful without specs). Changed `{% endif -%}` to `{% endif %}` for validate-specs/makemigrations blocks.
