@@ -5,33 +5,28 @@ FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=off \
     PYTHONPATH=/app:/app/services/tg_bot/src
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --upgrade pip
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 FROM base AS deps
 ARG INSTALL_DEV_DEPS
-RUN pip install --no-cache-dir poetry
-# Copy only shared metadata and create minimal package structure for editable install
 COPY shared/pyproject.toml ./shared/pyproject.toml
-# Create minimal package structure so poetry can install in editable mode
 RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
-COPY services/tg_bot/pyproject.toml services/tg_bot/poetry.lock ./services/tg_bot/
+COPY services/tg_bot/pyproject.toml services/tg_bot/uv.lock ./services/tg_bot/
 RUN cd services/tg_bot \
-    && poetry config virtualenvs.create false \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
-    poetry install --with dev --no-root; \
+    uv sync --frozen --no-install-project; \
     else \
-    poetry install --without dev --no-root; \
+    uv sync --frozen --no-install-project --no-dev; \
     fi
-# Copy actual shared code after dependency installation (changes won't invalidate poetry install cache)
 COPY shared/shared ./shared/shared
 
 FROM base AS runtime
-COPY --from=deps /usr/local /usr/local
+COPY --from=deps /app/services/tg_bot/.venv /app/services/tg_bot/.venv
+ENV PATH="/app/services/tg_bot/.venv/bin:${PATH}"
 COPY services/tg_bot ./services/tg_bot
 COPY services/tg_bot/README.md ./README.md
 COPY shared ./shared

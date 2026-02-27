@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-router = APIRouter()  # noqa: SPEC001
+router = APIRouter()
 
 
 @router.get("/health", summary="Application health check")

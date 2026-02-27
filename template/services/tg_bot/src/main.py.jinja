@@ -16,14 +16,15 @@ from typing import Final
 
 {% if 'backend' in modules -%}
 import httpx
-from shared.shared.http_client import ServiceClient
 {% endif -%}
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
+
 from shared.generated.events import broker, publish_command_received
 from shared.generated.schemas import CommandReceived, UserCreate, UserRead
-{% endif %}
+from shared.shared.http_client import ServiceClient
+{%- endif %}
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

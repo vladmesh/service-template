@@ -20,7 +20,6 @@ _exclude:
   - "**/.venv"
   - node_modules
   - "**/node_modules"
-  - .env
   - "*.egg-info"
   - dist
   - build
@@ -36,6 +35,7 @@ _exclude:
 _skip_if_exists:
   - .env
   - .env.example
+  - infra/.env
   - shared/spec/models.yaml
   - shared/spec/events.yaml
   - "services/*/src/app/**"

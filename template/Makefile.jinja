@@ -59,7 +59,7 @@ typecheck:
 	while read -r suite compose_project compose_file compose_service mode; do \
 		if [ "$$mode" = "run" ]; then \
 			echo ">> Typechecking $$suite ($$compose_service)"; \
-			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service poetry run mypy .; \
+			COMPOSE_PROJECT_NAME=$$compose_project $(DOCKER_COMPOSE) -f $$compose_file run --build --rm $$compose_service mypy .; \
 		fi; \
 	done < "$$tmp_file"
 
@@ -88,7 +88,7 @@ tests:
 		echo ">> Running $$suite tests ($(basename $$compose_file))"; \
 		if [ "$(EXEC_MODE)" = "native" ]; then \
 			if [ "$$suite" = "backend" ]; then \
-				cd services/backend && poetry run pytest tests/ -q; \
+				cd services/backend && pytest tests/ -q; \
 				cd ../..; \
 			fi; \
 		else \

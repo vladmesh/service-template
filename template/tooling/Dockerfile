@@ -8,8 +8,6 @@ ARG GROUP_ID=1000
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_NO_INTERACTION=1 \
     PATH="/home/appuser/.local/bin:${PATH}"
 
 # Install system dependencies including Docker CLI for integration tests
@@ -35,7 +33,7 @@ RUN groupadd -g ${GROUP_ID} appuser && \
 
 WORKDIR /workspace
 
-RUN pip install --no-cache-dir \
+RUN pip install --no-cache-dir --root-user-action=ignore --disable-pip-version-check \
     ruff==0.14.5 \
     xenon==0.9.1 \
     mypy==1.10.0 \
@@ -45,7 +43,6 @@ RUN pip install --no-cache-dir \
     PyYAML \
     datamodel-code-generator[http] \
     jinja2 \
-    poetry \
     copier==9.4.1
 
 # Switch to non-root user

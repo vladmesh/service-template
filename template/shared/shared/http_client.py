@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import logging
 import os
-from http import HTTPStatus
 from typing import Any
 
 import httpx

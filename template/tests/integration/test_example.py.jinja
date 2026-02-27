@@ -4,17 +4,16 @@ Integration test example for {{ project_name }}.
 This test demonstrates how to write integration tests for your services.
 Integration tests verify that different components work together correctly.
 """
-
+{% if 'backend' in modules %}
 from httpx import AsyncClient
 import pytest
 
 
-{% if 'backend' in modules -%}
 @pytest.mark.asyncio
 async def test_backend_health_endpoint():
     """
     Test that the backend health endpoint returns 200 OK.
-    
+
     This is a basic integration test that verifies:
     1. The backend service is running
     2. The health endpoint is accessible
@@ -32,7 +31,7 @@ async def test_backend_health_endpoint():
 async def test_backend_openapi_spec():
     """
     Test that the OpenAPI specification is available.
-    
+
     This ensures that API documentation is properly generated
     and accessible at the standard endpoint.
     """
@@ -43,13 +42,12 @@ async def test_backend_openapi_spec():
         assert "openapi" in spec
         assert "info" in spec
         assert "paths" in spec
-
 {% endif %}
 
 # Add your integration tests here
-# 
+#
 # Example patterns:
-# 
+#
 # 1. Testing API endpoints:
 #    @pytest.mark.asyncio
 #    async def test_create_resource():

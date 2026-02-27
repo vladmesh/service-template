@@ -4,7 +4,7 @@
 
 - Весь код и зависимости находятся в `services/tg_bot`. Держите `Dockerfile`, `src/` и `tests/` в этом каталоге.
 - Запуск и тесты выполняются через `make` + Docker (`make dev-start`, `make tests tg_bot`). Не устанавливайте deps на хост.
-- Скрипт запуска — `services/tg_bot/src/main.py`. Dockerfile использует Poetry и базовый образ `python:3.11-slim`.
+- Скрипт запуска — `services/tg_bot/src/main.py`. Dockerfile использует uv и базовый образ `python:3.11-slim`.
 
 ## Event Publishing
 
@@ -29,23 +29,25 @@ await publish_command_received(event)
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Bot token from @BotFather |
 | `REDIS_URL` | Yes | Redis connection string (e.g., `redis://redis:6379`) |
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
 | `API_BASE_URL` | Yes | Backend URL for user sync (e.g., `http://backend:8000`) |
-{% endif %}
+{%- endif %}
 
 ## Communication Patterns
 
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
+
 1. **User Sync** — HTTP POST to backend `/users` endpoint (создание/проверка пользователя)
 2. **Command Events** — Direct publish to Redis Streams (события команд)
-{% else %}
+{%- else %}
+
 1. **Command Events** — Direct publish to Redis Streams (события команд)
-{% endif %}
+{%- endif %}
 
 ## Dependencies
 
 - `python-telegram-bot` — Telegram Bot API
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
 - `httpx` — HTTP client for backend communication
-{% endif %}
+{%- endif %}
 - `shared` — Generated events and schemas from `shared/`

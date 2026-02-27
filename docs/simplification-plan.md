@@ -89,7 +89,7 @@
 | ~~1~~ | ~~Сделать backend опциональным в copier.yml (standalone tg_bot)~~ **DONE** | Высокий | Средняя |
 | ~~2~~ | ~~Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services; добавить ServiceClient в shared~~ **DONE** | Высокий — упрощает шаблон вдвое (−1092 строк) | Низкая — удалить + обновить pipeline |
 | ~~3~~ | ~~Сделать specs опциональными (подробности ниже)~~ **DONE** | Средний — упрощает простые проекты | Средняя |
-| 4 | Убрать tooling-контейнер, перейти на `uv run` — [брейншторм](brainstorm-tooling-removal.md) | Средний — ускоряет dev-цикл | Низкая |
+| 4 | Убрать tooling-контейнер, перейти на `uv run` — [брейншторм](brainstorm-tooling-removal.md), [план](plan-tooling-removal.md) | Средний — ускоряет dev-цикл | Низкая |
 
 ---
 

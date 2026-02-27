@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Generator
 import os
 from pathlib import Path
+import tempfile
 from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
@@ -20,7 +21,6 @@ from sqlalchemy.ext.asyncio import (
 
 # Ensure the backend uses a lightweight SQLite database for tests.
 # Use /tmp to avoid PermissionError when running as non-root inside Docker.
-import tempfile
 
 _test_tmp = Path(tempfile.gettempdir()) / "backend_tests"
 _test_tmp.mkdir(parents=True, exist_ok=True)
