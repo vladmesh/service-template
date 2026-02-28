@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from typing import Final
 from unittest.mock import AsyncMock, MagicMock{% if 'backend' in modules %}, patch{% endif %}
 
@@ -11,7 +12,7 @@ TEST_TELEGRAM_USER_ID: Final[int] = 123456789
 {% if 'backend' in modules %}
 
 @pytest.fixture
-def mock_broker() -> MagicMock:
+def mock_broker() -> Generator[MagicMock, None, None]:
     """Mock the broker for testing."""
     mock = MagicMock()
     mock.connect = AsyncMock()
@@ -21,7 +22,7 @@ def mock_broker() -> MagicMock:
 
 
 @pytest.fixture
-def mock_publish() -> AsyncMock:
+def mock_publish() -> Generator[AsyncMock, None, None]:
     """Mock the publish function."""
     with patch("services.tg_bot.src.main.publish_command_received") as mock:
         mock.return_value = None
@@ -61,6 +62,7 @@ async def test_handle_command_publishes_event(
     await handle_command(mock_update, mock_context)
 
     mock_publish.assert_awaited_once()
+    assert mock_publish.await_args is not None
     published_event = mock_publish.await_args[0][0]
 
     assert published_event.command == "/command test"
@@ -292,7 +294,7 @@ class TestHandleStart:
     """Tests for handle_start function."""
 
     @pytest.fixture
-    def mock_sync_user(self) -> AsyncMock:
+    def mock_sync_user(self) -> Generator[AsyncMock, None, None]:
         """Mock _sync_user_with_backend."""
         with patch("services.tg_bot.src.main._sync_user_with_backend") as mock:
             yield mock

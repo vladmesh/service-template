@@ -113,6 +113,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a cached instance of the application settings."""
 
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]
     settings._validate_required_env_vars()
     return settings

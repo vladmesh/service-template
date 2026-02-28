@@ -38,8 +38,8 @@ services:
     depends_on:
       backend:
         condition: service_started
-{% endif %}
     profiles: ["tg"]
+{% endif %}
 {% endif %}
 
 {% if 'backend' in modules %}

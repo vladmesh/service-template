@@ -6,7 +6,7 @@ import asyncio
 from http import HTTPStatus
 import logging
 import os
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -48,7 +48,7 @@ class ServiceClient:
         self.initial_delay = initial_delay
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> ServiceClient:
+    async def __aenter__(self) -> Self:
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=self.timeout,

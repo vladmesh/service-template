@@ -47,6 +47,7 @@ async def test_debug_command_publishes_event(client: AsyncClient, publish_mock: 
     await client.post("/debug/command", json=payload)
 
     publish_mock.assert_awaited_once()
+    assert publish_mock.await_args is not None
     (published_event,) = publish_mock.await_args.args
 
     assert published_event.command == payload["command"]

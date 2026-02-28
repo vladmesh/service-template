@@ -12,7 +12,7 @@ from shared.generated.schemas import UserRegisteredEvent
 
 
 @pytest.mark.asyncio
-async def test_publish_user_registered():
+async def test_publish_user_registered() -> None:
     async with TestRedisBroker(get_broker()):
         event = UserRegisteredEvent(
             user_id=123,

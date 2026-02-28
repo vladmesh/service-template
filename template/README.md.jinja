@@ -44,8 +44,10 @@ This project includes the following modules:
 
 ## Development Workflow
 
+{% if 'backend' in modules -%}
 - **Add/modify models:** Edit `shared/spec/models.yaml` → `make generate-from-spec`
 - **Add endpoints:** Edit `services/backend/spec/routers/*.yaml` → `make generate-from-spec`
+{% endif -%}
 - **Run linter:** `make lint`
 - **Run formatter:** `make format`
 
@@ -57,8 +59,10 @@ This project includes the following modules:
 ## Tech Stack
 
 - **Python** {{ python_version }}
+{% if 'backend' in modules -%}
 - **FastAPI** + **Pydantic** (spec-first)
 - **PostgreSQL** + **SQLAlchemy** + **Alembic**
+{% endif -%}
 {% if 'tg_bot' in modules or 'notifications' in modules -%}
 - **Redis** + **FastStream** (async messaging)
 {% endif -%}
