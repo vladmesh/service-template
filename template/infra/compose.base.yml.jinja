@@ -1,11 +1,11 @@
-{% if 'backend' in modules -%}
+{%- if 'backend' in modules %}
 x-backend-env: &backend-env
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
   ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?}:${POSTGRES_PORT:?}/${POSTGRES_DB:?}
-{% endif %}
 
+{% endif -%}
 services:
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
   backend:
     image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
@@ -24,8 +24,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-{% endif %}
-{% if 'tg_bot' in modules %}
+{%- endif %}
+{%- if 'tg_bot' in modules %}
   tg_bot:
     image: ${TG_BOT_IMAGE:-{{ project_slug }}-tg:latest}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
@@ -34,15 +34,28 @@ services:
       dockerfile: services/tg_bot/Dockerfile
     env_file:
       - ../.env
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
     depends_on:
       backend:
         condition: service_started
     profiles: ["tg"]
-{% endif %}
-{% endif %}
+{%- endif %}
+{%- endif %}
+{%- if 'notifications' in modules %}
+  notifications_worker:
+    image: ${NOTIFICATIONS_WORKER_IMAGE:-{{ project_slug }}-notifications:latest}
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    build:
+      context: ..
+      dockerfile: services/notifications_worker/Dockerfile
+    env_file:
+      - ../.env
+    depends_on:
+      redis:
+        condition: service_healthy
+{%- endif %}
+{%- if 'backend' in modules %}
 
-{% if 'backend' in modules %}
   db:
     image: postgres:16
     environment:
@@ -56,9 +69,9 @@ services:
       retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
-{% endif %}
+{%- endif %}
+{%- if 'tg_bot' in modules or 'notifications' in modules %}
 
-{% if 'tg_bot' in modules or 'notifications' in modules %}
   redis:
     image: redis:7-alpine
     healthcheck:
@@ -66,9 +79,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-{% endif %}
+{%- endif %}
+{%- if 'backend' in modules %}
 
-{% if 'backend' in modules %}
 volumes:
   db_data:
-{% endif %}
+{%- endif %}

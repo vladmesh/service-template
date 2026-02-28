@@ -2,7 +2,7 @@
 name = "framework"
 version = "0.1.0"
 description = "Service template framework — code generation, spec validation, linting"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.5",
     "jinja2>=3.1",

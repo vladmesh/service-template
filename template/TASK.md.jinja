@@ -23,7 +23,7 @@
 ### Backend
 - `services/backend/src/app/` - Business logic
 - `services/backend/src/controllers/` - API controllers
-- `shared/spec/models.yaml` - Data models (run `make generate` after changes)
+- `shared/spec/models.yaml` - Data models (run `make generate-from-spec` after changes)
 {% endif %}
 
 {% if 'tg_bot' in modules %}
@@ -52,7 +52,7 @@ make dev-start
 make tests
 
 # Generate code from specs
-make generate
+make generate-from-spec
 
 # Format code
 make format

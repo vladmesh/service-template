@@ -2,12 +2,11 @@
 
 This file contains shared fixtures and configuration for all tests.
 """
-
+{% if 'tg_bot' in modules or 'notifications' in modules %}
 from collections.abc import Generator
 import os
 
 import pytest
-{%- if 'tg_bot' in modules or 'notifications' in modules %}
 
 try:
     from redis import Redis
@@ -15,8 +14,8 @@ try:
     HAS_REDIS = True
 except ImportError:
     HAS_REDIS = False
-{%- endif %}
-{% if 'tg_bot' in modules or 'notifications' in modules %}
+
+
 if HAS_REDIS:
 
     @pytest.fixture(scope="session")

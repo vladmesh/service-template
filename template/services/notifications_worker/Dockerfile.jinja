@@ -6,7 +6,7 @@
 
 ARG INSTALL_DEV_DEPS="false"
 
-FROM python:3.11-slim AS base
+FROM python:{{ python_version }}-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

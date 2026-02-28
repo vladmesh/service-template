@@ -1,5 +1,5 @@
 services:
-{% if 'backend' in modules %}
+{%- if 'backend' in modules %}
   backend:
     extends:
       file: compose.base.yml
@@ -22,9 +22,9 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-{% endif %}
+{%- endif %}
+{%- if 'tg_bot' in modules %}
 
-{% if 'tg_bot' in modules %}
   tg_bot:
     extends:
       file: compose.base.yml
@@ -37,9 +37,9 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-{% endif %}
+{%- endif %}
+{%- if 'notifications' in modules %}
 
-{% if 'notifications' in modules %}
   notifications_worker:
     extends:
       file: compose.base.yml
@@ -52,9 +52,9 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-{% endif %}
+{%- endif %}
+{%- if 'frontend' in modules %}
 
-{% if 'frontend' in modules %}
   frontend:
     extends:
       file: compose.base.yml
@@ -67,9 +67,9 @@ services:
       replicas: 2
       restart_policy:
         condition: on-failure
-{% endif %}
+{%- endif %}
+{%- if 'tg_bot' in modules or 'notifications' in modules %}
 
-{% if 'tg_bot' in modules or 'notifications' in modules %}
   redis:
     extends:
       file: compose.base.yml
@@ -79,5 +79,4 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-{% endif %}
-
+{%- endif %}

@@ -91,7 +91,7 @@ fi
 
 checks_run=0
 
-if $run_generate; then
+if $run_generate && make -n generate-from-spec >/dev/null 2>&1; then
   echo ""
   echo "[pre-push] Regenerating from spec..."
   make generate-from-spec

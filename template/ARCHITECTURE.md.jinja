@@ -24,7 +24,7 @@ graph TD
 The project is a collection of modular services defined in `services.yml`.
 
 - **Definition:** A service is simply an entry in `services.yml` with a `name`, `type`, and `description`.
-- **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure (DB{% if 'tg_bot' in modules or 'notifications' in modules %}, Queue{% endif %}).
+- **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure ({% if 'backend' in modules %}DB{% if 'tg_bot' in modules or 'notifications' in modules %}, {% endif %}{% endif %}{% if 'tg_bot' in modules or 'notifications' in modules %}Queue{% endif %}).
 
 ### Service Types
 

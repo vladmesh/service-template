@@ -1,8 +1,9 @@
 """Unit tests for the Telegram bot handlers."""
 
 from __future__ import annotations
-
+{% if 'backend' in modules %}
 from collections.abc import Generator
+{%- endif %}
 from typing import Final
 from unittest.mock import AsyncMock, MagicMock{% if 'backend' in modules %}, patch{% endif %}
 

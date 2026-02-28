@@ -70,14 +70,14 @@ Do not manually edit files in these directories, as they are overwritten by scri
 ## 6. Common Pitfalls
 
 Avoid these common mistakes:
-
-1. **Stale Shared Code:** In development, ensure `../shared:/app/shared:delegated` is mounted in `compose.dev.yml`. Without this mount, services use stale code from the Docker build, not live changes.
-
-2. **Type Mismatches:** The code generator supports `list[type]` but verify complex types after generation.
-
-3. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields, not naive `datetime.now()`.
-
-4. **Dockerfile Copies:** COPY sources in Dockerfiles should stay within the service directory or use `shared/`.
+{% if 'backend' in modules %}
+- **Stale Shared Code:** In development, ensure `../shared:/app/shared:delegated` is mounted in `compose.dev.yml`. Without this mount, services use stale code from the Docker build, not live changes.
+- **Type Mismatches:** The code generator supports `list[type]` but verify complex types after generation.
+{% endif -%}
+- **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields, not naive `datetime.now()`.
+{% if 'backend' in modules -%}
+- **Dockerfile Copies:** COPY sources in Dockerfiles should stay within the service directory or use `shared/`.
+{% endif -%}
 {% if 'tg_bot' in modules or 'notifications' in modules -%}
-5. **Missing Broker Connection:** Publishing events without calling `broker.connect()` first results in `AssertionError`. Ensure broker lifecycle is managed in application startup/shutdown.
+- **Missing Broker Connection:** Publishing events without calling `broker.connect()` first results in `AssertionError`. Ensure broker lifecycle is managed in application startup/shutdown.
 {% endif -%}
