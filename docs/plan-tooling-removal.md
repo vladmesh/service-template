@@ -3,77 +3,57 @@
 > **Основание**: [brainstorm-tooling-removal.md](brainstorm-tooling-removal.md) — все решения приняты
 > **Связан с**: [simplification-plan.md](simplification-plan.md) — пункт 4
 > **Scope**: два репозитория — `service-template` и `codegen_orchestrator`
+> **Status**: Итерации 1-3 DONE. Итерация 4 (orchestrator) — ожидает реализации на стороне оркестратора.
 
 ---
 
 ## Зачем
 
-Агенты (основные пользователи фреймворка) живут в Docker. Tooling-контейнер заставляет их делать docker-in-docker для `make lint` и `make test`. Это медленно, хрупко, усложняет отладку.
+Агенты (основные пользователи фреймворка) живут в Docker. Tooling-контейнер заставлял их делать docker-in-docker для `make lint` и `make test`. Это медленно, хрупко, усложняет отладку.
 
-Заменяем Docker-based tooling на per-project venv-ы через uv. Линтеры и юнит-тесты работают плоско. Docker остаётся только для интеграционных тестов (postgres, redis) и production-деплоя.
-
----
-
-## Итерация 1: Poetry → uv (service-template)
-
-**Цель**: заменить Poetry на uv во всех шаблонных файлах. После этой итерации всё работает как раньше — через Docker — но с uv вместо Poetry.
-
-### Файлы
-
-| Файл | Действие |
-|------|----------|
-| `template/shared/pyproject.toml` | `[tool.poetry]` → `[project]` (PEP 621), `poetry-core` → `hatchling` |
-| `template/services/backend/pyproject.toml` | `[tool.poetry]` → `[project]` + `[dependency-groups]` + `[tool.uv.sources]` |
-| `template/services/tg_bot/pyproject.toml` | Аналогично |
-| `template/services/notifications_worker/pyproject.toml` | Аналогично |
-| `template/services/backend/poetry.lock` | Удалить |
-| `template/services/tg_bot/poetry.lock` | Удалить |
-| `template/services/notifications_worker/poetry.lock` | Удалить |
-| `template/services/backend/Dockerfile` | `pip install poetry` → `COPY --from=ghcr.io/astral-sh/uv:latest`, `poetry install` → `uv pip install --system` |
-| `template/services/tg_bot/Dockerfile` | Аналогично |
-| `template/services/notifications_worker/Dockerfile` | Аналогично |
-| `template/tooling/Dockerfile` | Убрать `poetry` из `pip install` (пока не удаляем сам файл) |
-| `template/Makefile.jinja` | `poetry run pytest` → `pytest` (2 строки) |
-| `template/services/tg_bot/AGENTS.md.jinja` | Упоминание Poetry → uv |
-| `template/services/backend/AGENTS.md` | Упоминание Poetry → uv |
-
-### Тестирование
-
-```bash
-# 1. Генерация проекта — оба режима
-copier copy --data 'modules=tg_bot' --defaults template/ /tmp/test-standalone
-copier copy --data 'modules=backend,tg_bot' --defaults template/ /tmp/test-fullstack
-
-# 2. Docker build работает для каждого сервиса
-cd /tmp/test-fullstack
-docker build -f services/backend/Dockerfile .
-docker build -f services/tg_bot/Dockerfile .
-
-# 3. Существующий CI-путь работает (make lint, make tests через Docker)
-make lint
-make tests
-```
-
-**Критерий закрытия**: Docker build и существующий CI проходят с uv вместо Poetry. Никаких изменений в поведении — только пакетный менеджер.
+Заменили Docker-based tooling на per-project venv-ы через uv. Линтеры и юнит-тесты работают плоско. Docker остаётся только для интеграционных тестов (postgres, redis) и production-деплоя.
 
 ---
 
-## Итерация 2: Venv-инфраструктура (service-template)
+## Итерация 1: Poetry → uv (service-template) — DONE ✅
 
-**Цель**: добавить `make setup`, переписать Makefile на venv-ы, удалить tooling-контейнер и EXEC_MODE. Сразу сюда же можно добавить настройку гитхуков, чтобы запретить пользователю пушить код, не прошедший линтинг и юнит-тесты.
+**Коммит:** `0e3c3ba` (feat: migrate Poetry to uv + fix pre-existing template issues)
 
-### Файлы
+Заменили Poetry на uv во всех шаблонных файлах. Все `pyproject.toml` мигрированы на PEP 621, `poetry.lock` → `uv.lock`, Dockerfiles используют `COPY --from=ghcr.io/astral-sh/uv`.
 
-| Файл | Действие |
-|------|----------|
-| `template/.framework/pyproject.toml` | **Создать.** Объявить framework как пакет с deps: pydantic, PyYAML, jinja2, datamodel-codegen |
-| `template/Makefile.jinja` | **Переписать.** Удалить EXEC_MODE, `RUN_TOOLING`, `COMPOSE_TEST_UNIT`, `COMPOSE_ENV_TOOLING`. Добавить `setup`. Все таргеты через `.venv/bin/` и `services/*/.venv/bin/` |
-| `template/tooling/Dockerfile` | **Удалить** |
-| `template/infra/compose.tests.unit.yml.jinja` | **Удалить** |
-| `template/.github/workflows/ci.yml.jinja` | Добавить `astral-sh/setup-uv@v4` + `make setup`. Убрать cleanup для tests-unit compose project |
-| `template/.gitignore` (или `.jinja`) | Добавить `.venv/`, `services/*/.venv/` в игнор |
+### Файлы — как в плане, без отклонений
 
-### Новый `make setup` (схема)
+| Файл | Действие | Статус |
+|------|----------|--------|
+| `template/shared/pyproject.toml` | `[tool.poetry]` → `[project]` (PEP 621) | ✅ |
+| `template/services/*/pyproject.toml` | `[tool.poetry]` → `[project]` + `[dependency-groups]` + `[tool.uv.sources]` | ✅ |
+| `template/services/*/poetry.lock` | Удалены, заменены на `uv.lock` | ✅ |
+| `template/services/*/Dockerfile` | `pip install poetry` → `COPY --from=ghcr.io/astral-sh/uv:latest`, `poetry install` → `uv pip install --system` | ✅ |
+| `template/Makefile.jinja` | `poetry run pytest` → `pytest` | ✅ |
+
+---
+
+## Итерация 2: Venv-инфраструктура (service-template) — DONE ✅
+
+**Коммит:** `6aaa999` (feat: remove tooling container, switch to native venv workflow)
+**Доп. фиксы:** `7e7b077`, `9c2c2ba`, `dc96261`, `581cb05`
+
+Добавили `make setup`, переписали Makefile на venv-ы, удалили tooling-контейнер и EXEC_MODE.
+
+### Реализация vs план
+
+| Пункт плана | Статус | Отклонения |
+|-------------|--------|------------|
+| `template/.framework/pyproject.toml` — создать | ✅ | — |
+| `template/Makefile.jinja` — переписать | ✅ | `make setup` дополнительно включает `make generate-from-spec` (для backend) и `git config core.hooksPath .githooks` — **не было в плане**, добавлено позже для полной инициализации одной командой |
+| `template/tooling/Dockerfile` — удалить | ✅ | — |
+| `template/infra/compose.tests.unit.yml.jinja` — удалить | ✅ | — |
+| `template/.github/workflows/ci.yml.jinja` — обновить | ✅ | — |
+| `.gitignore` — добавить `.venv/` | ✅ | — |
+
+> **Заметка для оркестратора:** `make setup` — единая точка входа после `copier copy`. Запускать **обязательно** перед любыми другими make-таргетами. Порядок: `copier copy` → `make setup` → `make lint/test/etc`. Без `make setup` не будут созданы venv-ы, не сгенерируется код из specs, не настроятся git hooks.
+
+### `make setup` — финальная реализация
 
 ```makefile
 setup:
@@ -82,108 +62,54 @@ setup:
 	@for svc in services/*/; do \
 		[ -f "$$svc/pyproject.toml" ] || continue; \
 		echo ">> Setting up $$svc"; \
-		cd "$$svc" && uv venv && uv pip install -e ".[dev]" -e ../../shared && cd ../..; \
+		(cd "$$svc" && uv sync --frozen); \
 	done
+	# Только для backend-конфигураций:
+	@echo ">> Generating code from specs"
+	$(PYTHON) -m framework.generate
+	# Git hooks:
+	@git config core.hooksPath .githooks 2>/dev/null || true
+	@echo ">> Setup complete!"
 ```
 
-### Новые таргеты (схема)
+> **Отклонение от плана:** План предлагал `uv pip install -e ".[dev]" -e ../../shared` для per-service venvs. Реализация использует `uv sync --frozen`, что проще и надёжнее (ставит ровно то что в lock-файле). `shared` подключается через `[tool.uv.sources]` в pyproject.toml каждого сервиса.
 
-```makefile
-lint:
-	.venv/bin/ruff check .
-	.venv/bin/xenon --max-absolute B --max-modules A --max-average A --exclude '.framework/*,tests/*' .
-	.venv/bin/python -m framework.enforce_spec_compliance
-	.venv/bin/python -c "from framework.spec.loader import validate_specs_cli; ..."
-	.venv/bin/python -c "from framework.lint.controller_sync import lint_controllers_cli; ..."
+### Дополнительные фиксы (не были в плане)
 
-format:
-	.venv/bin/ruff format --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
-	.venv/bin/ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
-
-test:
-	@for svc in services/*/; do \
-		[ -d "$$svc/tests" ] || continue; \
-		echo ">> Testing $$(basename $$svc)"; \
-		"$$svc/.venv/bin/pytest" "$$svc/tests/unit" -q; \
-	done
-
-tooling-tests:
-	.venv/bin/pytest tests/tooling tests/unit -q --cov=framework --cov-report=term-missing --cov-fail-under=70
-
-generate-from-spec:   # backend only
-	.venv/bin/python -m framework.generate
-
-typecheck:
-	@for svc in services/*/; do \
-		[ -f "$$svc/.venv/bin/mypy" ] || continue; \
-		echo ">> Typechecking $$(basename $$svc)"; \
-		cd "$$svc" && .venv/bin/mypy . && cd ../..; \
-	done
-```
-
-### Тестирование
-
-```bash
-# 1. Standalone bot
-copier copy --data 'modules=tg_bot' --defaults template/ /tmp/test-standalone
-cd /tmp/test-standalone
-make setup           # создаёт .venv/ и services/tg_bot/.venv/
-make lint            # ruff + xenon + graceful spec checks
-make test            # pytest в services/tg_bot/.venv/
-make format          # ruff format
-
-# 2. Full-stack
-copier copy --data 'modules=backend,tg_bot' --defaults template/ /tmp/test-fullstack
-cd /tmp/test-fullstack
-make setup
-make generate-from-spec   # генерация из specs
-make lint                 # ruff + xenon + spec checks + compliance + controller sync
-make test                 # pytest для backend и tg_bot
-make typecheck            # mypy per-service
-
-# 3. CI workflow валидна
-# Проверить что ci.yml.jinja рендерится корректно и содержит setup-uv + make setup
-
-# 4. Docker build сервисов по-прежнему работает (production path не сломан)
-docker build -f services/backend/Dockerfile .
-```
-
-**Критерий закрытия**: `make setup && make lint && make test` работает нативно в обоих режимах (standalone, full-stack). Tooling-контейнер удалён. CI workflow использует `setup-uv`.
+1. **ruff exclude для `.venv/`** — `ruff check` и `ruff format` подхватывали файлы из per-service venvs. Добавлен `"**/.venv/**"` в `ruff.toml` exclude.
+2. **enforce_spec_compliance skip `.venv/`** — сканер проверял файлы в venvs. Добавлен skip для `.venv` директорий.
+3. **`make tests` propagation** — при ошибке одного сервиса make продолжал дальше. Добавлен `|| exit 1` для fail-fast.
+4. **`ruff format --extend-exclude`** — `ruff format` не поддерживает `--extend-exclude` (только `ruff check`). Excludes перенесены в `ruff.toml`, CLI-флаги убраны.
+5. **Lazy broker** — `get_broker()` вместо module-level `broker = RedisBroker(...)`. Без этого `import shared.generated.events` падал в тестах из-за отсутствия `REDIS_URL`.
 
 ---
 
-## Итерация 3: Документация (service-template)
+## Итерация 3: Документация (service-template) — DONE ✅
 
-**Цель**: обновить всю документацию генерируемых проектов.
+**Коммиты:** `5c9128f`, `3eff0e6` (и промежуточные)
 
-### Файлы
+### Реализация vs план
 
-| Файл | Что менять |
-|------|-----------|
-| `template/docs/ARCHITECTURE.md` (или `.jinja`) | Убрать "Tooling Container" секцию. Описать venv-архитектуру |
-| `template/CONTRIBUTING.md.jinja` | Заменить Docker-инструкции на `make setup`. Описать workflow |
-| `template/services/backend/AGENTS.md` | Убрать "через docker-compose", добавить "через make setup / make test" |
-| `template/services/tg_bot/AGENTS.md.jinja` | Аналогично |
-| `template/CLAUDE.md` (если есть) | Прописать `make setup` как первую команду после clone |
+| Пункт плана | Статус | Отклонения |
+|-------------|--------|------------|
+| `ARCHITECTURE.md.jinja` — убрать Tooling Container | ✅ | Также обновлена Directory Structure (`.framework/` вместо `templates/`), containerization strategy, и добавлены conditional blocks для standalone |
+| `CONTRIBUTING.md.jinja` — заменить Docker-инструкции | ✅ | Также вычищены backend-specific секции в standalone |
+| `AGENTS.md` — убрать docker-compose | ✅ | — |
+| `README.md.jinja` — `make setup` как шаг 1 | ✅ | **Не было в плане** — добавлено по ходу. Quick Start теперь: (1) make setup, (2) cp .env.example .env, (3) make dev-start |
 
-### Тестирование
+> **Заметка для оркестратора:** В сгенерированных проектах больше нет упоминаний tooling-контейнера, Poetry, EXEC_MODE. Документация описывает актуальный workflow с `make setup` и нативными venvs.
 
-```bash
-# 1. Сгенерировать проект, прочитать доки — они должны соответствовать реальности
-copier copy --data 'modules=backend,tg_bot' --defaults template/ /tmp/test-docs
-# Проверить что в сгенерированных доках нет упоминаний:
-grep -r "tooling" /tmp/test-docs/docs/ /tmp/test-docs/CONTRIBUTING.md  # не должно быть
-grep -r "poetry" /tmp/test-docs/                                        # не должно быть
-grep -r "EXEC_MODE" /tmp/test-docs/                                     # не должно быть
-```
+### Оставшиеся косметические проблемы
 
-**Критерий закрытия**: в сгенерированном проекте нет упоминаний tooling-контейнера, Poetry, EXEC_MODE. Документация описывает актуальный workflow с `make setup`.
+Jinja whitespace control в markdown-шаблонах не идеален — местами лишние пустые строки. Подробности в `docs/e2e-issues-iteration6.md`. Не влияет на функциональность.
 
 ---
 
-## Итерация 4: Orchestrator (codegen_orchestrator)
+## Итерация 4: Orchestrator (codegen_orchestrator) — TODO ⏳
 
 **Цель**: облегчить образ агента, добавить uv cache volume.
+
+> **Это единственная оставшаяся итерация.** Все изменения в service-template завершены.
 
 ### Файлы
 
@@ -193,12 +119,23 @@ grep -r "EXEC_MODE" /tmp/test-docs/                                     # не �
 | `services/worker-manager/src/worker_manager.py` (или аналог) | Добавить `"uv-cache"` volume mount + `UV_CACHE_DIR` env var при создании контейнера |
 | `docker-compose.yml` | Если нужно — добавить named volume `uv-cache` |
 
+### Что учесть при реализации
+
+1. **`make setup` обязателен** — после `copier copy` агент ДОЛЖЕН запустить `make setup`. Это создаёт venvs, генерирует код, настраивает hooks. Без этого ничего не работает.
+
+2. **uv cache volume** — первый `make setup` без кеша занимает ~15-30 сек (скачивание пакетов). С кешем — 3-5 сек. Shared uv-cache volume между воркерами критичен для UX.
+
+3. **Copier нужен для scaffolder** — copier НЕ убран из шаблона (он не в шаблоне, он инструмент scaffolder'а). Scaffolder должен иметь copier установленным, worker-base — нет.
+
+4. **Нативные инструменты** — ruff, xenon, pytest, mypy теперь устанавливаются через `make setup` в per-project venvs. Не нужны в базовом образе.
+
+5. **Python version** — шаблон теперь генерирует проекты с `python_version` из copier (default: 3.12). Dockerfiles используют `python:{{ python_version }}-slim`. Worker-base образ должен иметь совместимый Python.
+
 ### Тестирование
 
 ```bash
 # 1. Билд worker-base образов
 docker build -f services/worker-manager/images/worker-base-common/Dockerfile .
-docker build -f services/worker-manager/images/worker-base-claude/Dockerfile .
 
 # 2. Проверить что uv доступен в контейнере
 docker run --rm worker-base-common uv --version
@@ -219,17 +156,17 @@ docker run --rm worker-base-common pytest --version   # должен упаст�
 
 ## Сводка изменений по репозиториям
 
-### service-template (итерации 1-3)
+### service-template (итерации 1-3) — DONE ✅
 
 | Действие | Файлы |
 |----------|-------|
-| **Удалить** | `template/tooling/Dockerfile`, `template/infra/compose.tests.unit.yml.jinja`, `template/services/*/poetry.lock` (3 шт) |
-| **Создать** | `template/.framework/pyproject.toml` |
-| **Переписать** | `template/Makefile.jinja`, `template/.github/workflows/ci.yml.jinja` |
-| **Мигрировать** | `template/shared/pyproject.toml`, `template/services/*/pyproject.toml` (3 шт), `template/services/*/Dockerfile` (3 шт) |
-| **Обновить** | Документация: ARCHITECTURE.md, CONTRIBUTING.md, AGENTS.md (2 шт), CLAUDE.md |
+| **Удалены** | `template/tooling/Dockerfile`, `template/infra/compose.tests.unit.yml.jinja`, `template/services/*/poetry.lock` |
+| **Созданы** | `template/.framework/pyproject.toml` |
+| **Переписаны** | `template/Makefile.jinja`, `template/.github/workflows/ci.yml.jinja` |
+| **Мигрированы** | `template/shared/pyproject.toml`, `template/services/*/pyproject.toml`, `template/services/*/Dockerfile` |
+| **Обновлена документация** | `ARCHITECTURE.md.jinja`, `CONTRIBUTING.md.jinja`, `README.md.jinja`, `AGENTS.md`, `TASK.md.jinja` |
 
-### codegen_orchestrator (итерация 4)
+### codegen_orchestrator (итерация 4) — TODO ⏳
 
 | Действие | Файлы |
 |----------|-------|

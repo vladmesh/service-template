@@ -3,18 +3,19 @@
 > **Задача**: Backlog #1 в codegen_orchestrator — Service Template Simplification & Refactoring
 > **Брейншторм**: `codegen_orchestrator/docs/brainstorms/service-template-and-dev-environment.md`
 > **Cross-project**: основная работа здесь (service-template), интеграция — в оркестраторе (scaffolder)
+> **Status**: ВСЕ 4 ПУНКТА DONE. Остались только косметические доработки Jinja whitespace.
 
 ---
 
 ## Проблема
 
-Фреймворк перегружен: 9 кодогенераторов, обязательный PostgreSQL,
-тесная связка tg_bot → backend. Простой Telegram-бот невозможен без полного бэкенда,
-а его разработка затягивается на десятки минут из-за лишней инфраструктуры.
+Фреймворк был перегружен: 9 кодогенераторов, обязательный PostgreSQL,
+тесная связка tg_bot → backend. Простой Telegram-бот был невозможен без полного бэкенда,
+а разработка затягивалась на десятки минут из-за лишней инфраструктуры.
 
 ---
 
-## ~~Текущее состояние связки backend ↔ tg_bot~~ DONE
+## ~~Текущее состояние связки backend ↔ tg_bot~~ DONE ✅
 
 **Сделано.** Backend теперь опциональный модуль. Убрали хардкод `backend module is required` из `copier.yml`, заменили на `at least one module must be selected`.
 
@@ -28,76 +29,60 @@
 
 ---
 
-## Генераторы — анализ и решения (из 9 → 5)
+## Генераторы — анализ и решения (из 9 → 5) — DONE ✅
 
-### Убрать
+### Убрали
 
-| Генератор | LOC генератора | LOC шаблона | Типичный output | Решение |
-|-----------|---------------|-------------|-----------------|---------|
-| **RegistryGenerator** | 102 | 79 | ~54 строки | **Убрать первым.** Генерирует 4-5 вызовов `include_router()`, обёрнутые в 54 строки импортов и реэкспортов. 10 строк реальной логики. |
-| **RoutersGenerator** | 117 | 97 | 70-111 строк | **Убрать.** Механическая транскрипция spec → FastAPI декораторы. ~20 строк на операцию, чистый бойлерплейт. Агент напишет роутер с контекстом (middleware, security) за 500 токенов. |
-| **ClientsGenerator** | 203 | 232 | ~204 строки | **Убрать генератор, вынести retry-базу в shared.** 86% output-а (175 строк) — одинаковая инфраструктура (retry, backoff, lifecycle), копируется в каждый клиент. Бизнес-методы — 14% (29 строк на 2 операции). Межсервисный REST — антипаттерн в event-driven архитектуре; единственный потребитель — tg_bot → backend, и тот опционален. Базовый `ServiceClient` с retry ляжет в `shared/` как утилита (~60 строк), клиенты при необходимости пишутся руками за 15 строк. |
-| **sync_services** | 262 | — | Dockerfiles, compose-блоки | **Убрать.** Перегенерирует Dockerfiles и compose при каждом `copier update`, затирая ручные правки. Одноразовый scaffold при создании — ок, дальше файлы должны быть пользовательскими. |
+| Генератор | LOC | Статус | Заметки |
+|-----------|-----|--------|---------|
+| **RegistryGenerator** | 102+79 | ✅ Удалён | — |
+| **RoutersGenerator** | 117+97 | ✅ Удалён | — |
+| **ClientsGenerator** | 203+232 | ✅ Удалён | Вместо него — `ServiceClient` в `shared/shared/http_client.py` (~125 строк). Базовый HTTP-клиент с retry, exponential backoff, context manager. Конкретные клиенты (например, `BackendClient` в tg_bot) наследуются и добавляют 15-20 строк бизнес-методов. |
+| **sync_services** | 262 | ✅ Удалён | Compose-файлы теперь Jinja-шаблоны, генерируются copier'ом при создании проекта. |
 
-### Оставить
+> **Заметка для оркестратора:** `sync_services` больше нет. Compose-файлы не перегенерируются. Если оркестратор добавляет новый сервис, compose-файлы нужно править вручную или через отдельный механизм. См. backlog "Add Predefined Module to Existing Project".
 
-| Генератор | LOC генератора | LOC шаблона | Типичный output | Почему оставляем |
-|-----------|---------------|-------------|-----------------|-----------------|
-| **SchemasGenerator** | 51 | — (datamodel-codegen) | ~84 строки | Контракт между сервисами. Single source of truth: `models.yaml` → Pydantic-модели с валидацией. Без него — drift между сервисами гарантирован. Генерация бесплатная и мгновенная. |
-| **EventsGenerator** | 59 | 24 | ~34 строки | Pub/sub контракт. Все сервисы гарантированно используют одинаковые channel names и типы. Дёшево, предотвращает рассинхрон. |
-| **EventAdapterGenerator** | 114 | 83 | ~49 строк | Самый интеллектуальный генератор. Session lifecycle (get_session → controller → commit/rollback) — паттерн, который легко написать неправильно. 12-16 строк на хендлер, каждая строка важна. |
-| **ControllersGenerator** | 85 | 34 | 30-40 строк | Стартовые стабы с `NotImplementedError` и правильными сигнатурами. Генерит только если файл не существует — не перезаписывает. Показывает агенту «вот что реализовать». |
-| **ProtocolsGenerator** | 91 | 43 | ~61 строка | Изначально не был в плане на удаление. `typing.Protocol` для контроллеров — интерфейс для DI. Без него IDE не покажет ошибки типов. Дёшевый и важный. |
+### Оставили
+
+| Генератор | LOC | Статус | Что делает |
+|-----------|-----|--------|------------|
+| **SchemasGenerator** | 51 | ✅ Работает | `models.yaml` → Pydantic-модели через `datamodel-code-generator` |
+| **EventsGenerator** | 59+24 | ✅ Работает | `events.yaml` → pub/sub functions с lazy broker |
+| **EventAdapterGenerator** | 114+83 | ✅ Работает | Session lifecycle (get_session → controller → commit/rollback) |
+| **ControllersGenerator** | 85+34 | ✅ Работает | Стартовые стабы с `NotImplementedError` |
+| **ProtocolsGenerator** | 91+43 | ✅ Работает | `typing.Protocol` для контроллеров (DI interface) |
 
 ### Ключевые выводы из обсуждения
 
 **Архитектура коммуникаций:**
 - REST = внешний API (фронтенд, мобилка, бот как клиент)
 - Events = внутренняя коммуникация между сервисами (pub/sub через Redis Streams)
-- Межсервисный REST — антипаттерн; единственный случай (tg_bot → backend) опционален и может быть заменён на events
+- Межсервисный REST — антипаттерн; единственный случай (tg_bot → backend) опционален
 
 **Принцип отбора генераторов:**
 - Генерировать код через агентов дорого (токены). Генераторы, которые делают это быстро и бесплатно — оставляем.
-- Генераторы, которые производят мало кода или редко используются — убираем.
 - Оставляем то, что обеспечивает **контракты** (schemas, events, protocols) и **сложные паттерны** (session lifecycle в event adapters).
-- Убираем то, что производит **механический бойлерплейт** (routers, registry) или **дублирует инфраструктуру** в каждый файл (clients).
+- Убираем то, что производит **механический бойлерплейт** (routers, registry) или **дублирует инфраструктуру** (clients).
 
 **ServiceClient в shared:**
 - Retry с exponential backoff, разделение 4xx/5xx, context manager для httpx — полезная утилита.
-- Не генератор, а обычный базовый класс в `shared/shared/http_client.py` (~60 строк).
-- Если кому-то нужен HTTP-клиент к другому сервису — наследуется от `ServiceClient` и пишет 15 строк методов.
+- Не генератор, а обычный базовый класс в `shared/shared/http_client.py`.
+- Наследуется для конкретных клиентов (`BackendClient` и т.д.).
+
+> **Заметка для оркестратора:** `ServiceClient.__aenter__` возвращает `Self` (не базовый `ServiceClient`), что обеспечивает корректную типизацию для mypy при `async with BackendClient() as client:`.
 
 **Итого по LOC:**
-- Удаляем: 684 LOC генераторов + 408 LOC шаблонов = **1092 строки**
-- Добавляем: ~60 LOC `ServiceClient` в shared
-- Оставляем: 400 LOC генераторов + 184 LOC шаблонов (контракты и паттерны)
+- Удалили: 684 LOC генераторов + 408 LOC шаблонов = **1092 строки**
+- Добавили: ~125 LOC `ServiceClient` в shared
+- Оставили: 400 LOC генераторов + 184 LOC шаблонов (контракты и паттерны)
 
 ---
 
-### Инфраструктурный оверхед
-
-- **PostgreSQL + Alembic как обязательный** — для многих ботов хватит Redis или in-memory state
-- **Tooling-контейнер** — отдельный Docker-образ для линтеров/тестов. Заменяется на `uv run pytest`
-- **Spec-формат как обязательный слой** — для простого бота с 3 хендлерами описывать их в YAML → генератор → контроллер — три шага вместо одного
-
----
-
-## Приоритеты реализации
-
-| # | Что делать | Импакт | Сложность |
-|---|------------|--------|-----------|
-| ~~1~~ | ~~Сделать backend опциональным в copier.yml (standalone tg_bot)~~ **DONE** | Высокий | Средняя |
-| ~~2~~ | ~~Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services; добавить ServiceClient в shared~~ **DONE** | Высокий — упрощает шаблон вдвое (−1092 строк) | Низкая — удалить + обновить pipeline |
-| ~~3~~ | ~~Сделать specs опциональными (подробности ниже)~~ **DONE** | Средний — упрощает простые проекты | Средняя |
-| 4 | Убрать tooling-контейнер, перейти на `uv run` — [брейншторм](brainstorm-tooling-removal.md), [план](plan-tooling-removal.md) | Средний — ускоряет dev-цикл | Низкая |
-
----
-
-## ~~Пункт 3: Specs опциональны~~ DONE
+## ~~Пункт 3: Specs опциональны~~ DONE ✅
 
 ### Проблема
 
-Specs (models.yaml, events.yaml, domain YAML) — это контракты между сервисами. Для standalone tg_bot без backend контрактов нет, но фреймворк требует их наличия: `load_specs()` падает без models.yaml, `make lint` включает spec-валидацию, CI проверяет generated files. Standalone бот не может даже определить `class FSMState(BaseModel)` — enforce_spec_compliance запрещает.
+Specs (models.yaml, events.yaml, domain YAML) — это контракты между сервисами. Для standalone tg_bot без backend контрактов нет, но фреймворк требовал их наличия.
 
 ### Принцип
 
@@ -117,53 +102,49 @@ Specs (models.yaml, events.yaml, domain YAML) — это контракты ме
 
 > **Отклонение от плана**: план предлагал обернуть spec-файлы в `{% if %}`, но post-copy cleanup через `_tasks` проще и надёжнее — не нужно трогать каждый YAML/Python файл в `shared/spec/`. Также удаляется `http_client.py` (не было в плане) и `services/*/spec/manifest.yaml` (не было в плане, но нужно для чистого standalone).
 
+> **Заметка для оркестратора:** В standalone (`modules=tg_bot`) после copier copy нет: `shared/spec/`, `shared/shared/generated/`, `shared/shared/http_client.py`, `services/*/spec/`. Пакет `shared` остаётся как пустой editable dependency (только `__init__.py` и `py.typed`). Это не баг — shared нужен для будущего расширения через `copier update`.
+
 **3.2. tg_bot main.py.jinja: standalone = plain PTB бот** ✅
 
-> **Отклонение от плана**: план упоминал aiogram, но шаблон использует python-telegram-bot (PTB). Это не баг плана — просто неточность в тексте. Реализация корректна.
+> **Отклонение от плана**: план упоминал aiogram, но шаблон использует python-telegram-bot (PTB). Реализация корректна.
 
 В standalone режиме (`'backend' not in modules`):
 - Нет импортов `shared.generated.events`, `shared.generated.schemas`, `httpx`, `ServiceClient`
 - Нет event bus, broker lifecycle (post_init/post_shutdown)
 - Нет `BackendClient`, `_sync_user_with_backend()`
 - `/start` отвечает простым приветствием, без синхронизации с backend
-- Тесты (test_command_handler.py.jinja) аналогично — standalone вариант без mock broker
+- Тесты аналогично — standalone вариант без mock broker
 
 **3.3. framework/spec/loader.py: graceful при отсутствии specs** ✅
 
-Реализовано по плану. `load_specs()` возвращает пустой `AllSpecs` если `models.yaml` не существует. `validate_specs_cli()` возвращает `(True, "No specs found. Skipping validation.")`.
+Реализовано по плану. `load_specs()` возвращает пустой `AllSpecs` если `models.yaml` не существует.
 
 **3.4. framework/generate.py: no-op при пустых specs** ✅
 
-Реализовано по плану. Плюс добавлен warning при отсутствии `datamodel-code-generator` в native mode: "schemas.py may be stale. Run `make generate-from-spec` in Docker to regenerate."
+Реализовано по плану.
 
-**3.5. enforce_spec_compliance: B+C** ✅
+**3.5. enforce_spec_compliance: conditional + scope** ✅
 
-Реализовано по плану:
-- **C — conditional**: skip если нет `shared/spec/models.yaml`
-- **B — сужение scope**: BaseModel check только в `controllers/`
-- APIRouter message обновлён
+- Skip если нет `shared/spec/models.yaml`
+- BaseModel check только в `controllers/`
 
 **3.6. Makefile.jinja и CI: conditional spec targets** ✅
 
 Spec-only targets обёрнуты в `{% if 'backend' in modules %}`: `validate-specs`, `lint-specs`, `generate-from-spec`, `lint-controllers`, `openapi`, `typescript`, `makemigrations`.
 
-CI шаги "Generate from spec" и "Check generated files are up to date" — обёрнуты.
-
-> **Отклонение от плана**: план предлагал `{% if %}...{% else %}...{% endif %}` для `lint:` target с разными командами в standalone vs full-stack. В реализации обнаружился баг: `{% else -%}` в Jinja стирает `\n\t`, а tab — обязательный префикс рецепта в Makefile. Вместо этого **lint использует одну универсальную команду** в обоих режимах. Это работает т.к. `validate_specs_cli()` и `lint_controllers_cli()` graceful — в standalone печатают "No specs found" и выходят с 0.
+> **Отклонение от плана**: план предлагал `{% if %}...{% else %}...{% endif %}` для `lint:` target. В реализации `lint:` использует одну универсальную команду — spec validation tools graceful (печатают "No specs found" и выходят с 0).
 
 **3.7. Документация** ✅
 
-- `ARCHITECTURE.md.jinja`: Spec-First Flow, shared/ directory, Unified Handlers — обёрнуты в `{% if 'backend' in modules %}`
-- `CONTRIBUTING.md.jinja`: spec-зависимые разделы обёрнуты
+ARCHITECTURE.md, CONTRIBUTING.md, TASK.md, README.md — backend-specific секции обёрнуты в conditionals.
 
-**3.8. Косметика: Jinja whitespace** ✅
+**3.8. Косметика: Jinja whitespace** ✅ (частично)
 
-> **Не было в плане** — обнаружено при тестировании. `{% endif -%}` стирает ВСЕ whitespace (включая пробелы и табы), что ломает:
-> - Python-отступы в `main.py` (`if update.message:` оказывался на column 0)
-> - YAML-отступы в `ci.yml` (`- name: Run linters` терял 6 пробелов)
-> - Makefile recipe tab в `lint:` target
+> **Не было в плане** — обнаружено при тестировании. `{% endif -%}` стирает ВСЕ whitespace (включая пробелы и табы), что ломает Python-отступы, YAML-отступы, Makefile recipe tabs.
 >
-> Решение: `{% endif -%}` безопасен только на column 0 (import blocks, markdown). Для остального — `{% endif %}` + управление количеством blank lines в шаблоне (каждый `{% endif %}` добавляет 1 `\n`).
+> Решение: `{% endif -%}` безопасен только на column 0. Для остального — `{% endif %}` + управление blank lines.
+>
+> **Оставшиеся проблемы:** Лишние пустые строки в TASK.md, CONTRIBUTING.md, ARCHITECTURE.md — косметика, не влияет на функционал. Подробности в `docs/e2e-issues-iteration6.md`.
 
 ### Результат
 
@@ -194,8 +175,50 @@ project/
 
 ---
 
+## ~~Пункт 4: Убрать tooling-контейнер~~ DONE ✅
+
+Полностью реализовано. См. [plan-tooling-removal.md](plan-tooling-removal.md).
+
+**Краткий итог:**
+- Tooling-контейнер удалён
+- Poetry → uv во всех сервисах
+- Per-service venvs через `uv sync --frozen`
+- Root `.venv/` для framework dev tools (ruff, xenon, framework package)
+- `make setup` — единая точка входа (venvs + codegen + git hooks)
+- CI использует `astral-sh/setup-uv@v4` + `make setup`
+
+> **Заметка для оркестратора (итерация 4 tooling-removal):** Осталась интеграция на стороне оркестратора: облегчить worker-base образ (убрать предустановленные python-пакеты), добавить uv + uv-cache volume. Подробности и тестирование в [plan-tooling-removal.md](plan-tooling-removal.md) → Итерация 4.
+
+---
+
 ## Связь с другими задачами
 
-- **Backlog #2 (Agent Hierarchy)** в оркестраторе — пересечение по pipeline (Architect node, Scaffolder-как-нода). Упрощение шаблона делается независимо; интеграция с новым pipeline — второй этап.
+- **Backlog #2 (Agent Hierarchy)** в оркестраторе — пересечение по pipeline (Architect node, Scaffolder-как-нода). Упрощение шаблона сделано независимо; интеграция с новым pipeline — второй этап.
 - **Backlog #4 (CI Pipeline Redesign)** — шаблон генерирует ci.yml для проектов. Слабое пересечение, не блокирует.
-- Прямых блокеров нет, можно приступать.
+- **Блокеров нет.**
+
+---
+
+## Приоритеты реализации — итоговый статус
+
+| # | Что делали | Статус |
+|---|------------|--------|
+| 1 | Сделать backend опциональным в copier.yml (standalone tg_bot) | ✅ DONE |
+| 2 | Убрать RoutersGenerator, ClientsGenerator, RegistryGenerator, sync_services; добавить ServiceClient в shared | ✅ DONE |
+| 3 | Сделать specs опциональными | ✅ DONE |
+| 4 | Убрать tooling-контейнер, перейти на `uv` + нативные venvs | ✅ DONE (service-template). TODO: интеграция в оркестратор |
+
+---
+
+## Сводка для оркестратора
+
+Ключевые изменения, которые затрагивают интеграцию:
+
+1. **Pipeline после copier copy:** `copier copy --trust` → `make setup` (обязательно!) → проект готов к `make lint/test/etc`
+2. **Нет sync_services:** compose-файлы не перегенерируются. Добавление сервисов требует ручной правки compose или отдельного механизма.
+3. **Нет RoutersGenerator:** агент пишет routers вручную. Protocols и controllers генерируются как стабы.
+4. **Нет ClientsGenerator:** `ServiceClient` в shared — базовый класс. Конкретные клиенты наследуются и пишутся вручную.
+5. **Lazy broker:** `from shared.generated.events import get_broker` — broker создаётся при первом вызове, не при import. Безопасно для тестов.
+6. **Per-service venvs:** Каждый сервис имеет свой `.venv/`. Root `.venv/` — для framework tools. Тесты запускаются через `services/*/.venv/bin/pytest`.
+7. **Python version:** Управляется через copier variable `python_version` (default: 3.12). Подставляется в Dockerfiles, mypy.ini, pyproject.toml.
+8. **Worker-base образ:** Нужен только uv + Python. Все инструменты устанавливаются `make setup` в per-project venvs. Рекомендуется shared uv-cache volume.
