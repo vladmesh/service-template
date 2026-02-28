@@ -37,6 +37,7 @@ os.environ.setdefault("POSTGRES_PORT", "5432")
 os.environ.setdefault("POSTGRES_DB", "test_db")
 os.environ.setdefault("POSTGRES_USER", "test_user")
 os.environ.setdefault("POSTGRES_PASSWORD", "test_password")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
 
 from services.backend.src.core.settings import get_settings  # noqa: E402
 
@@ -84,10 +85,13 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     """Return a FastAPI app with the test database wired in."""
 
     application = create_app()
-    # Patch broker to avoid requiring a live Redis instance in unit tests
-    import importlib
 
-    app_lifespan_module = importlib.import_module("services.backend.src.app.lifespan")
+    import shared.generated.events as events_module
+
+    # Mock broker to avoid requiring a live Redis instance in unit tests
+    mock_broker = AsyncMock()
+    original_broker = events_module._broker
+    events_module._broker = mock_broker
 
     async def _get_test_db() -> AsyncGenerator[AsyncSession, None]:
         # Use savepoint to make changes visible within the test transaction
@@ -96,21 +100,15 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
             await db_session.flush()
 
     application.dependency_overrides[get_async_db] = _get_test_db
-    originals = {
-        "connect": app_lifespan_module.broker.connect,
-        "close": app_lifespan_module.broker.close,
-        "publish": app_lifespan_module.broker.publish,
-    }
-    app_lifespan_module.broker.connect = AsyncMock()
-    app_lifespan_module.broker.close = AsyncMock()
-    app_lifespan_module.broker.publish = AsyncMock()
     try:
         yield application
     finally:
         application.dependency_overrides.clear()
-        app_lifespan_module.broker.connect = originals["connect"]
-        app_lifespan_module.broker.close = originals["close"]
-        app_lifespan_module.broker.publish = originals["publish"]
+        events_module._broker = original_broker
+        # Reset cached publishers so they don't leak mock references
+        for attr in list(vars(events_module)):
+            if attr.startswith("_pub_"):
+                setattr(events_module, attr, None)
 
 
 @pytest_asyncio.fixture()

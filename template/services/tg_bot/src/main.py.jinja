@@ -21,7 +21,7 @@ from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 {%- if 'backend' in modules %}
 
-from shared.generated.events import broker, publish_command_received
+from shared.generated.events import get_broker, publish_command_received
 from shared.generated.schemas import CommandReceived, UserCreate, UserRead
 from shared.shared.http_client import ServiceClient
 {%- endif %}
@@ -160,13 +160,13 @@ async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def post_init(application: Application) -> None:
     """Connect to Redis broker after application init."""
-    await broker.connect()
+    await get_broker().connect()
     LOGGER.info("Connected to Redis broker")
 
 
 async def post_shutdown(application: Application) -> None:
     """Disconnect from Redis broker on shutdown."""
-    await broker.close()
+    await get_broker().close()
     LOGGER.info("Disconnected from Redis broker")
 
 {% endif %}
