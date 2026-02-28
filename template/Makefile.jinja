@@ -32,6 +32,12 @@ setup:
 		echo ">> Setting up $$svc"; \
 		(cd "$$svc" && uv sync --frozen); \
 	done
+{%- if 'backend' in modules %}
+	@echo ">> Generating code from specs"
+	$(PYTHON) -m framework.generate
+{%- endif %}
+	@git config core.hooksPath .githooks 2>/dev/null || true
+	@echo ">> Setup complete!"
 
 lint:
 	$(VENV)/ruff check .
@@ -50,8 +56,8 @@ lint-specs:
 	$(PYTHON) -m framework.enforce_spec_compliance
 {% endif %}
 format:
-	$(VENV)/ruff format --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
-	$(VENV)/ruff check --fix --exclude 'services/**/migrations' --exclude '.venv' --exclude '*/.venv' .
+	$(VENV)/ruff format .
+	$(VENV)/ruff check --fix .
 
 typecheck:
 	@for svc in services/*/; do \

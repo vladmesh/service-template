@@ -5,6 +5,7 @@ from pathlib import Path
 
 from datamodel_code_generator import (
     DataModelType,
+    Formatter,
     InputFileType,
     PythonVersion,
     generate,
@@ -40,6 +41,7 @@ class SchemasGenerator(BaseGenerator):
             target_python_version=PythonVersion.PY_311,
             output=self.output_file,
             disable_timestamp=True,
+            formatters=[Formatter.RUFF_FORMAT, Formatter.RUFF_CHECK],
         )
 
         # Read generated content and write back with header

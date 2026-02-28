@@ -13,7 +13,7 @@ try:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session, sessionmaker
 
-    from shared.shared.generated.database import Base
+    from shared.generated.database import Base
 
     HAS_SQLALCHEMY = True
 except ImportError:
@@ -28,7 +28,6 @@ try:
 except ImportError:
     HAS_REDIS = False
 {%- endif %}
-
 {% if 'backend' in modules %}
 if HAS_SQLALCHEMY:
 
@@ -60,7 +59,6 @@ if HAS_SQLALCHEMY:
             session.rollback()
             session.close()
 {% endif %}
-
 {% if 'tg_bot' in modules or 'notifications' in modules %}
 if HAS_REDIS:
 
@@ -77,6 +75,4 @@ if HAS_REDIS:
         client.flushdb()
         client.close()
 {% endif %}
-
-
 # Add your custom fixtures below

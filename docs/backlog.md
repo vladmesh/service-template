@@ -282,6 +282,38 @@ _tasks:
 
 ---
 
+## E2E Issues (Open)
+
+### Copier tests (`tests/copier/`) нужно переписать
+
+**Status**: TODO
+**Priority**: MEDIUM
+
+**Description**: 55 тестов скипаются с `copier not installed`. Fixture `copier_available` проверяет `shutil.which("copier")`, но при запуске через `.venv/bin/pytest` copier не в PATH. Кроме того, после итераций 2-3 (убрали tooling, перешли на venv, lazy broker) многие тесты устарели и требуют обновления. `make test-copier` определён в корневом Makefile.
+
+### Makefile.jinja: `ruff format --extend-exclude` не поддерживается
+
+**Status**: TODO
+**Priority**: HIGH
+
+**Description**: `template/Makefile.jinja:53` использует `--extend-exclude` для `ruff format`, но эта команда поддерживает только `--exclude`. `make format` упадёт в сгенерированном проекте. `ruff check` поддерживает `--extend-exclude`, проблема только с `ruff format`. Варианты: добавить `services/**/migrations` в `template/ruff.toml` exclude или использовать `--exclude` для format.
+
+### Copier _tasks пропускает генерацию schemas
+
+**Status**: TODO
+**Priority**: LOW
+
+**Description**: Copier `_tasks` запускает `python3 -m framework.generate` через системный python, где нет `datamodel-code-generator`. Schemas не генерируются из коробки. Workaround: `make setup && make generate-from-spec`.
+
+### FutureWarning от datamodel-code-generator
+
+**Status**: TODO
+**Priority**: LOW
+
+**Description**: При каждом `make generate-from-spec` выводится FutureWarning о замене форматтеров (black, isort) на ruff. Нужно передать `formatters=[Formatter.RUFF_FORMAT, Formatter.RUFF_CHECK]`. Косметика, не влияет на работу.
+
+---
+
 ## Infrastructure Audit Fixes
 
 ### Reduce Docker Build Context with .dockerignore
@@ -300,7 +332,7 @@ _tasks:
 
 ### Remove poetry lock from Backend Dockerfile
 
-**Status**: TODO
+**Status**: DONE (migrated to uv)
 **Priority**: HIGH
 
 **Description**: The current `services/backend/Dockerfile` runs `poetry lock`, which can generate different lock files upon each build if dependencies update. This breaks build reproducibility. We should use the existing lock file and just run `poetry install`.
@@ -323,10 +355,10 @@ _tasks:
 
 ### Tooling Removal: Migrate to uv and Run Tools Natively
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: HIGH
 
-**Description**: As discussed in `brainstorm-tooling-removal.md`, remove the `tooling` container to avoid Docker-in-Docker complexities for agents. 
+**Description**: As discussed in `brainstorm-tooling-removal.md`, remove the `tooling` container to avoid Docker-in-Docker complexities for agents.
 - Migrate `pyproject.toml` from Poetry to `uv` (PEP 621).
 - Run linters (`ruff`, `mypy`) and unit tests natively without docker using `uv run`.
 - Update Makefile and CI workflows accordingly.

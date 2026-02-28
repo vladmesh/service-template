@@ -23,7 +23,7 @@ from telegram.ext import Application, ApplicationBuilder, CommandHandler, Contex
 
 from shared.generated.events import get_broker, publish_command_received
 from shared.generated.schemas import CommandReceived, UserCreate, UserRead
-from shared.shared.http_client import ServiceClient
+from shared.http_client import ServiceClient
 {%- endif %}
 
 logging.basicConfig(
@@ -124,9 +124,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         reply_text = f"{WELCOME_BACK_GREETING} {telegram_user.first_name or ''}".strip()
 {% else %}
-    reply_text = (
-        f"{DEFAULT_GREETING}\nДобро пожаловать, {telegram_user.first_name or 'друг'}!"
-    )
+    reply_text = f"{DEFAULT_GREETING}\nДобро пожаловать, {telegram_user.first_name or 'друг'}!"
 {% endif %}
     if update.message:
         await update.message.reply_text(reply_text)

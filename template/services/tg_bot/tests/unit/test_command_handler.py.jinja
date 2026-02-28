@@ -8,15 +8,15 @@ from unittest.mock import AsyncMock, MagicMock{% if 'backend' in modules %}, pat
 import pytest
 
 TEST_TELEGRAM_USER_ID: Final[int] = 123456789
-
 {% if 'backend' in modules %}
 
 @pytest.fixture
 def mock_broker() -> MagicMock:
     """Mock the broker for testing."""
-    with patch("services.tg_bot.src.main.broker") as mock:
-        mock.connect = AsyncMock()
-        mock.close = AsyncMock()
+    mock = MagicMock()
+    mock.connect = AsyncMock()
+    mock.close = AsyncMock()
+    with patch("services.tg_bot.src.main.get_broker", return_value=mock):
         yield mock
 
 
@@ -158,11 +158,19 @@ class TestSyncUserWithBackend:
     @pytest.mark.asyncio
     async def test_sync_user_created(self) -> None:
         """Test that new user creation returns True."""
+        from datetime import UTC, datetime
         from unittest.mock import AsyncMock
 
         from shared.generated.schemas import UserRead
 
-        mock_user = UserRead(id=1, telegram_id=TEST_TELEGRAM_USER_ID, is_admin=False)
+        now = datetime.now(UTC)
+        mock_user = UserRead(
+            id=1,
+            telegram_id=TEST_TELEGRAM_USER_ID,
+            is_admin=False,
+            created_at=now,
+            updated_at=now,
+        )
 
         with patch("services.tg_bot.src.main.BackendClient") as mock_client_class:
             mock_client = AsyncMock()
@@ -409,4 +417,5 @@ class TestHandleStart:
         await handle_start(update, context)
 
         update.message.reply_text.assert_not_awaited()
-{% endif %}
+{% endif -%}
+

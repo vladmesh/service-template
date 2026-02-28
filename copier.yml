@@ -126,11 +126,6 @@ _tasks:
   - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
   - "{% if 'backend' not in modules %}rm -rf shared/spec shared/shared/generated shared/shared/http_client.py{% endif %}"
   - "{% if 'backend' not in modules %}rm -rf services/*/spec{% endif %}"
-  # Configure git to use .githooks directory for hooks
-  - "chmod +x .githooks/* 2>/dev/null || true"
-  - "git config core.hooksPath .githooks 2>/dev/null || true"
-  # Regenerate code from specs so scaffolded files match what CI produces
-  - "PYTHONPATH=.framework python3 -m framework.generate"
   # Fix file permissions if running as root in Docker
   - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
 

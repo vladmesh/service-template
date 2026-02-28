@@ -146,7 +146,7 @@ However, if a service (like a standalone `tg_bot`) strictly needs to query anoth
 
 ```python
 # services/tg_bot/src/client.py
-from shared.shared.http_client import ServiceClient
+from shared.http_client import ServiceClient
 from shared.generated.schemas import UserCreate, UserRead
 
 class BackendClient(ServiceClient):
