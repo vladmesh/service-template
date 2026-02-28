@@ -49,11 +49,6 @@ if echo "$changed_files" | grep -qE '^(shared/|\.framework/)'; then
   fi
 fi
 
-# specs/ requires regeneration
-if echo "$changed_files" | grep -qE '^specs/'; then
-  run_generate=true
-fi
-
 # Changes in specific services
 for svc_dir in $(echo "$changed_files" | grep -oE '^services/[^/]+' | sort -u); do
   svc_name="${svc_dir#services/}"

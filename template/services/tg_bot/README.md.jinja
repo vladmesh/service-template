@@ -4,25 +4,11 @@ This directory contains a minimal python-telegram-bot application. The
 `main.py` file wires a `/start` handler and can be extended with more
 commands, message handlers, or background jobs as you iterate.
 
-## Local development
+## Development
 
-1. Install the dependencies:
-   ```bash
-   python -m venv .venv && source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. Export your bot token (from BotFather):
-   ```bash
-   export TELEGRAM_BOT_TOKEN="123:abc"
-   ```
-3. Run the bot:
-   ```bash
-   python services/tg_bot/src/main.py
-   ```
-
-## Docker compose integration
-
-The base Compose stack already includes this service, so `make dev-start`
+Run `make setup` from the project root to create per-service venvs, then
+start everything with `make dev-start`. The base Compose stack already
+includes this service, so `make dev-start`
 {% if 'backend' in modules %}
 will build and start it automatically alongside the backend and database.
 {% else %}
