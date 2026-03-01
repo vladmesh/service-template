@@ -151,12 +151,11 @@
 
 ## Template / Copier Issues
 
-### Copier tests (`tests/copier/`) нужно переписать
+### ~~Copier tests (`tests/copier/`) нужно переписать~~ → ✅ Done
 
-**Status**: TODO
-**Priority**: MEDIUM
+**Status**: DONE
 
-**Description**: 65 тестов в 15 классах. Fixture `copier_available` (conftest.py) проверяет `.venv/bin/copier` — если copier не установлен в root venv, все тесты скипаются. `make test-copier` и `make test-copier-slow` определены в корневом Makefile. Pre-push hook (``.githooks/pre-push``) запускает `make test-copier` при изменениях в template/, copier.yml, infra/, framework/, tests/. После итераций 2-3 (убрали tooling, перешли на venv, lazy broker) часть тестов может быть устаревшей.
+Переписаны в коммите `44a17d8`. 68 быстрых + 5 медленных тестов. Fixture обновлён, тесты включены в pre-push hook.
 
 ### Enum Types in Model Fields
 
@@ -193,6 +192,17 @@ models:
 4. Runs `make tests`
 
 This would catch integration issues between generated code and user templates.
+
+---
+
+### compose.dev.yml: PATH не включает per-service .venv
+
+**Status**: TODO
+**Priority**: MEDIUM
+
+**Description**: В `infra/compose.dev.yml.jinja` сервисы (`tg_bot`, `notifications_worker`) монтируют `/workspace` и задают `PYTHONPATH`, но не добавляют `PATH` с per-service `.venv/bin`. В dev-режиме (Docker) установленные в venv инструменты (pytest, ruff) не видны.
+**Источник**: `docs/e2e-issues-iteration7.md`, issue #6.
+**Варианты решения**: добавить `PATH: /workspace/services/<name>/.venv/bin:/workspace/.venv/bin:$$PATH` в `environment`, или использовать `uv run` для запуска команд.
 
 ---
 

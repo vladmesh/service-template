@@ -36,11 +36,11 @@ n/t = not tested (blocked by earlier failure), n/a = not applicable
 
 ---
 
-## #1 — Нет .dockerignore: host .venv ломает Docker build
+## #1 — ~~Нет .dockerignore: host .venv ломает Docker build~~ → ✅ FIXED
 
 **Severity:** HIGH (Docker образы нерабочие после `make setup`)
 **Affected:** backend, standalone, fullstack, full
-**File:** template/.dockerignore (отсутствует)
+**File:** template/.dockerignore (добавлен, 14 строк)
 
 Шаблон не генерирует `.dockerignore`. После `make setup` создаются `services/*/.venv/` на хосте. При `docker build` шаг `COPY services/backend ./services/backend` копирует HOST `.venv` поверх Docker-built `.venv`, заменяя корректные шебанги (`#!/app/services/backend/.venv/bin/python`) на хостовые (`#!/tmp/.../python`).
 
@@ -80,11 +80,11 @@ __pycache__/
 
 ---
 
-## #2 — compose.dev.yml: `bash -lc` сбрасывает Docker PATH
+## #2 — ~~compose.dev.yml: `bash -lc` сбрасывает Docker PATH~~ → ✅ FIXED
 
 **Severity:** HIGH (dev mode полностью нерабочий для backend)
 **Affected:** backend, fullstack, full
-**File:** template/infra/compose.dev.yml.jinja
+**File:** template/infra/compose.dev.yml.jinja (исправлено: `bash -c` без `-l`)
 
 `compose.dev.yml` использует `bash -lc "..."` для запуска backend. Флаг `-l` (login shell) подгружает `/etc/profile` из base image (`python:3.12-slim`), который перезаписывает `PATH`:
 
@@ -107,11 +107,11 @@ command: >-
 
 ---
 
-## #3 — backend-only: lifespan требует REDIS_URL
+## #3 — ~~backend-only: lifespan требует REDIS_URL~~ → ✅ FIXED
 
 **Severity:** HIGH (backend-only не стартует в Docker)
 **Affected:** backend
-**File:** template/services/backend/src/app/lifespan.py.jinja
+**File:** template/services/backend/src/app/lifespan.py.jinja (исправлено: broker условен по `modules`)
 
 При `modules=backend` (без tg_bot/notifications) lifespan.py безусловно вызывает `get_broker()`, который требует `REDIS_URL`. Но `.env.example` для backend-only корректно не включает `REDIS_URL` (Redis не нужен).
 
@@ -233,12 +233,12 @@ Jinja `{% if %}` блоки оставляют пустые строки при 
 
 ## Итого
 
-| Severity | Count | Issues |
-|----------|-------|--------|
-| HIGH     | 3     | #1, #2, #3 |
-| MEDIUM   | 3     | #4, #5, #6 |
-| LOW      | 1     | #7 |
-| INFO     | 1     | #8 |
+| Severity | Count | Issues | Status |
+|----------|-------|--------|--------|
+| HIGH     | 3     | #1, #2, #3 | ✅ Все исправлены |
+| MEDIUM   | 3     | #4, #5, #6 | #4 условно исправлен, #5 и #6 открыты |
+| LOW      | 1     | #7 | Открыт |
+| INFO     | 1     | #8 | Открыт |
 
 ---
 
@@ -263,11 +263,14 @@ Jinja `{% if %}` блоки оставляют пустые строки при 
 
 ## Резюме
 
-Шаблон в хорошей форме для статических проверок (lint, typecheck, unit tests, codegen). Основные проблемы — в Docker/runtime слое:
+Шаблон в хорошей форме для статических проверок (lint, typecheck, unit tests, codegen).
 
-1. **Критическое:** Отсутствие `.dockerignore` делает Docker build нерабочим после `make setup` (простой fix — 1 файл)
-2. **Критическое:** `bash -lc` в compose.dev.yml теряет Docker PATH (fix — убрать `-l`)
-3. **Критическое:** backend-only ломается без REDIS_URL (fix — условный broker в lifespan.py)
+**Исправлено после первоначального аудита:**
+1. ~~**Критическое:** `.dockerignore`~~ → ✅ Добавлен `template/.dockerignore`
+2. ~~**Критическое:** `bash -lc`~~ → ✅ Исправлено на `bash -c`
+3. ~~**Критическое:** REDIS_URL~~ → ✅ Broker условен по `modules`
+
+**Остаётся открытым:**
 4. **Среднее:** frontend не в compose.base.yml, prod deploy сломан для full config
-
-Все 3 HIGH issues имеют простые фиксы. После их устранения Docker-стек должен работать для всех конфигураций.
+5. **Среднее:** Integration test assert `"healthy"` vs `"ok"`
+6. **Среднее:** compose.dev.yml PATH не включает per-service `.venv/bin` (добавлено в backlog)
