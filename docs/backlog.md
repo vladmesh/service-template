@@ -182,16 +182,10 @@ models:
 
 ### Add E2E CI Job for Unified Handlers
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: MEDIUM
 
-**Description**: Add a CI job that:
-1. Generates a project via copier with dual-transport operations
-2. Runs `make setup && make generate-from-spec`
-3. Runs `make lint`
-4. Runs `make tests`
-
-This would catch integration issues between generated code and user templates.
+**Description**: `test_e2e_dual_transport_pipeline` в `TestSlowIntegration` — генерирует проект с `backend,tg_bot` (dual-transport: REST + events), запускает полный pipeline: `make setup` → `make generate-from-spec` (idempotency) → `make lint` → `make tests`. Запускается через `make test-copier-slow` и в CI (`test-template.yml` → `test-pytest` job).
 
 ---
 

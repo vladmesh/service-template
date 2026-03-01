@@ -14,6 +14,7 @@ services:
       - ./.env.test
     environment:
       PYTHONPATH: /workspace
+      PATH: /workspace/services/backend/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
       ASYNC_DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-service_template}
     volumes:
       - ../:/workspace:delegated
@@ -44,6 +45,7 @@ services:
       - ./.env.test
     environment:
       PYTHONPATH: /workspace
+      PATH: /workspace/services/backend/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
     depends_on:
       backend:
         condition: service_started

@@ -825,3 +825,56 @@ class TestSlowIntegration:
             f"make lint failed for modules={modules}:\n"
             f"stdout: {lint_result.stdout}\nstderr: {lint_result.stderr}"
         )
+
+    def test_e2e_dual_transport_pipeline(self, tmp_path: Path):
+        """E2E: setup → generate-from-spec → lint → tests with dual-transport ops."""
+        modules = "backend,tg_bot"
+        output = run_copier(tmp_path, modules)
+
+        # Step 1: make setup (creates venvs, installs deps, generates code)
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "setup"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, (
+            f"make setup failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        # Step 2: make generate-from-spec (idempotent regeneration)
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "generate-from-spec"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"make generate-from-spec failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        # Step 3: make lint (ruff + spec validation + controller sync)
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "lint"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"make lint failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        # Step 4: make tests (unit tests for all services)
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "tests"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"make tests failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
