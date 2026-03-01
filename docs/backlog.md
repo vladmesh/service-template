@@ -181,25 +181,6 @@ models:
 
 ## Usability Issues (from Testing Feedback)
 
-### Auto-Register Routers
-
-**Status**: TODO
-
-**Description**: After generating a new domain router, the user must manually:
-1. Import the controller class
-2. Import the generated router factory
-3. Create a dependency function for the controller
-4. Call `create_router()` and register it with `api_router`
-
-This is repetitive and error-prone.
-
-**Proposed Solution**:
-- Generate a `router_registry.py` that auto-discovers all generated routers
-- Use a naming convention like `controllers/{domain}.py` → `routers/{domain}.py`
-- Main router imports and includes all discovered routers automatically
-
----
-
 ### Add E2E CI Job for Unified Handlers
 
 **Status**: TODO
@@ -212,15 +193,6 @@ This is repetitive and error-prone.
 4. Runs `make tests`
 
 This would catch integration issues between generated code and user templates.
-
----
-
-### Full Router.py Generation (Eliminate Wiring Layer)
-
-**Status**: IDEA
-**Priority**: LOW
-
-**Description**: Currently `router.py` is manual (wiring layer). We could generate it fully from specs, making the framework 100% spec-first even for FastAPI services.
 
 ---
 
