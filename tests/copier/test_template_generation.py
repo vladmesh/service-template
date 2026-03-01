@@ -583,6 +583,172 @@ class TestCIWorkflowSimulation:
             )
 
 
+class TestDockerReadiness:
+    """Tests that generated projects are ready for Docker builds and runtime."""
+
+    def test_dockerignore_exists_and_excludes_venv(self, project_backend: Path):
+        """.dockerignore should exist and exclude host .venv directories."""
+        dockerignore = project_backend / ".dockerignore"
+        assert dockerignore.exists(), (
+            ".dockerignore not found — host .venv will break Docker builds"
+        )
+        content = dockerignore.read_text()
+        assert ".venv/" in content, ".dockerignore must exclude .venv/"
+        assert "services/*/.venv/" in content, ".dockerignore must exclude services/*/.venv/"
+
+    def test_compose_dev_no_login_shell(self, project_backend: Path):
+        """compose.dev.yml should not use bash -l (login shell resets Docker PATH)."""
+        compose_dev = (project_backend / "infra" / "compose.dev.yml").read_text()
+        assert "bash -lc" not in compose_dev, (
+            "compose.dev.yml uses 'bash -lc' which resets Docker PATH, "
+            "losing .venv/bin. Use 'bash -c' instead."
+        )
+
+    def test_backend_only_lifespan_no_broker(self, project_backend: Path):
+        """Backend-only lifespan should NOT import get_broker (no REDIS_URL)."""
+        lifespan = project_backend / "services" / "backend" / "src" / "app" / "lifespan.py"
+        assert lifespan.exists(), "lifespan.py not found"
+        content = lifespan.read_text()
+        assert "get_broker" not in content, (
+            "Backend-only lifespan.py imports get_broker which requires REDIS_URL, "
+            "but backend-only has no Redis."
+        )
+
+    def test_fullstack_lifespan_has_broker(self, project_fullstack: Path):
+        """Fullstack lifespan should import get_broker for event-driven modules."""
+        lifespan = project_fullstack / "services" / "backend" / "src" / "app" / "lifespan.py"
+        assert lifespan.exists(), "lifespan.py not found"
+        content = lifespan.read_text()
+        assert "get_broker" in content, (
+            "Fullstack lifespan.py should import get_broker for tg_bot/notifications."
+        )
+
+    def test_compose_prod_config_valid(self, tmp_path: Path):
+        """compose.prod.yml should pass docker compose config validation."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
+        shutil.copy(output / ".env.example", output / ".env")
+
+        # Set required IMAGE variables for prod compose
+        env = {
+            **os.environ,
+            "BACKEND_IMAGE": "test:latest",
+            "TG_BOT_IMAGE": "test:latest",
+            "NOTIFICATIONS_WORKER_IMAGE": "test:latest",
+            "FRONTEND_IMAGE": "test:latest",
+        }
+
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "-f",
+                "infra/compose.prod.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert result.returncode == 0, (
+            f"compose.prod.yml config failed (full stack):\n{result.stderr}"
+        )
+
+    def test_compose_dev_config_valid(self, tmp_path: Path):
+        """compose.dev.yml should pass docker compose config validation."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend,tg_bot")
+        shutil.copy(output / ".env.example", output / ".env")
+
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "-f",
+                "infra/compose.dev.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"compose.dev.yml config failed:\n{result.stderr}"
+
+    def test_health_endpoint_matches_test_assertion(self, project_backend: Path):
+        """Integration test assertion should match actual health endpoint response."""
+        health_py = (
+            project_backend / "services" / "backend" / "src" / "app" / "api" / "v1" / "health.py"
+        )
+        test_file = project_backend / "tests" / "integration" / "test_example.py"
+
+        if not health_py.exists() or not test_file.exists():
+            pytest.skip("health endpoint or integration test not found")
+
+        health_content = health_py.read_text()
+        test_content = test_file.read_text()
+
+        # Extract status value from health endpoint
+        import re
+
+        health_match = re.search(r'"status":\s*"(\w+)"', health_content)
+        assert health_match, "Could not find status value in health.py"
+        actual_status = health_match.group(1)
+
+        # Extract status assertion from test
+        test_match = re.search(r'data\["status"\]\s*==\s*"(\w+)"', test_content)
+        assert test_match, "Could not find status assertion in test_example.py"
+        expected_status = test_match.group(1)
+
+        assert actual_status == expected_status, (
+            f"Health endpoint returns '{actual_status}' but integration test "
+            f"asserts '{expected_status}'"
+        )
+
+
+class TestCIWorkflowCorrectness:
+    """Tests for CI workflow correctness beyond basic structure."""
+
+    def test_standalone_ci_no_integration_cleanup(self, project_standalone: Path):
+        """Standalone CI should not have docker compose down for non-existent integration stack."""
+        ci_yml = (project_standalone / ".github" / "workflows" / "ci.yml").read_text()
+        assert "compose.tests.integration" not in ci_yml or "Run integration tests" in ci_yml, (
+            "Standalone CI references compose.tests.integration.yml (in Clean up step) "
+            "but has no integration tests. This is a no-op that should be removed."
+        )
+
+
+class TestFormattingQuality:
+    """Tests for generated file formatting quality."""
+
+    def test_services_yml_no_excessive_blank_lines(self, project_standalone: Path):
+        """services.yml should not have excessive blank lines from Jinja conditionals."""
+        content = (project_standalone / "services.yml").read_text()
+        assert "\n\n\n" not in content, (
+            "services.yml has triple blank lines — likely from Jinja conditional whitespace"
+        )
+
+    def test_services_yml_no_leading_blank_in_list(self, project_backend: Path):
+        """services.yml services list should not start with a blank line."""
+        content = (project_backend / "services.yml").read_text()
+        # Check for "services:\n\n  - name:" pattern (blank line after services:)
+        assert "services:\n\n" not in content, (
+            "services.yml has a blank line between 'services:' and first item"
+        )
+
+
 class TestGeneratedCodeQuality:
     """Tests that ensure the generated code is high quality."""
 

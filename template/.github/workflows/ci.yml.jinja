@@ -52,11 +52,12 @@ jobs:
 {% if 'backend' in modules %}
       - name: Run integration tests
         run: make test-integration
-{% endif %}
+
       - name: Clean up
         if: always()
         run: |
           COMPOSE_PROJECT_NAME=tests-integration docker compose -f infra/compose.tests.integration.yml down --volumes --remove-orphans 2>/dev/null || true
+{% endif %}
 
   build-and-push:
     runs-on: ubuntu-latest

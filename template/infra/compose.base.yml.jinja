@@ -70,6 +70,16 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 {%- endif %}
+{%- if 'frontend' in modules %}
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-{{ project_slug }}-frontend:latest}
+    build:
+      context: ../services/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+{%- endif %}
 {%- if 'tg_bot' in modules or 'notifications' in modules %}
 
   redis:
