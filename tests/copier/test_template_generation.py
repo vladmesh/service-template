@@ -11,7 +11,7 @@ import sys
 
 import pytest
 
-from tests.copier.conftest import BASE_DATA, check_no_jinja_artifacts, run_copier
+from tests.copier.conftest import BASE_DATA, VENV_RUFF, check_no_jinja_artifacts, run_copier
 
 
 class TestBackendOnlyGeneration:
@@ -764,11 +764,12 @@ class TestGeneratedCodeQuality:
         strict_config_path.write_text(strict_content)
 
         # Auto-fix first (import sorting etc. that's hard to get perfect in Jinja)
-        fix_cmd = ["ruff", "check", "--config", "ruff.strict.toml", "--fix", "."]
-        subprocess.run(fix_cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603, S607
+        ruff = str(VENV_RUFF)
+        fix_cmd = [ruff, "check", "--config", "ruff.strict.toml", "--fix", "."]
+        subprocess.run(fix_cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603
 
-        cmd = ["ruff", "check", "--config", "ruff.strict.toml", "."]
-        result = subprocess.run(cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603, S607
+        cmd = [ruff, "check", "--config", "ruff.strict.toml", "."]
+        result = subprocess.run(cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603
 
         assert result.returncode == 0, (
             f"Strict linting failed on generated code.\n"

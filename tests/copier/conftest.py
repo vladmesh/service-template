@@ -7,6 +7,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 VENV_COPIER = REPO_ROOT / ".venv" / "bin" / "copier"
+VENV_RUFF = REPO_ROOT / ".venv" / "bin" / "ruff"
 
 BASE_DATA = {
     "project_name": "test-project",
