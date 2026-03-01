@@ -88,13 +88,12 @@ if $run_test; then
   ((checks_run++)) || true
 fi
 
-# TODO: re-enable after copier tests are updated for venv/lazy-broker changes
-# if $run_test_copier; then
-#   echo ""
-#   echo "[pre-push] Running copier tests..."
-#   make test-copier
-#   ((checks_run++)) || true
-# fi
+if $run_test_copier; then
+  echo ""
+  echo "[pre-push] Running copier tests..."
+  make test-copier
+  ((checks_run++)) || true
+fi
 
 if [ "$checks_run" -eq 0 ]; then
   echo "[pre-push] No relevant checks for changed files (docs only?), skipping"

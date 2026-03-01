@@ -2,7 +2,7 @@
 # This Makefile is for developing the service-template framework itself.
 # For product development commands, see the generated project's Makefile.
 
-.PHONY: setup lint format test test-copier test-all help sync-framework sync-framework-preview check-sync
+.PHONY: setup lint format test test-copier test-copier-slow test-all help sync-framework sync-framework-preview check-sync
 
 VENV := .venv/bin
 
@@ -37,7 +37,10 @@ test:
 	$(VENV)/pytest -q --cov=framework --cov-report=term-missing tests/unit tests/tooling
 
 test-copier:
-	$(VENV)/pytest -v tests/copier/
+	$(VENV)/pytest -v -m "not slow" tests/copier/
+
+test-copier-slow:
+	$(VENV)/pytest -v -m slow tests/copier/
 
 test-all: test test-copier
 

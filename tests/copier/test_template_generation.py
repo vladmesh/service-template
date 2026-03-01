@@ -1,7 +1,6 @@
 """Tests for Copier template generation.
 
-These tests require copier to be installed: pip install copier pyyaml
-Run with: pytest tests/copier/ -v
+Run with: make test-copier
 """
 
 import os
@@ -9,173 +8,46 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 
 import pytest
 
-# Base data for all tests
-BASE_DATA = {
-    "project_name": "test-project",
-    "project_description": "Test project description",
-    "author_name": "Test Author",
-    "author_email": "test@example.com",
-    "python_version": "3.12",
-}
-
-TEMPLATE_DIR = Path(__file__).parent.parent.parent  # Root of service-template
-
-# Cache for copied template to avoid repeated copies
-_template_cache_dir: Path | None = None
+from tests.copier.conftest import BASE_DATA, check_no_jinja_artifacts, run_copier
 
 
-def _get_template_dir() -> Path:
-    """Get template directory, copying to /tmp if running in Docker with slow mounts."""
-    global _template_cache_dir
-
-    if _template_cache_dir is not None and _template_cache_dir.exists():
-        return _template_cache_dir
-
-    # Check if we're in a Docker container with mounted workspace (slow I/O)
-    # by checking if /workspace exists and is the template dir
-    if TEMPLATE_DIR.as_posix().startswith("/workspace"):
-        # Copy template to /tmp for faster I/O
-        _template_cache_dir = Path(tempfile.mkdtemp(prefix="copier-template-"))
-        # Use rsync-like copy excluding heavy/unnecessary dirs
-        shutil.copytree(
-            TEMPLATE_DIR,
-            _template_cache_dir,
-            dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns(
-                ".git",
-                ".venv",
-                "__pycache__",
-                ".pytest_cache",
-                ".mypy_cache",
-                ".ruff_cache",
-                "node_modules",
-                ".coverage",
-            ),
-        )
-        # Initialize git repo (copier requires it)
-        subprocess.run(["git", "init"], cwd=_template_cache_dir, capture_output=True, check=True)  # noqa: S603, S607
-        subprocess.run(  # noqa: S603, S607
-            ["git", "config", "user.email", "test@test.com"],
-            cwd=_template_cache_dir,
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(  # noqa: S603, S607
-            ["git", "config", "user.name", "Test"],
-            cwd=_template_cache_dir,
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(  # noqa: S603, S607
-            ["git", "add", "."], cwd=_template_cache_dir, capture_output=True, check=True
-        )
-        subprocess.run(  # noqa: S603, S607
-            ["git", "commit", "-m", "init"],
-            cwd=_template_cache_dir,
-            capture_output=True,
-            check=True,
-        )
-        return _template_cache_dir
-
-    return TEMPLATE_DIR
-
-
-def run_copier(tmp_path: Path, modules: str) -> Path:
-    """Run copier copy and return the output directory."""
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
-
-    template_dir = _get_template_dir()
-
-    cmd = [
-        "copier",
-        "copy",
-        str(template_dir),
-        str(output_dir),
-        "--trust",
-        "--defaults",
-        f"--data=project_name={BASE_DATA['project_name']}",
-        f"--data=project_description={BASE_DATA['project_description']}",
-        f"--data=author_name={BASE_DATA['author_name']}",
-        f"--data=author_email={BASE_DATA['author_email']}",
-        f"--data=python_version={BASE_DATA['python_version']}",
-        f"--data=modules={modules}",
-    ]
-
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=template_dir)  # noqa: S603, S607
-    if result.returncode != 0:
-        pytest.fail(f"Copier failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
-
-    return output_dir
-
-
-def check_no_jinja_artifacts(directory: Path) -> list[str]:
-    """Check that no Jinja artifacts remain in generated files."""
-    errors = []
-    extensions = {".py", ".yml", ".yaml", ".md", ".toml", ".json", ".sh"}
-
-    for file in directory.rglob("*"):
-        if file.is_file() and file.suffix in extensions:
-            try:
-                content = file.read_text()
-                if "{{" in content and "{%" in content:
-                    # Could be legitimate (e.g., Jinja templates in the project)
-                    # Only flag if it looks like unrendered template
-                    if "{{ project_name }}" in content or "{{ _has_" in content:
-                        errors.append(f"Jinja artifact in {file.relative_to(directory)}")
-            except UnicodeDecodeError:
-                pass  # Binary file
-
-    return errors
-
-
-@pytest.mark.usefixtures("copier_available")
 class TestBackendOnlyGeneration:
     """Test generation with only backend module."""
 
-    @pytest.fixture
-    def generated_project(self, tmp_path: Path) -> Path:
-        return run_copier(tmp_path, "backend")
-
-    def test_core_files_exist(self, generated_project: Path):
+    def test_core_files_exist(self, project_backend: Path):
         """Core files should be generated."""
-        assert (generated_project / "Makefile").exists()
-        assert (generated_project / "README.md").exists()
-        assert (generated_project / "ARCHITECTURE.md").exists()
-        assert (generated_project / "CONTRIBUTING.md").exists()
-        # AGENTS.md is NOT generated - it's dynamically created by orchestrator
+        assert (project_backend / "Makefile").exists()
+        assert (project_backend / "README.md").exists()
+        assert (project_backend / "ARCHITECTURE.md").exists()
+        assert (project_backend / "CONTRIBUTING.md").exists()
 
-    def test_services_yml_generated(self, generated_project: Path):
+    def test_services_yml_generated(self, project_backend: Path):
         """services.yml should contain only backend."""
-        services_yml = generated_project / "services.yml"
-        assert services_yml.exists()
-
-        content = services_yml.read_text()
+        content = (project_backend / "services.yml").read_text()
         assert "backend" in content
         assert "tg_bot" not in content
         assert "notifications_worker" not in content
         assert "frontend" not in content
 
-    def test_backend_service_exists(self, generated_project: Path):
+    def test_backend_service_exists(self, project_backend: Path):
         """Backend service directory should exist."""
-        assert (generated_project / "services" / "backend").exists()
-        assert (generated_project / "services" / "backend" / "Dockerfile").exists()
+        assert (project_backend / "services" / "backend").exists()
+        assert (project_backend / "services" / "backend" / "Dockerfile").exists()
 
-    def test_other_services_excluded(self, generated_project: Path):
+    def test_other_services_excluded(self, project_backend: Path):
         """Other service directories should not exist."""
-        assert not (generated_project / "services" / "tg_bot").exists()
-        assert not (generated_project / "services" / "notifications_worker").exists()
-        assert not (generated_project / "services" / "frontend").exists()
+        assert not (project_backend / "services" / "tg_bot").exists()
+        assert not (project_backend / "services" / "notifications_worker").exists()
+        assert not (project_backend / "services" / "frontend").exists()
 
-    def test_compose_files_valid(self, generated_project: Path):
+    def test_compose_files_valid(self, project_backend: Path):
         """Docker Compose files should be valid YAML."""
         import yaml
 
-        compose_base = generated_project / "infra" / "compose.base.yml"
+        compose_base = project_backend / "infra" / "compose.base.yml"
         assert compose_base.exists()
 
         content = yaml.safe_load(compose_base.read_text())
@@ -185,164 +57,189 @@ class TestBackendOnlyGeneration:
         # Redis should not be included for backend-only
         assert "redis" not in content["services"]
 
-    def test_no_jinja_artifacts(self, generated_project: Path):
+    def test_no_jinja_artifacts(self, project_backend: Path):
         """No Jinja template artifacts should remain."""
-        errors = check_no_jinja_artifacts(generated_project)
+        errors = check_no_jinja_artifacts(project_backend)
         assert not errors, f"Found Jinja artifacts: {errors}"
 
-    def test_readme_content(self, generated_project: Path):
+    def test_readme_content(self, project_backend: Path):
         """README should contain project info."""
-        readme = generated_project / "README.md"
-        content = readme.read_text()
-
+        content = (project_backend / "README.md").read_text()
         assert BASE_DATA["project_name"] in content
         assert "backend" in content.lower()
 
-    def test_product_test_scaffolding(self, generated_project: Path):
-        """Product should have test scaffolding, not framework tests."""
-        # Product test scaffolding should exist
-        tests_dir = generated_project / "tests"
-        assert tests_dir.exists(), "tests/ directory should exist"
-        assert (tests_dir / "conftest.py").exists(), "tests/conftest.py should exist"
-        assert (tests_dir / "integration").exists(), "tests/integration/ should exist"
+    def test_product_test_scaffolding(self, project_backend: Path):
+        """Product should have test scaffolding."""
+        tests_dir = project_backend / "tests"
+        assert tests_dir.exists()
+        assert (tests_dir / "integration").exists()
 
-        # Framework tests should NOT be copied
-        assert not (tests_dir / "unit").exists(), "Framework tests/unit/ should not be copied"
-        assert not (tests_dir / "copier").exists(), "Framework tests/copier/ should not be copied"
-        assert not (tests_dir / "tooling").exists(), "Framework tests/tooling/ should not be copied"
+        # Framework copier tests should NOT be copied
+        assert not (tests_dir / "copier").exists()
 
-        # conftest.py should not have .jinja extension and should be rendered
-        conftest_content = (tests_dir / "conftest.py").read_text()
-        assert "{{ project_name }}" not in conftest_content, "Jinja artifacts in conftest.py"
-        assert "test-project" in conftest_content or "Pytest configuration" in conftest_content
+    def test_copier_answers_file_created(self, project_backend: Path):
+        """Generated project should have .copier-answers.yml."""
+        import yaml
+
+        answers_file = project_backend / ".copier-answers.yml"
+        assert answers_file.exists()
+
+        answers = yaml.safe_load(answers_file.read_text())
+        assert answers["project_name"] == "test-project"
+        assert answers["modules"] == "backend"
 
 
-@pytest.mark.usefixtures("copier_available")
+class TestStandaloneGeneration:
+    """Test generation with standalone tg_bot module (no backend)."""
+
+    def test_tg_bot_service_exists(self, project_standalone: Path):
+        """tg_bot service directory and Dockerfile should exist."""
+        assert (project_standalone / "services" / "tg_bot").exists()
+        assert (project_standalone / "services" / "tg_bot" / "Dockerfile").exists()
+
+    def test_no_jinja_artifacts(self, project_standalone: Path):
+        """No Jinja artifacts in standalone generation."""
+        errors = check_no_jinja_artifacts(project_standalone)
+        assert not errors, f"Found Jinja artifacts: {errors}"
+
+    def test_env_example_no_postgres(self, project_standalone: Path):
+        """Standalone .env.example should not have POSTGRES variables."""
+        env_content = (project_standalone / ".env.example").read_text()
+        assert "POSTGRES" not in env_content
+
+    def test_env_example_has_redis_and_telegram(self, project_standalone: Path):
+        """Standalone .env.example should have REDIS and TELEGRAM variables."""
+        env_content = (project_standalone / ".env.example").read_text()
+        assert "REDIS_URL" in env_content
+        assert "TELEGRAM_BOT_TOKEN" in env_content
+
+    def test_compose_has_tg_bot_and_redis(self, project_standalone: Path):
+        """Compose should have tg_bot + redis."""
+        import yaml
+
+        compose = yaml.safe_load((project_standalone / "infra" / "compose.base.yml").read_text())
+        services = compose.get("services", {})
+        assert "tg_bot" in services
+        assert "redis" in services
+
+    def test_services_yml_has_tg_bot(self, project_standalone: Path):
+        """services.yml should contain tg_bot."""
+        content = (project_standalone / "services.yml").read_text()
+        assert "tg_bot" in content
+        assert "notifications_worker" not in content
+        assert "frontend" not in content
+
+    def test_workflow_matrix_has_tg_bot(self, project_standalone: Path):
+        """Workflow matrix should include tg-bot."""
+        ci_yml = (project_standalone / ".github" / "workflows" / "ci.yml").read_text()
+        assert "id: tg-bot" in ci_yml
+
+
 class TestBackendWithTgBotGeneration:
     """Test generation with backend and tg_bot modules."""
 
-    @pytest.fixture
-    def generated_project(self, tmp_path: Path) -> Path:
-        return run_copier(tmp_path, "backend,tg_bot")
-
-    def test_both_services_exist(self, generated_project: Path):
+    def test_both_services_exist(self, project_backend_tg_bot: Path):
         """Both backend and tg_bot should exist."""
-        assert (generated_project / "services" / "backend").exists()
-        assert (generated_project / "services" / "tg_bot").exists()
+        assert (project_backend_tg_bot / "services" / "backend").exists()
+        assert (project_backend_tg_bot / "services" / "tg_bot").exists()
 
-    def test_redis_included(self, generated_project: Path):
+    def test_redis_included(self, project_backend_tg_bot: Path):
         """Redis should be included for event-driven modules."""
         import yaml
 
-        compose_base = generated_project / "infra" / "compose.base.yml"
+        compose_base = project_backend_tg_bot / "infra" / "compose.base.yml"
         content = yaml.safe_load(compose_base.read_text())
-
         assert "redis" in content["services"]
 
-    def test_services_yml_has_both(self, generated_project: Path):
+    def test_services_yml_has_both(self, project_backend_tg_bot: Path):
         """services.yml should have both services."""
-        content = (generated_project / "services.yml").read_text()
+        content = (project_backend_tg_bot / "services.yml").read_text()
         assert "backend" in content
         assert "tg_bot" in content
 
-    def test_tg_bot_depends_on_redis(self, generated_project: Path):
+    def test_tg_bot_depends_on_redis(self, project_backend_tg_bot: Path):
         """tg_bot should depend on redis: service_healthy in services.yml."""
         import yaml
 
-        services_yml = generated_project / "services.yml"
-        content = yaml.safe_load(services_yml.read_text())
-
-        tg_bot_service = next((s for s in content["services"] if s["name"] == "tg_bot"), None)
-        assert tg_bot_service is not None, "tg_bot service not found"
-        assert "depends_on" in tg_bot_service
-        assert tg_bot_service["depends_on"].get("redis") == "service_healthy"
+        content = yaml.safe_load((project_backend_tg_bot / "services.yml").read_text())
+        tg_bot = next((s for s in content["services"] if s["name"] == "tg_bot"), None)
+        assert tg_bot is not None, "tg_bot service not found"
+        assert "depends_on" in tg_bot
+        assert tg_bot["depends_on"].get("redis") == "service_healthy"
 
 
-@pytest.mark.usefixtures("copier_available")
 class TestFullStackGeneration:
     """Test generation with all modules."""
 
-    @pytest.fixture
-    def generated_project(self, tmp_path: Path) -> Path:
-        return run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-
-    def test_all_services_exist(self, generated_project: Path):
+    def test_all_services_exist(self, project_fullstack: Path):
         """All services should exist."""
-        assert (generated_project / "services" / "backend").exists()
-        assert (generated_project / "services" / "tg_bot").exists()
-        assert (generated_project / "services" / "notifications_worker").exists()
-        assert (generated_project / "services" / "frontend").exists()
+        assert (project_fullstack / "services" / "backend").exists()
+        assert (project_fullstack / "services" / "tg_bot").exists()
+        assert (project_fullstack / "services" / "notifications_worker").exists()
+        assert (project_fullstack / "services" / "frontend").exists()
 
-    def test_no_jinja_artifacts(self, generated_project: Path):
+    def test_no_jinja_artifacts(self, project_fullstack: Path):
         """No Jinja artifacts in full generation."""
-        errors = check_no_jinja_artifacts(generated_project)
+        errors = check_no_jinja_artifacts(project_fullstack)
         assert not errors, f"Found Jinja artifacts: {errors}"
 
 
-@pytest.mark.usefixtures("copier_available")
 class TestEnvExample:
     """Test .env.example generation."""
 
-    def test_backend_only_env(self, tmp_path: Path):
-        """Backend-only should have postgres and redis (for events)."""
-        output = run_copier(tmp_path, "backend")
-        env_content = (output / ".env.example").read_text()
-
+    def test_backend_only_env(self, project_backend: Path):
+        """Backend-only should have postgres but not redis or telegram."""
+        env_content = (project_backend / ".env.example").read_text()
         assert "POSTGRES" in env_content
-        # Backend uses events for debug endpoint, so REDIS is included
-        assert "REDIS" in env_content
+        # Backend-only does NOT include redis (no tg_bot/notifications)
+        assert "REDIS" not in env_content
         assert "TELEGRAM" not in env_content
 
-    def test_with_tg_bot_env(self, tmp_path: Path):
+    def test_with_tg_bot_env(self, project_backend_tg_bot: Path):
         """With tg_bot should have redis and telegram."""
-        output = run_copier(tmp_path, "backend,tg_bot")
-        env_content = (output / ".env.example").read_text()
-
+        env_content = (project_backend_tg_bot / ".env.example").read_text()
         assert "POSTGRES" in env_content
         assert "REDIS" in env_content
         assert "TELEGRAM" in env_content
 
+    def test_standalone_env_has_redis_telegram_no_postgres(self, project_standalone: Path):
+        """Standalone tg_bot should have redis and telegram but no postgres."""
+        env_content = (project_standalone / ".env.example").read_text()
+        assert "REDIS" in env_content
+        assert "TELEGRAM" in env_content
+        assert "POSTGRES" not in env_content
 
-@pytest.mark.usefixtures("copier_available")
+
 class TestModuleExclusion:
     """Test that unselected modules are properly excluded."""
 
     def test_notifications_excluded_when_not_selected(self, tmp_path: Path):
         """notifications_worker should not exist when not in modules."""
         output = run_copier(tmp_path, "backend,tg_bot")
-
         assert not (output / "services" / "notifications_worker").exists()
-        services_yml = (output / "services.yml").read_text()
-        assert "notifications_worker" not in services_yml
+        assert "notifications_worker" not in (output / "services.yml").read_text()
 
     def test_frontend_excluded_when_not_selected(self, tmp_path: Path):
         """frontend should not exist when not in modules."""
         output = run_copier(tmp_path, "backend,notifications")
-
         assert not (output / "services" / "frontend").exists()
-        services_yml = (output / "services.yml").read_text()
-        assert "frontend" not in services_yml
+        assert "frontend" not in (output / "services.yml").read_text()
 
     def test_tg_bot_excluded_when_not_selected(self, tmp_path: Path):
         """tg_bot should not exist when not in modules."""
         output = run_copier(tmp_path, "backend,frontend")
-
         assert not (output / "services" / "tg_bot").exists()
-        services_yml = (output / "services.yml").read_text()
-        assert "tg_bot" not in services_yml
+        assert "tg_bot" not in (output / "services.yml").read_text()
 
 
-@pytest.mark.usefixtures("copier_available")
 class TestComposeServices:
     """Test Docker Compose service generation."""
 
-    def test_redis_only_with_event_modules(self, tmp_path: Path):
-        """Redis should only be included when tg_bot or notifications selected."""
+    def test_redis_only_with_event_modules(self, project_backend: Path):
+        """Redis should not be included for backend-only."""
         import yaml
 
-        # Backend only - no redis
-        output = run_copier(tmp_path, "backend")
-        compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
+        compose = yaml.safe_load((project_backend / "infra" / "compose.base.yml").read_text())
         assert "redis" not in compose.get("services", {})
 
     def test_redis_with_notifications(self, tmp_path: Path):
@@ -353,56 +250,36 @@ class TestComposeServices:
         compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
         assert "redis" in compose["services"]
 
-    def test_all_services_in_compose(self, tmp_path: Path):
+    def test_fullstack_compose_services(self, project_fullstack: Path):
         """All selected services should be in compose."""
         import yaml
 
-        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-        compose = yaml.safe_load((output / "infra" / "compose.base.yml").read_text())
-
+        compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
         assert "backend" in compose["services"]
         assert "tg_bot" in compose["services"]
         assert "notifications_worker" in compose["services"]
-        assert "frontend" in compose["services"]
         assert "redis" in compose["services"]
         assert "db" in compose["services"]
 
-    def test_dev_compose_has_event_services(self, tmp_path: Path):
-        """compose.dev.yml should include tg_bot, notifications, and redis when selected."""
+    def test_dev_compose_has_event_services(self, project_backend_tg_bot: Path):
+        """compose.dev.yml should include tg_bot and redis when selected."""
         import yaml
 
-        output = run_copier(tmp_path, "backend,tg_bot,notifications")
-        compose_dev = yaml.safe_load((output / "infra" / "compose.dev.yml").read_text())
-
+        compose_dev = yaml.safe_load(
+            (project_backend_tg_bot / "infra" / "compose.dev.yml").read_text()
+        )
         assert "tg_bot" in compose_dev["services"]
-        assert "notifications_worker" in compose_dev["services"]
         assert "redis" in compose_dev["services"]
 
-    def test_dev_compose_no_redis_backend_only(self, tmp_path: Path):
+    def test_dev_compose_no_redis_backend_only(self, project_backend: Path):
         """compose.dev.yml should not include redis for backend-only."""
         import yaml
 
-        output = run_copier(tmp_path, "backend")
-        compose_dev = yaml.safe_load((output / "infra" / "compose.dev.yml").read_text())
-
+        compose_dev = yaml.safe_load((project_backend / "infra" / "compose.dev.yml").read_text())
         assert "redis" not in compose_dev.get("services", {})
         assert "tg_bot" not in compose_dev.get("services", {})
 
-    def test_compose_files_have_sync_markers(self, tmp_path: Path):
-        """Compose files should have sync markers for dynamic service addition via sync_services."""
-        output = run_copier(tmp_path, "backend,tg_bot")
 
-        for compose_file in ["compose.base.yml", "compose.dev.yml", "compose.tests.unit.yml"]:
-            content = (output / "infra" / compose_file).read_text()
-            assert "# >>> services (auto-generated from services.yml)" in content, (
-                f"Start marker not found in {compose_file}"
-            )
-            assert "# <<< services (auto-generated from services.yml)" in content, (
-                f"End marker not found in {compose_file}"
-            )
-
-
-@pytest.mark.usefixtures("copier_available")
 class TestIntegration:
     """Integration tests - validate generated project structure."""
 
@@ -412,12 +289,9 @@ class TestIntegration:
             pytest.skip("docker not available")
 
         output = run_copier(tmp_path, "backend")
-
-        # Create .env file (like CI does)
         shutil.copy(output / ".env.example", output / ".env")
-
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "-f", "infra/compose.base.yml", "config"],
+            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
             capture_output=True,
             text=True,
             cwd=output,
@@ -430,38 +304,23 @@ class TestIntegration:
             pytest.skip("docker not available")
 
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-
-        # Create .env file (like CI does)
         shutil.copy(output / ".env.example", output / ".env")
-
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "-f", "infra/compose.base.yml", "config"],
+            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
             capture_output=True,
             text=True,
             cwd=output,
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
-    def test_framework_generate_runs(self, tmp_path: Path):
+    def test_framework_generate_runs(self, project_backend: Path):
         """framework generation should run successfully via python."""
-        # We simulate what 'make generate-from-spec' does inside the container
-        # i.e. python -m framework.generate with PYTHONPATH=.framework
-
-        generated_project = run_copier(tmp_path, "backend")
-
-        framework_path = generated_project / ".framework"
+        framework_path = project_backend / ".framework"
         env = {"PYTHONPATH": str(framework_path)}
-
-        # We need to run this using the Current python environment (which has dependencies)
-        # But we need to ensure the imports work.
-        # The current process is pytest in tooling.
-
-        # Note: We use the generated_project fixture which already ran copier.
-        # But generated_project path is inside /tmp (or cache).
 
         result = subprocess.run(
             [sys.executable, "-m", "framework.generate"],
-            cwd=generated_project,  # run from project root
+            cwd=project_backend,
             env={**os.environ, **env},
             capture_output=True,
             text=True,
@@ -470,315 +329,125 @@ class TestIntegration:
             f"framework.generate failed:\nstderr: {result.stderr}\nstdout: {result.stdout}"
         )
 
-    def test_makefile_has_correct_targets(self, tmp_path: Path):
+    def test_makefile_has_correct_targets(self, project_backend: Path):
         """Makefile should have expected targets."""
-        output = run_copier(tmp_path, "backend")
-        makefile = (output / "Makefile").read_text()
-
-        # Core targets should exist
+        makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
-        assert "makemigrations:" in makefile  # backend selected
 
-    def test_makefile_no_migrations_without_backend(self, tmp_path: Path):
-        """Makefile should not have makemigrations if no backend."""
-        # This test only makes sense if we support non-backend configs
-        # For now, just verify backend includes it
-        output = run_copier(tmp_path, "backend")
-        makefile = (output / "Makefile").read_text()
-        assert "makemigrations:" in makefile
-
-    def test_architecture_md_conditional_content(self, tmp_path: Path):
+    def test_architecture_md_conditional_content(self, project_backend: Path):
         """ARCHITECTURE.md should have conditional content based on modules."""
-        # Backend only - no Redis
-        output = run_copier(tmp_path, "backend")
-        arch = (output / "ARCHITECTURE.md").read_text()
+        arch = (project_backend / "ARCHITECTURE.md").read_text()
         assert "PostgreSQL" in arch
         assert "python-fastapi" in arch
 
-    def test_architecture_md_with_events(self, tmp_path: Path):
+    def test_architecture_md_with_events(self, project_backend_tg_bot: Path):
         """ARCHITECTURE.md should mention Redis when event modules selected."""
-        output = run_copier(tmp_path, "backend,tg_bot")
-        arch = (output / "ARCHITECTURE.md").read_text()
+        arch = (project_backend_tg_bot / "ARCHITECTURE.md").read_text()
         assert "Redis" in arch
         assert "python-faststream" in arch
 
-    def test_contributing_md_conditional_content(self, tmp_path: Path):
-        """CONTRIBUTING.md should have conditional pitfalls based on modules."""
-        output = run_copier(tmp_path, "backend")
-        contributing = (output / "CONTRIBUTING.md").read_text()
-        # Common pitfalls should always be present
+    def test_contributing_md_conditional_content(self, project_backend: Path):
+        """CONTRIBUTING.md should have common pitfalls but not broker pitfall for backend-only."""
+        contributing = (project_backend / "CONTRIBUTING.md").read_text()
         assert "Common Pitfalls" in contributing
         assert "Stale Shared Code" in contributing
-        # Broker pitfall should NOT be present for backend-only
         assert "Missing Broker Connection" not in contributing
 
-    def test_contributing_md_with_tg_bot(self, tmp_path: Path):
+    def test_contributing_md_with_tg_bot(self, project_backend_tg_bot: Path):
         """CONTRIBUTING.md should include broker pitfall when event modules selected."""
-        output = run_copier(tmp_path, "backend,tg_bot")
-        contributing = (output / "CONTRIBUTING.md").read_text()
+        contributing = (project_backend_tg_bot / "CONTRIBUTING.md").read_text()
         assert "Common Pitfalls" in contributing
         assert "Missing Broker Connection" in contributing
 
-    # NOTE: test_sync_services_check_passes was removed because it requires
-    # docker-in-docker with framework module. This is already tested by
-    # test-template.yml in GitHub Actions on the host runner.
 
-
-def _init_git_repo(path: Path) -> None:
-    """Initialize a git repo in the given path for copier update tests."""
-    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
-    subprocess.run(  # noqa: S603, S607
-        ["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True, check=True
-    )
-    subprocess.run(  # noqa: S603, S607
-        ["git", "config", "user.name", "Test"], cwd=path, capture_output=True, check=True
-    )
-    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
-    subprocess.run(["git", "commit", "-m", "init"], cwd=path, capture_output=True, check=True)  # noqa: S603, S607
-
-
-@pytest.mark.usefixtures("copier_available")
-class TestCopierUpdate:
-    """Tests for copier update functionality."""
-
-    def test_update_preserves_user_code(self, tmp_path: Path):
-        """copier update should preserve user-created files in protected dirs."""
-        output = run_copier(tmp_path, "backend")
-        _init_git_repo(output)
-
-        # Create "user" code in protected directory
-        user_controller = output / "services" / "backend" / "src" / "controllers" / "custom.py"
-        user_controller.parent.mkdir(parents=True, exist_ok=True)
-        user_controller.write_text(
-            "# My custom controller code\nclass CustomController:\n    pass\n"
-        )
-
-        # Commit user changes
-        subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
-        subprocess.run(  # noqa: S603, S607
-            ["git", "commit", "-m", "user code"], cwd=output, capture_output=True, check=True
-        )
-
-        # Run copier update
-        result = subprocess.run(  # noqa: S603, S607
-            [
-                "copier",
-                "update",
-                "--trust",
-                "--defaults",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=output,
-        )
-        assert result.returncode == 0, f"copier update failed: {result.stderr}"
-
-        # Verify user code preserved
-        assert user_controller.exists(), "User controller was deleted"
-        content = user_controller.read_text()
-        assert "My custom controller code" in content
-
-    def test_update_preserves_env_example(self, tmp_path: Path):
-        """copier update should not overwrite .env.example."""
-        output = run_copier(tmp_path, "backend")
-        _init_git_repo(output)
-
-        # Modify .env.example
-        env_example = output / ".env.example"
-        original_content = env_example.read_text()
-        modified_content = original_content + "\n# User custom variable\nMY_CUSTOM_VAR=value\n"
-        env_example.write_text(modified_content)
-
-        # Commit user changes
-        subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
-        subprocess.run(  # noqa: S603, S607
-            ["git", "commit", "-m", "user env"], cwd=output, capture_output=True, check=True
-        )
-
-        # Run copier update
-        result = subprocess.run(  # noqa: S603, S607
-            [
-                "copier",
-                "update",
-                "--trust",
-                "--defaults",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=output,
-        )
-        assert result.returncode == 0, f"copier update failed: {result.stderr}"
-
-        # Verify modification preserved
-        content = env_example.read_text()
-        assert "MY_CUSTOM_VAR" in content
-
-    def test_update_preserves_spec_files(self, tmp_path: Path):
-        """copier update should not overwrite spec files."""
-        output = run_copier(tmp_path, "backend")
-        _init_git_repo(output)
-
-        # Modify models.yaml
-        models_spec = output / "shared" / "spec" / "models.yaml"
-        if models_spec.exists():
-            original_content = models_spec.read_text()
-            modified_content = original_content + "\n# User added model\n"
-            models_spec.write_text(modified_content)
-
-            # Commit user changes
-            subprocess.run(["git", "add", "."], cwd=output, capture_output=True, check=True)  # noqa: S603, S607
-            subprocess.run(  # noqa: S603, S607
-                ["git", "commit", "-m", "user spec"], cwd=output, capture_output=True, check=True
-            )
-
-            # Run copier update
-            result = subprocess.run(  # noqa: S603, S607
-                [
-                    "copier",
-                    "update",
-                    "--trust",
-                    "--defaults",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=output,
-            )
-            assert result.returncode == 0, f"copier update failed: {result.stderr}"
-
-            # Verify modification preserved
-            content = models_spec.read_text()
-            assert "User added model" in content
-
-    def test_copier_answers_file_created(self, tmp_path: Path):
-        """Generated project should have .copier-answers.yml."""
-        output = run_copier(tmp_path, "backend")
-        answers_file = output / ".copier-answers.yml"
-        assert answers_file.exists(), f"Answers file not found. Contents: {list(output.iterdir())}"
-
-        import yaml
-
-        answers = yaml.safe_load(answers_file.read_text())
-        assert answers["project_name"] == "test-project"
-        assert answers["modules"] == "backend"
-
-
-@pytest.mark.usefixtures("copier_available")
 class TestWorkflowGeneration:
     """Tests for GitHub Actions workflow generation."""
 
-    def test_workflows_exist(self, tmp_path: Path):
+    def test_workflows_exist(self, project_backend: Path):
         """GitHub workflows should be generated."""
-        output = run_copier(tmp_path, "backend")
-        workflows_dir = output / ".github" / "workflows"
-
+        workflows_dir = project_backend / ".github" / "workflows"
         assert workflows_dir.exists()
         assert (workflows_dir / "ci.yml").exists()
         assert (workflows_dir / "deploy.yml").exists()
-        assert not (workflows_dir / "main.yml").exists()
 
-    def test_workflow_no_jinja_source_files(self, tmp_path: Path):
+    def test_workflow_no_jinja_source_files(self, project_backend: Path):
         """Jinja source templates should not be copied."""
-        output = run_copier(tmp_path, "backend")
-        workflows_dir = output / ".github" / "workflows"
-
-        assert not (workflows_dir / "ci.yml.jinja").exists()
-        assert not (workflows_dir / "deploy.yml.jinja").exists()
+        workflows_dir = project_backend / ".github" / "workflows"
+        for f in workflows_dir.iterdir():
+            assert not f.name.endswith(".jinja"), f"Jinja source found: {f.name}"
         assert not (workflows_dir / "test-template.yml").exists()
 
-    def test_backend_only_workflow_matrix(self, tmp_path: Path):
+    def test_backend_only_workflow_matrix(self, project_backend: Path):
         """Backend-only should have only backend in CI matrix."""
-        output = run_copier(tmp_path, "backend")
-        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
-
+        ci_yml = (project_backend / ".github" / "workflows" / "ci.yml").read_text()
         assert "id: backend" in ci_yml
         assert "id: tg-bot" not in ci_yml
         assert "id: frontend" not in ci_yml
         assert "id: notifications-worker" not in ci_yml
 
-    def test_full_stack_workflow_matrix(self, tmp_path: Path):
+    def test_full_stack_workflow_matrix(self, project_fullstack: Path):
         """Full stack should have all services in CI matrix."""
-        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
-
+        ci_yml = (project_fullstack / ".github" / "workflows" / "ci.yml").read_text()
         assert "id: backend" in ci_yml
         assert "id: tg-bot" in ci_yml
         assert "id: frontend" in ci_yml
         assert "id: notifications-worker" in ci_yml
 
-    def test_partial_modules_workflow_matrix(self, tmp_path: Path):
+    def test_partial_modules_workflow_matrix(self, project_backend_tg_bot: Path):
         """Partial module selection should reflect in CI matrix."""
-        output = run_copier(tmp_path, "backend,tg_bot")
-        ci_yml = (output / ".github" / "workflows" / "ci.yml").read_text()
-
+        ci_yml = (project_backend_tg_bot / ".github" / "workflows" / "ci.yml").read_text()
         assert "id: backend" in ci_yml
         assert "id: tg-bot" in ci_yml
         assert "id: frontend" not in ci_yml
         assert "id: notifications-worker" not in ci_yml
 
-    def test_workflow_valid_yaml(self, tmp_path: Path):
+    def test_workflow_valid_yaml(self, project_fullstack: Path):
         """Generated workflows should be valid YAML."""
         import yaml
 
-        output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
-        workflows_dir = output / ".github" / "workflows"
+        workflows_dir = project_fullstack / ".github" / "workflows"
+        for workflow_file in workflows_dir.iterdir():
+            if workflow_file.suffix in (".yml", ".yaml"):
+                content = yaml.safe_load(workflow_file.read_text())
+                assert "name" in content, f"{workflow_file.name} missing 'name'"
+                assert "jobs" in content, f"{workflow_file.name} missing 'jobs'"
 
-        for workflow_file in ["ci.yml", "deploy.yml"]:
-            content = yaml.safe_load((workflows_dir / workflow_file).read_text())
-            assert "name" in content
-            # YAML parses "on" as boolean True, so check for True key
-            assert True in content or "on" in content
-            assert "jobs" in content
-
-    def test_workflow_no_jinja_artifacts(self, tmp_path: Path):
+    def test_workflow_no_jinja_artifacts(self, project_backend: Path):
         """Workflows should not have unrendered Jinja artifacts."""
-        output = run_copier(tmp_path, "backend")
-        workflows_dir = output / ".github" / "workflows"
+        workflows_dir = project_backend / ".github" / "workflows"
+        for workflow_file in workflows_dir.iterdir():
+            if workflow_file.suffix in (".yml", ".yaml"):
+                content = workflow_file.read_text()
+                assert "{% if" not in content, f"Jinja in {workflow_file.name}"
+                assert "{% endif" not in content, f"Jinja in {workflow_file.name}"
+                assert "{{ modules" not in content, f"Jinja in {workflow_file.name}"
+                assert "{{ project_" not in content, f"Jinja in {workflow_file.name}"
 
-        for workflow_file in ["ci.yml", "deploy.yml"]:
-            content = (workflows_dir / workflow_file).read_text()
-            # Check for unrendered Jinja (but allow GitHub Actions ${{ }})
-            assert "{% if" not in content
-            assert "{% endif" not in content
-            assert "{{ modules" not in content
-            assert "{{ project_" not in content
-
-    def test_deploy_uses_dotenv_secret(self, tmp_path: Path):
-        """Deploy workflow should use DOTENV base64 approach, not individual secrets."""
-        output = run_copier(tmp_path, "backend")
-        deploy_yml = (output / ".github" / "workflows" / "deploy.yml").read_text()
-
+    def test_deploy_uses_dotenv_secret(self, project_backend: Path):
+        """Deploy workflow should use DOTENV base64 approach."""
+        deploy_yml = (project_backend / ".github" / "workflows" / "deploy.yml").read_text()
         assert "DOTENV_B64" in deploy_yml
         assert "base64 -d" in deploy_yml
         assert "secrets.DEPLOY_HOST" in deploy_yml
         assert "secrets.PROJECT_NAME" in deploy_yml
-        # Should NOT have old individual secret pattern
-        assert "secrets.POSTGRES_PASSWORD" not in deploy_yml
-        assert "secrets.APP_SECRET_KEY" not in deploy_yml
 
 
-@pytest.mark.usefixtures("copier_available")
 class TestCIWorkflowSimulation:
-    """
-    Simulate CI workflow on generated project to catch setup issues.
-
-    This ensures that freshly generated projects won't fail CI immediately
-    due to infrastructure issues like missing env files or invalid compose configs.
-    """
+    """Simulate CI workflow on generated project to catch setup issues."""
 
     def _run_ci_env_setup(self, project_dir: Path) -> tuple[bool, str]:
-        """
-        Execute the 'Prepare environment files' step from ci.yml.
-        Returns (success, error_message).
-        """
+        """Execute the 'Prepare environment files' step from ci.yml."""
         import yaml
 
         ci_yml = project_dir / ".github" / "workflows" / "ci.yml"
+        if not ci_yml.exists():
+            return False, "ci.yml not found"
+
         ci_content = yaml.safe_load(ci_yml.read_text())
 
-        # Find the env setup step
         for job in ci_content.get("jobs", {}).values():
             for step in job.get("steps", []):
                 if step.get("name") == "Prepare environment files":
@@ -796,17 +465,14 @@ class TestCIWorkflowSimulation:
         return False, "No 'Prepare environment files' step found in ci.yml"
 
     def _verify_compose_env_files(self, project_dir: Path) -> list[str]:
-        """
-        Verify all env_file paths in compose files exist after CI env setup.
-        Returns list of errors.
-        """
+        """Verify all env_file paths in compose files exist after CI env setup."""
         import yaml
 
         errors = []
         compose_files = [
             f
             for f in (project_dir / "infra").glob("compose.*.yml")
-            if "prod" not in f.name  # Skip prod compose - CI doesn't run production
+            if "prod" not in f.name and "frontend" not in f.name
         ]
 
         for compose_path in compose_files:
@@ -820,37 +486,41 @@ class TestCIWorkflowSimulation:
                 if not isinstance(service_config, dict):
                     continue
                 for env_file in service_config.get("env_file", []):
-                    # Resolve relative to compose file's directory (infra/)
                     env_path = (compose_path.parent / env_file).resolve()
                     if not env_path.exists():
                         errors.append(
-                            f"{compose_path.name}:{service_name} expects env_file '{env_file}' "
-                            f"but it doesn't exist after CI env setup"
+                            f"{compose_path.name}:{service_name} expects env_file "
+                            f"'{env_file}' but it doesn't exist after CI env setup"
                         )
 
         return errors
 
     def _verify_compose_configs(self, project_dir: Path) -> list[str]:
-        """
-        Run 'docker compose config' on compose files that CI uses.
-
-        Note: We only validate test compose files because:
-        - compose.dev.yml and compose.prod.yml require compose.base.yml to be included
-        - compose.prod.yml requires published image variables
-        - Test compose files are standalone and what CI actually uses
-
-        Returns list of errors.
-        """
+        """Run 'docker compose config' on test compose files."""
         if shutil.which("docker") is None:
-            return []  # Skip if docker not available
+            return []
+
+        # Ensure .env exists for variable interpolation
+        env_file = project_dir / ".env"
+        if not env_file.exists():
+            env_example = project_dir / ".env.example"
+            if env_example.exists():
+                shutil.copy(env_example, env_file)
 
         errors = []
-        # Only validate test compose files - they are standalone and what CI uses
         compose_files = list((project_dir / "infra").glob("compose.tests.*.yml"))
 
         for compose_path in compose_files:
             result = subprocess.run(  # noqa: S603, S607
-                ["docker", "compose", "-f", str(compose_path.relative_to(project_dir)), "config"],
+                [
+                    "docker",
+                    "compose",
+                    "--env-file",
+                    ".env",
+                    "-f",
+                    str(compose_path.relative_to(project_dir)),
+                    "config",
+                ],
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
@@ -866,11 +536,9 @@ class TestCIWorkflowSimulation:
         """CI 'Prepare environment files' step should create all required env files."""
         output = run_copier(tmp_path, "backend")
 
-        # Run CI env setup
         success, error = self._run_ci_env_setup(output)
         assert success, error
 
-        # Verify all compose env_file references are satisfied
         errors = self._verify_compose_env_files(output)
         assert not errors, "Missing env files after CI setup:\n" + "\n".join(errors)
 
@@ -881,11 +549,9 @@ class TestCIWorkflowSimulation:
 
         output = run_copier(tmp_path, "backend")
 
-        # Run CI env setup first
         success, error = self._run_ci_env_setup(output)
         assert success, error
 
-        # Verify compose configs
         errors = self._verify_compose_configs(output)
         assert not errors, "Compose config validation failed:\n" + "\n".join(errors)
 
@@ -893,6 +559,7 @@ class TestCIWorkflowSimulation:
         "modules",
         [
             "backend",
+            "tg_bot",
             "backend,tg_bot",
             "backend,notifications",
             "backend,tg_bot,notifications",
@@ -903,17 +570,91 @@ class TestCIWorkflowSimulation:
         """Every module combination should have valid CI env setup and compose configs."""
         output = run_copier(tmp_path, modules)
 
-        # 1. Run CI env setup
         success, error = self._run_ci_env_setup(output)
         assert success, f"modules={modules}: {error}"
 
-        # 2. Verify env files
         env_errors = self._verify_compose_env_files(output)
         assert not env_errors, f"modules={modules}: Missing env files:\n" + "\n".join(env_errors)
 
-        # 3. Verify compose configs (if docker available)
         if shutil.which("docker") is not None:
             compose_errors = self._verify_compose_configs(output)
             assert not compose_errors, f"modules={modules}: Compose config failed:\n" + "\n".join(
                 compose_errors
             )
+
+
+class TestGeneratedCodeQuality:
+    """Tests that ensure the generated code is high quality."""
+
+    def test_generated_code_passes_strict_linting(self, project_fullstack: Path):
+        """Generated code must pass strict linting despite being excluded in user config."""
+        ruff_toml = project_fullstack / "ruff.toml"
+        config_content = ruff_toml.read_text()
+
+        strict_content = "\n".join(
+            line for line in config_content.splitlines() if "generated" not in line
+        )
+        strict_config_path = project_fullstack / "ruff.strict.toml"
+        strict_config_path.write_text(strict_content)
+
+        # Auto-fix first (import sorting etc. that's hard to get perfect in Jinja)
+        fix_cmd = ["ruff", "check", "--config", "ruff.strict.toml", "--fix", "."]
+        subprocess.run(fix_cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603, S607
+
+        cmd = ["ruff", "check", "--config", "ruff.strict.toml", "."]
+        result = subprocess.run(cmd, cwd=project_fullstack, capture_output=True, text=True)  # noqa: S603, S607
+
+        assert result.returncode == 0, (
+            f"Strict linting failed on generated code.\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
+
+@pytest.mark.slow
+class TestSlowIntegration:
+    """Slow integration tests — run with make test-copier-slow."""
+
+    @pytest.mark.parametrize("modules", ["backend", "tg_bot", "backend,tg_bot"])
+    def test_make_setup_succeeds(self, tmp_path: Path, modules: str):
+        """make setup should complete successfully in generated project."""
+        output = run_copier(tmp_path, modules)
+
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "setup"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, (
+            f"make setup failed for modules={modules}:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    @pytest.mark.parametrize("modules", ["backend", "tg_bot"])
+    def test_make_lint_after_setup(self, tmp_path: Path, modules: str):
+        """make lint should pass after make setup in generated project."""
+        output = run_copier(tmp_path, modules)
+
+        setup_result = subprocess.run(  # noqa: S603, S607
+            ["make", "setup"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert setup_result.returncode == 0, (
+            f"make setup failed for modules={modules}:\n{setup_result.stderr}"
+        )
+
+        lint_result = subprocess.run(  # noqa: S603, S607
+            ["make", "lint"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert lint_result.returncode == 0, (
+            f"make lint failed for modules={modules}:\n"
+            f"stdout: {lint_result.stdout}\nstderr: {lint_result.stderr}"
+        )

@@ -30,6 +30,7 @@ jobs:
       matrix:
         modules:
           - "backend"
+          - "tg_bot"
           - "backend,tg_bot"
           - "backend,notifications"
           - "backend,frontend"
@@ -188,9 +189,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env || touch .env
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run copier template tests
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Run copier tests (fast)
         run: make test-copier
+
+      - name: Run copier tests (slow)
+        run: make test-copier-slow
