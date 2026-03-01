@@ -24,6 +24,8 @@ graph TD
 
 **Note**: Specs act as contracts between services. For standalone modules (e.g. `tg_bot` without `backend`), specs are optional and their validation is gracefully skipped.
 
+> **Language agnosticism**: Specs are intentionally transport- and language-agnostic. When editing specs, prefer JSON Schema types (`string`, `integer`, `array`) over Python-specific types. This enables future multi-language code generation (see `docs/rust-migration-analysis.md`).
+
 ## Domain Specification Format
 
 Each domain spec defines transport-agnostic operations:

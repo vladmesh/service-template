@@ -95,6 +95,15 @@ make sync-framework
 
 This copies `framework/` contents to `template/.framework/`.
 
+## Language Agnosticism
+
+When developing generators and templates, keep language-agnostic design in mind. The long-term vision includes supporting multiple target languages from the same YAML specs. See `docs/rust-migration-analysis.md` for details and `docs/backlog.md` (section "Rust Migration Preparation") for actionable tasks.
+
+**Practical tips:**
+- Separate type mapping logic from generation logic (avoid hardcoded Python types in generators)
+- Prefer JSON Schema primitives in spec examples and tests
+- Keep Jinja2 templates focused — one template per artifact, easy to port to Tera (Rust Jinja2-like engine)
+
 ## Adding a New Generator
 
 1. Create generator in `framework/generators/new_generator.py`

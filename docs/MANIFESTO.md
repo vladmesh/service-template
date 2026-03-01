@@ -25,7 +25,15 @@ Uniqueness is a bug.
 - **No "Special Snowflakes":** If a service needs a custom build process, it probably shouldn't exist in this repo.
 - **Containerization is Law:** Nothing runs on the host. If it's not in Docker, it doesn't exist.
 
-### 5. The Human Role: Product Owner
+### 5. Language Agnosticism as a Goal
+
+The spec-first architecture is designed to be **language-agnostic in principle**. YAML specs define the *what* (models, operations, transports), not the *how* (Python classes, Rust structs).
+
+- **Specs over code:** When modifying specs or the codegen pipeline, prefer language-neutral abstractions (JSON Schema types, transport-agnostic operation definitions)
+- **Long-term vision:** The framework may evolve to support multiple target languages (see `docs/rust-migration-analysis.md`)
+- **Practical guideline:** When writing new specs or generators, avoid embedding Python-specific assumptions where a generic approach works equally well
+
+### 6. The Human Role: Product Owner
 In this framework, the human moves up the abstraction ladder.
 - **Humans define the "What":** Writing specs, defining business logic in specific slots, and setting the direction.
 - **Agents handle the "How":** Generating boilerplate, writing tests, and connecting the dots.

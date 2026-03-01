@@ -296,6 +296,61 @@ This would catch integration issues between generated code and user templates.
 
 ---
 
+## Rust Migration Preparation
+
+> **Контекст**: см. `docs/rust-migration-analysis.md` — анализ перспективы переписывания шаблона на Rust для более строгого feedback loop при agent-driven разработке.
+
+### Сделать YAML-спеки language-agnostic
+
+**Status**: TODO
+**Priority**: LOW
+
+**Description**: Убрать Python-специфичные типы из `shared/spec/models.yaml` и domain specs. Использовать JSON Schema типы (`string`, `integer`, `boolean`, `array`) вместо Python-типов (`str`, `int`, `bool`, `list`). Это позволит генерировать код на любом языке из одних и тех же спеков.
+
+**Что проверить**:
+- Типы в `models.yaml` — уже используют JSON Schema или Python-нотацию?
+- Типы параметров в domain specs (`services/*/spec/*.yaml`)
+- Маппинг типов в `framework/generators/` — вынести в отдельную таблицу соответствий
+
+### Rust PoC: backend сервис на Axum
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Написать Proof of Concept — аналог `services/backend/` на Rust (Axum + SeaORM 2.0 + utoipa). Тот же API, тот же Docker, тот же compose. Цель — проверить, насколько AI-агент справляется с генерацией Axum-кода и насколько spec-first подход переносим.
+
+**Стек**: Axum 0.8+, SeaORM 2.0, utoipa, reqwest, tokio.
+
+### Rust PoC: Telegram bot на teloxide
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Написать PoC Telegram-бота на teloxide как альтернативу `services/tg_bot/`. Teloxide (3.4k stars) — зрелый фреймворк с compile-time типизацией команд. Сравнить developer experience и agent experience с текущим python-telegram-bot.
+
+### Вынести маппинг типов из генераторов
+
+**Status**: TODO
+**Priority**: LOW
+
+**Description**: Сейчас маппинг YAML-типов в Python-типы захардкожен в генераторах. Вынести в конфигурируемую таблицу соответствий (`type_mappings.yaml` или аналог), чтобы можно было добавить маппинг для Rust без переписывания генераторов. Это шаг к мультиязычной кодогенерации.
+
+### Исследовать Tera как замену Jinja2 для codegen
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Tera — Rust-аналог Jinja2 с почти идентичным синтаксисом. Оценить, насколько текущие шаблоны из `framework/templates/codegen/` могут быть переиспользованы в Tera с минимальными изменениями. Если синтаксис совместим на 90%+, это снизит стоимость миграции codegen pipeline.
+
+### Добавить Rust service type в services.yml
+
+**Status**: IDEA
+**Priority**: LOW
+
+**Description**: Расширить список типов сервисов в `services.yml` типом `rust-axum`. Добавить scaffold-шаблон в `.framework/framework/templates/scaffold/services/rust-axum/` с базовым Cargo.toml, Dockerfile (multi-stage с cargo-chef), и main.rs. Это позволит смешивать Python и Rust сервисы в одном проекте — естественный путь постепенной миграции.
+
+---
+
 ## Закрытые пункты (архив)
 
 <details>

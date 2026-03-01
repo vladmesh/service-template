@@ -80,6 +80,12 @@ Agents should interact with the system primarily through `make`.
 - **Generate Code:** `make generate-from-spec`
 - **Generate OpenAPI:** `make openapi` (Outputs to `services/<service>/docs/openapi.json`)
 
+## Language Agnosticism
+
+When modifying YAML specs or the codegen pipeline, prefer language-neutral abstractions where possible. The framework is designed to eventually support multiple target languages. Details: `docs/rust-migration-analysis.md`, backlog tasks: `docs/backlog.md` (section "Rust Migration Preparation").
+
+**Practical guideline:** Use JSON Schema types in specs (`string`, `integer`, `array`), avoid Python-specific types where a generic approach works.
+
 ## Critical Project Knowledge
 
 ### Spec-First Architecture
