@@ -7,26 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Restructuring Complete**: Clear separation between framework and product abstraction levels
-  - Created `docs/` directory for framework internal documentation
-  - Created `template/` directory containing all product templates
-  - Created `.framework/` directory in generated products (hidden, contains framework runtime)
-  - Created `template/tests/` with product test scaffolding (`conftest.py.jinja`, `integration/`)
-  - Created `scripts/sync-framework-to-template.sh` for framework synchronization
-  - Created `scripts/check-framework-sync.sh` for CI verification
-  - Added `make check-sync` command to verify framework/template synchronization
-  - Added CI check to ensure framework code is synced before merging
+## [0.2.0] - 2026-03-01
 
-### Changed
-- **Root README.md**: Now clearly separates framework development from product usage workflows
-- **Makefile**: Updated with `check-sync` command and improved help documentation
-- **docs/ARCHITECTURE.md**: Updated to reflect `.framework/` structure in generated products
-- **GitHub Actions CI**: Added framework sync verification step
-- **docs/RESTRUCTURING_PLAN.md**: Marked as COMPLETED (all 10 phases done)
+### Added
+- `.dockerignore` in template — prevents host `.venv/` from contaminating Docker builds
+- Frontend service in `compose.base.yml` — `compose.prod.yml` extends now works for full config
+- Conditional broker in `lifespan.py.jinja` — backend-only no longer requires `REDIS_URL`
+- 10 new regression tests in 3 classes:
+  - `TestDockerReadiness`: dockerignore, login shell, lifespan broker, compose prod/dev validation, health assertion match
+  - `TestCIWorkflowCorrectness`: standalone CI cleanup
+  - `TestFormattingQuality`: services.yml blank lines
+- Standalone tg_bot tests (`TestStandaloneGeneration`) — 7 tests for `modules=tg_bot`
+- `@pytest.mark.slow` for `make setup`/`make lint` integration tests
+- `make test-copier-slow` target for slow tests
+- Copier tests re-enabled in pre-push hook and CI
 
 ### Fixed
-- Framework tests are no longer copied to generated products (copier `_subdirectory` ensures clean separation)
+- `bash -lc` → `bash -c` in `compose.dev.yml` — login shell was resetting Docker PATH
+- Health integration test assertion `"healthy"` → `"ok"` to match actual endpoint
+- CI Clean up step wrapped in backend conditional — no longer runs for standalone
+- `services.yml.jinja` Jinja whitespace trimming — no more excessive blank lines
+- Copier tests use `.venv/bin/copier` and `.venv/bin/ruff` instead of bare commands
+- Copier test fixtures refactored to session-scoped (4 copier runs per session instead of ~40)
+
+### Changed
+- `lifespan.py` renamed to `lifespan.py.jinja` (now conditionally includes broker code)
+- Copier tests fully rewritten — 68 fast + 5 slow tests (was 55 broken/skipped)
 
 ## [0.1.0] - Previous Version
 
