@@ -2,14 +2,14 @@
 
 This file serves as the entry point for AI Agents exploring the repository. Use this map to load only the context you need.
 
-## 🗺 Navigation
+## Navigation
 
-- **Philosophy & Goals:** `MANIFESTO.md` (Read this first to understand *why*)
-- **System Design:** `ARCHITECTURE.md` (Read this to understand *how*)
+- **Philosophy & Goals:** `docs/MANIFESTO.md` (Read this first to understand *why*)
+- **System Design:** `docs/ARCHITECTURE.md` (Read this to understand *how*)
 - **Rules & Standards:** `CONTRIBUTING.md` (Strict rules for coding)
 - **Service Registry:** `services.yml` (List of all active services)
 
-## 🚀 Bootstrapping New Projects
+## Bootstrapping New Projects
 
 **FOR AI AGENTS:** If you are asked to initialize a new project using this template, you **MUST** follow these exact steps.
 
@@ -48,7 +48,7 @@ After running the command:
 2.  **Check `services.yml`** to confirm your services are listed.
 3.  **Run `make generate-from-spec`** to regenerate code from specs if needed.
 
-## ⚠️ CRITICAL: Environment Variables
+## CRITICAL: Environment Variables
 
 **STRICT RULE: NO DEFAULT VALUES FOR ENVIRONMENT VARIABLES**
 
@@ -64,7 +64,7 @@ After running the command:
 - **Example:** `REDIS_URL`, `API_BASE_URL`, `DATABASE_URL` must all be explicitly configured
 - All required environment variables must be documented in `.env.example`
 
-## 📂 Service Modules
+## Service Modules
 
 Detailed documentation for each service can be found in its respective directory. Only load these if you are working on that specific service.
 
@@ -72,7 +72,7 @@ Detailed documentation for each service can be found in its respective directory
 - **Telegram Bot:** `services/tg_bot/AGENTS.md`
 - **Infrastructure:** `infra/README.md` (if available)
 
-## 🛠 Operational Commands
+## Operational Commands
 
 Agents should interact with the system primarily through `make`.
 
@@ -80,7 +80,7 @@ Agents should interact with the system primarily through `make`.
 - **Generate Code:** `make generate-from-spec`
 - **Generate OpenAPI:** `make openapi` (Outputs to `services/<service>/docs/openapi.json`)
 
-## 🧠 Critical Project Knowledge
+## Critical Project Knowledge
 
 ### Spec-First Architecture
 
@@ -98,74 +98,80 @@ See `ARCHITECTURE.md` for detailed spec format documentation.
 
 ### FastStream Event Architecture
 
-**Broker Lifecycle Management:**
+**Broker Lifecycle — Lazy `get_broker()` Pattern:**
 
-1. **Global Broker Instance:** `shared/shared/generated/events.py` exports a singleton `broker` object
-2. **Connection Required:** The broker MUST be connected before publishing/subscribing:
+`shared/shared/generated/events.py` exports `get_broker()` — lazy-инициализация брокера. **Не** импортируйте `broker` как атрибут модуля.
+
+1. **Получение брокера:**
    ```python
-   # In application lifespan (e.g., services/backend/src/app/lifespan.py)
-   from shared.generated.events import broker
-   
+   from shared.generated.events import get_broker
+   broker = get_broker()  # создаёт RedisBroker при первом вызове
+   ```
+2. **Подключение (FastAPI lifespan):**
+   ```python
+   from shared.generated.events import get_broker
+
    @asynccontextmanager
    async def lifespan(app: FastAPI):
-       await broker.connect()  # CRITICAL: Connect on startup
+       broker = get_broker()
+       await broker.connect()
        yield
-       await broker.close()    # CRITICAL: Close on shutdown
+       await broker.close()
    ```
-3. **Publishing Events:** Use generated publisher functions:
+3. **Публикация событий:** Генерированные функции вызывают `get_broker()` внутри:
    ```python
    from shared.generated.events import publish_command_received
    from shared.generated.schemas import CommandReceived
-   
-   event = CommandReceived(...)
-   await publish_command_received(event)  # Requires broker to be connected
-   ```
 
-4. **Subscribing to Events:** Use FastStream decorators in service controllers:
+   event = CommandReceived(...)
+   await publish_command_received(event)  # broker должен быть подключён
+   ```
+4. **Подписка (FastStream workers):** В `python-faststream` сервисах брокер создаётся напрямую в `main()` и передаётся в `create_event_adapter()`:
    ```python
-   from shared.generated.events import broker
-   
-   router = broker.router()
-   
-   @router.subscriber("event_name")
-   async def handle_event(msg: EventModel):
-       # Handle event
+   from faststream import FastStream
+   from faststream.redis import RedisBroker
+   from .generated.event_adapter import create_event_adapter
+
+   async def main():
+       broker = RedisBroker(redis_url)
+       create_event_adapter(broker=broker, ...)
+       app = FastStream(broker)
+       await app.run()
    ```
 
 ### Direct Event Publishing Pattern
 
-Services should publish events directly to Redis, NOT through REST API intermediaries.
+Сервисы публикуют события напрямую в Redis, НЕ через REST API.
 
-**Example (Telegram Bot):**
+**Пример (Telegram Bot):**
 ```python
-from shared.generated.events import broker, publish_command_received
+from shared.generated.events import get_broker, publish_command_received
 from shared.generated.schemas import CommandReceived
 
-# For python-telegram-bot, use post_init/post_shutdown hooks:
 async def post_init(application: Application) -> None:
-    await broker.connect()
+    await get_broker().connect()
 
 async def post_shutdown(application: Application) -> None:
-    await broker.close()
+    await get_broker().close()
 
 # In handler:
 event = CommandReceived(command=cmd, args=args, user_id=user_id, timestamp=datetime.now(UTC))
 await publish_command_received(event)
 ```
 
-**Required Setup:**
-1. Add `shared` as dependency in service's `pyproject.toml`
-2. Add `redis: service_healthy` to `depends_on` in `services.yml`
-3. Ensure `REDIS_URL` is available in environment
+**Необходимая настройка:**
+1. Добавить `shared` как зависимость в `pyproject.toml` сервиса
+2. Добавить `redis: service_healthy` в `depends_on` в `services.yml`
+3. Обеспечить `REDIS_URL` в окружении
 
 ### Service Creation Pattern
 
-1. **Add to Registry:** Define in `services.yml` with appropriate type:
-   - `python-fastapi` - HTTP API with FastAPI/uvicorn (exposes port 8000)
-   - `python-faststream` - Event-driven worker with FastStream (no HTTP port)
-   - `node` - Node.js service (exposes port 4321)
-   - `default` - Generic container placeholder
-2. **Optional Compose Options:** Add `depends_on` and `profiles` in `services.yml`:
+1. **Добавить в реестр:** Описать в `services.yml` с нужным типом:
+   - `python-fastapi` — HTTP API с FastAPI/uvicorn (порт 8000)
+   - `python-faststream` — Event-driven worker с FastStream (без HTTP)
+   - `node` — Node.js сервис (порт 4321)
+   - `default` — Generic container placeholder
+2. **Опциональные compose-настройки:** `depends_on` и `profiles` в `services.yml`:
    ```yaml
    - name: my_service
      type: python-faststream
@@ -175,13 +181,12 @@ await publish_command_received(event)
      profiles:
        - workers
    ```
-3. **Create:** Create the service directory, Dockerfile, and add compose entries in `infra/compose.*.yml.jinja`.
-4. **Development Setup:** Volume mounts are configured in `infra/compose.dev.yml`
+3. **Создать:** Создайте каталог сервиса `services/<name>/` по шаблону из `.framework/framework/templates/scaffold/services/<type>/`
+4. **Dev Setup:** Volume mounts настраиваются в `infra/compose.dev.yml`
 
 ### Common Pitfalls
 
-1. **Missing Broker Connection:** Publishing events without `broker.connect()` → `AssertionError`
-2. **Stale Shared Code:** Forgetting volume mount → services use old generated code
-3. **Type Mismatches:** Code generator now supports `list[type]` but verify complex types
-4. **Timezone Awareness:** Use `datetime.now(UTC)` for Pydantic `AwareDatetime` fields
-5. **Dockerfile Copies:** COPY sources should stay within the service directory or use `shared/`
+1. **Missing Broker Connection:** Публикация событий без `get_broker().connect()` → `AssertionError`. В FastAPI — lifespan, в tg_bot — `post_init`/`post_shutdown`, в FastStream workers — `FastStream(broker).run()`.
+2. **Type Mismatches:** Кодогенератор поддерживает `list[type]`, но проверяйте сложные типы
+3. **Timezone Awareness:** Используйте `datetime.now(UTC)` для Pydantic `AwareDatetime` полей
+4. **Dockerfile Copies:** COPY sources должны оставаться в каталоге сервиса или использовать `shared/`

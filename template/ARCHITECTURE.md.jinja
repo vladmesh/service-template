@@ -1,6 +1,7 @@
 # Architecture & Design
 
-This document describes how the principles in `MANIFESTO.md` are implemented technically.
+This document describes the technical architecture and design decisions for this project.
+The project follows a spec-first, rigid microservice philosophy: generated code is the source of truth, and services communicate only through defined interfaces.
 {%- if 'backend' in modules %}
 
 ## The "Spec-First" Flow

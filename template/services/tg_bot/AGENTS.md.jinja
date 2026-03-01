@@ -10,15 +10,22 @@
 
 Бот публикует события напрямую в Redis Streams (не через REST API backend'а):
 
-- **Broker**: FastStream RedisBroker из `shared.generated.events`
+- **Broker**: Lazy `get_broker()` из `shared.generated.events` — не импортируйте `broker` как атрибут
 - **Events**: `command_received` для команд бота
 - **Lifecycle**: Broker подключается при старте приложения (`post_init`) и отключается при shutdown (`post_shutdown`)
 
 ```python
-from shared.generated.events import broker, publish_command_received
+from shared.generated.events import get_broker, publish_command_received
 from shared.generated.schemas import CommandReceived
 
-# Publishing
+# Lifecycle: connect via post_init/post_shutdown hooks
+async def post_init(application: Application) -> None:
+    await get_broker().connect()
+
+async def post_shutdown(application: Application) -> None:
+    await get_broker().close()
+
+# Publishing in handler:
 event = CommandReceived(command=cmd, args=args, user_id=telegram_id, timestamp=datetime.now(UTC))
 await publish_command_received(event)
 ```
