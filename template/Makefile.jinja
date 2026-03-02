@@ -90,7 +90,7 @@ makemigrations:
 		echo "Usage: make makemigrations name=\"<description>\""; \
 		exit 1; \
 	fi
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
+	PYTHONPATH=. services/backend/.venv/bin/alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 
 test-integration:
 	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests
