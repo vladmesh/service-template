@@ -191,6 +191,35 @@
 
 **Fix applied**: Post-deploy health check added — `sleep 15` + `$COMPOSE ps --format json` + python script that checks container State and calls `sys.exit(1)` on failure. Copier tests `test_deploy_verifies_container_health` and `test_deploy_script_fails_fast` prevent regression.
 
+### Убрать `.env.prod` — на проде нужен только один `.env`
+
+**Status**: DONE
+**Priority**: HIGH
+
+**Description**: `compose.prod.yml` ссылается на два env-файла: `../.env` (основной) и `./.env.prod` (production overrides). На практике `.env.prod` **всегда пустой** — все переменные (infra, computed, user) уже собираются оркестратором в один `DOTENV_B64` и декодируются в `.env` при деплое. `.env.prod` только `touch`-ится чтобы compose не падал с "file not found".
+
+**Почему это проблема**:
+
+1. **Ломает деплой при любом сбое в цепочке**. Если `touch` не выполнился (например, ошибка в deploy.yml или изменение порядка шагов) — весь compose падает. Это уже случалось в production E2E тестах (BUG 8 из `e2e-reverse-echo-bot-deploy-failure`).
+2. **Вводит в заблуждение**. Два env-файла создают впечатление что есть разделение "base vs prod overrides", но оркестратор этого разделения не поддерживает — он собирает единый набор переменных. Агент, читающий compose, может ошибочно решить что нужно что-то писать в `.env.prod`.
+3. **Лишняя точка отказа без пользы**. На сервере всё и так production — нет сценария где `.env` содержит dev-значения а `.env.prod` их перекрывает.
+
+**Что сделать**:
+
+1. `compose.prod.yml.jinja` — убрать `- ./.env.prod` из всех `env_file` директив
+2. `deploy.yml.jinja` — убрать `touch "$PROJECT_DIR/infra/.env.prod"`
+3. Удалить `infra/.env.prod.jinja` из шаблона
+4. `deploy.yml.jinja` — добавить fail-fast проверку после decode `.env`:
+   ```bash
+   printf '%s' "$DOTENV_B64" | base64 -d > "$PROJECT_DIR/.env"
+   if [ ! -s "$PROJECT_DIR/.env" ]; then
+     echo "FATAL: decoded .env is empty — DOTENV secret missing or corrupt"
+     exit 1
+   fi
+   ```
+
+**Обратная совместимость**: Для уже задеплоенных проектов `.env.prod` остаётся на сервере как пустой файл — это безвредно, compose просто перестанет на него ссылаться. Нужен re-scaffold или manual patch compose-файлов.
+
 ---
 
 ## Template / Copier Issues
@@ -223,6 +252,23 @@ models:
 ---
 
 ## Usability Issues (from Testing Feedback)
+
+### Добавить примеры роутеров и list-эндпоинтов в AGENTS.md
+
+**Status**: TODO
+**Priority**: MEDIUM
+
+**Description**: AGENTS.md не содержит примера роутера и list-эндпоинта. После удаления `RoutersGenerator` (см. `docs/simplification-plan.md`) агент пишет роутеры вручную, но в документации нет ни одного примера — как выглядит роутер, как подключить его в `router.py`, как объявить list-операцию в спеке.
+
+**Контекст**: В E2E тесте `todo_api` (2026-03-02) developer-воркер потратил время на поиск паттернов в исходниках:
+- Пробовал `response_list: true` в спеке → ошибка валидации. Правильный синтаксис `output: list[TodoRead]` нашёл только в коде фреймворка.
+- Роутер и подключение в `router.py` писал без образца, ориентируясь на существующий `users` домен.
+
+**Что добавить в AGENTS.md**:
+1. Пример domain YAML с list-операцией (`output: list[Model]`)
+2. Пример роутера (15-20 строк: FastAPI router, dependency injection контроллера через protocol, session)
+3. Пример подключения роутера в `app/api/router.py`
+4. Упоминание PATCH как альтернативы PUT для partial updates
 
 ### Add E2E CI Job for Unified Handlers
 
