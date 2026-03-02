@@ -35,6 +35,8 @@ services/backend/
 └── tests/
 ```
 
+> **Про `shared/shared/`**: двойная вложенность — стандартная Python packaging convention. `shared/` — корень проекта (содержит `pyproject.toml`), а `shared/shared/` — импортируемый пакет (`import shared`). Это как `requests/requests/` или `flask/flask/`. Импорты всегда `from shared.generated.schemas import ...`.
+
 ## Роутеры
 
 Роутеры пишутся вручную в `src/app/api/routers/<domain>.py` и подключаются в `src/app/api/router.py`.

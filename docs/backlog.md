@@ -293,6 +293,22 @@ models:
 
 **Description**: `test_e2e_dual_transport_pipeline` в `TestSlowIntegration` — генерирует проект с `backend,tg_bot` (dual-transport: REST + events), запускает полный pipeline: `make setup` → `make generate-from-spec` (idempotency) → `make lint` → `make tests`. Запускается через `make test-copier-slow` и в CI (`test-template.yml` → `test-pytest` job).
 
+### Нет list-операции в reference User домене
+
+**Status**: DONE
+**Priority**: MEDIUM
+
+**Description**: User domain (reference implementation) не содержал `list_users` — базовую CRUD-операцию. E2E воркер нашёл пример list-эндпоинта только в AGENTS.md, но не в работающем коде.
+
+**Фикс**: Добавлены `list_users` operation в `users.yaml`, метод `list()` в `UserRepository`, `list_users()` в controller, GET `/users` endpoint в router, тест. Протокол регенерирован.
+
+### Пояснение про shared/shared/ структуру
+
+**Status**: DONE
+**Priority**: LOW
+
+**Description**: Двойная вложенность `shared/shared/` путала агентов. Это стандартная Python packaging convention (project root vs importable package). Добавлено пояснение в AGENTS.md.
+
 ---
 
 ### compose.dev.yml: PATH не включает per-service .venv

@@ -21,6 +21,20 @@ async def _create_user(
 
 
 @pytest.mark.asyncio
+async def test_list_users(client: AsyncClient) -> None:
+    empty = await client.get("/users")
+    assert empty.status_code == status.HTTP_200_OK
+    assert empty.json() == []
+
+    await _create_user(client, telegram_id=100)
+    await _create_user(client, telegram_id=200)
+
+    response = await client.get("/users")
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()) == 2  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
 async def test_create_and_get_user(client: AsyncClient) -> None:
     created = await _create_user(client, telegram_id=123456789)
 

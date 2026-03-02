@@ -24,6 +24,18 @@ def get_controller() -> UsersControllerProtocol:
     return UsersController()
 
 
+@router.get(
+    "",
+    response_model=list[UserRead],
+    status_code=200,
+)
+async def list_users(
+    session: AsyncSession = Depends(get_async_db),  # noqa: B008
+    controller: UsersControllerProtocol = Depends(get_controller),  # noqa: B008
+) -> list[UserRead]:
+    return await controller.list_users(session=session)
+
+
 @router.post(
     "",
     response_model=UserRead,

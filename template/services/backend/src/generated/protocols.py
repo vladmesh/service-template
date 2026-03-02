@@ -22,6 +22,12 @@ from shared.generated.schemas import (
 class UsersControllerProtocol(Protocol):
     """Protocol for users controller."""
 
+    async def list_users(
+        self,
+        session: AsyncSession,
+    ) -> list[UserRead]:
+        ...
+
     # Dual transport: REST + Events
     async def create_user(
         self,

@@ -50,6 +50,14 @@ class UsersController(UsersControllerProtocol):
     Implementation of UsersControllerProtocol.
     """
 
+    async def list_users(
+        self,
+        session: AsyncSession,
+    ) -> list[UserRead]:
+        repo = _get_repo(session)
+        users = await repo.list()
+        return [_to_schema(u) for u in users]
+
     async def create_user(
         self,
         session: AsyncSession,

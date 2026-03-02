@@ -15,6 +15,10 @@ class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def list(self) -> list[User]:
+        result = await self.session.execute(select(User))
+        return list(result.scalars().all())
+
     async def get(self, user_id: int) -> User | None:
         return await self.session.get(User, user_id)
 

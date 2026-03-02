@@ -5,6 +5,12 @@ config:
     tags: ["users"]
 
 operations:
+  list_users:
+    output: list[UserRead]
+    rest:
+      method: GET
+      path: ""
+
   # Dual-transport: REST endpoint that also publishes an event
   create_user:
     input: UserCreate
