@@ -96,7 +96,21 @@ jobs:
 
       - name: Prepare .env placeholder
         run: cp .env.example .env
+{% if 'backend' in modules %}
+      - name: Set up Python {{ python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "{{ python_version }}"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Generate code from specs
+        run: |
+          uv venv
+          uv pip install -e .framework/ ruff
+          make generate-from-spec
+{% endif %}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

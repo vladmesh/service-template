@@ -296,6 +296,52 @@ models:
 
 ---
 
+## CI / Deploy Pipeline Bugs
+
+### Generated code не попадает в Docker-образ → backend crash loop на deploy
+
+**Status**: DONE
+**Priority**: CRITICAL
+
+**Description**: При деплое backend-контейнер падает с `ModuleNotFoundError: No module named 'shared.generated'`. Проблема воспроизведена в двух последовательных E2E тестах Level C (todo_api, 2026-03-02) — оба раза одинаковый crash loop.
+
+**Ошибка на сервере**:
+```
+File "/app/services/backend/src/app/schemas/__init__.py", line 3, in <module>
+    from shared.generated.schemas import (
+ModuleNotFoundError: No module named 'shared.generated'
+```
+
+**Цепочка**: `start.sh` → `alembic upgrade` → `env.py` → models → `app/__init__.py` → router → routers → controllers → repositories → `schemas/__init__.py` → `from shared.generated.schemas import ...` → **crash**.
+
+**Корневая причина** — два бага, которые вместе дают проблему:
+
+1. **`.gitignore` исключает generated-код.** `template/.gitignore` строка 19: `**/generated/`. Scaffold запускает `make setup` → `make generate-from-spec`, создаётся `shared/shared/generated/schemas.py`, но `git add .` пропускает эти файлы. Generated-код никогда не попадает в GitHub.
+
+2. **CI job `build-and-push` не регенерирует файлы.** В `ci.yml.jinja` job `lint-and-test` запускает `make generate-from-spec` (строка ~42), но это отдельный job — его workspace не переносится. Job `build-and-push` делает только `actions/checkout@v4` + Docker build из чистого checkout без generated-файлов. `Dockerfile.jinja` строки 26, 33 (`COPY shared/shared` / `COPY shared`) копируют то что есть в build context — а `shared/shared/generated/` там нет.
+
+**Почему CI тесты проходят, а deploy падает**: `lint-and-test` регенерирует файлы в своём workspace и запускает тесты вне Docker. Тесты проходят. Затем `build-and-push` собирает Docker-образ из чистого checkout → образ без `shared/shared/generated/` → backend crash при старте.
+
+**Затронутые файлы**:
+- `template/.gitignore:19` — правило `**/generated/`
+- `template/.github/workflows/ci.yml.jinja:~42` — генерация только в `lint-and-test`
+- `template/.github/workflows/ci.yml.jinja:~94-95` — `build-and-push` без генерации
+- `template/services/backend/Dockerfile.jinja:26,33` — COPY предполагает наличие generated-файлов
+
+**Рекомендации по решению** (в порядке предпочтения):
+
+| Вариант | Что сделать | Трейдофф |
+|---------|-------------|----------|
+| A. Генерить в `build-and-push` | Добавить step `make generate-from-spec` перед Docker build в `ci.yml.jinja` | Нужен `datamodel-code-generator` в CI runner (pip install) |
+| B. Трекать generated в git | Убрать `**/generated/` из `.gitignore` | Generated-код в git, зато всегда доступен |
+| C. Генерить в Dockerfile | Добавить `RUN make generate-from-spec` в `Dockerfile.jinja` | Dev-зависимость в prod-образе, медленнее билд |
+
+**Воспроизведение**: Создать проект с `modules: [backend]`, пройти scaffold → codegen → CI → deploy. Backend упадёт при старте.
+
+**Ссылки**: `codegen_orchestrator/docs/e2e_results/todo_api-20260302-levelC.md`, `todo_api-20260302-levelC-2.md`
+
+---
+
 ## Infrastructure Audit Fixes
 
 ### Add Cache Mounts to Dockerfiles
