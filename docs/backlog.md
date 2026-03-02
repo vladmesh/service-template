@@ -489,6 +489,33 @@ export
 
 **Проверка**: После фикса в шаблоне, в сгенерированном проекте `make makemigrations name="test"` должен работать без предварительного `source .env`.
 
+### Makefile: нет `make migrate` таргета → autogenerate невозможен
+
+**Status**: DONE
+**Priority**: HIGH
+**Источник**: E2E codegen_orchestrator todo_api Level C (2026-03-03), воспроизведено вручную.
+
+**Description**: Scaffold создаёт начальные миграции (`0001_initial`, `create_user`), но в Makefile нет таргета для их применения (`alembic upgrade head`). Когда воркер-агент:
+
+1. Запускает `orchestrator dev-env start-infra db` — postgres стартует, `.env` патчится (`POSTGRES_HOST=project-db`)
+2. Пробует `make makemigrations name="add_todo"` — Alembic подключается к БД успешно, но падает с `Target database is not up to date` (начальные миграции не применены)
+3. Ищет `make migrate` — не существует
+4. Пробует `alembic upgrade head` напрямую (без make) — env vars не загружены → `RuntimeError: Required environment variables are not set`
+5. Сдаётся и пишет миграцию вручную
+
+**Воспроизведено**: В worker-контейнере после scaffold: `orchestrator dev-env start-infra db` → OK, `make makemigrations name='test'` → "Target database is not up to date", `source .env && alembic upgrade head` → OK, `make makemigrations name='test'` → OK. Вся цепочка работает, но без `make migrate` агент не может к ней прийти.
+
+**Фикс**: Добавить таргет `migrate` в `template/Makefile.jinja`:
+
+```makefile
+migrate:
+	PYTHONPATH=. services/backend/.venv/bin/alembic -c services/backend/migrations/alembic.ini upgrade head
+```
+
+Аналогично `makemigrations`, env vars подхватятся через `-include .env` + `export` в начале Makefile.
+
+**Опционально**: Обновить `AGENTS.md` — добавить пример workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
+
 ---
 
 ## Закрытые пункты (архив)

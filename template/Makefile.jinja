@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests
+.PHONY: setup lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests
 
 -include .env
 export
@@ -88,6 +88,9 @@ tests:
 	$(MAKE) tooling-tests || failed=1; \
 	exit $$failed
 {% if 'backend' in modules %}
+migrate:
+	PYTHONPATH=. services/backend/.venv/bin/alembic -c services/backend/migrations/alembic.ini upgrade head
+
 makemigrations:
 	@if [ -z "$(name)" ]; then \
 		echo "Usage: make makemigrations name=\"<description>\""; \

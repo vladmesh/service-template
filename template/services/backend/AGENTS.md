@@ -133,8 +133,9 @@ api_router.include_router(todos_router)
 ## Database & Migrations
 
 - Миграции в `services/backend/migrations/versions/`.
-- Перед запуском API: `services/backend/scripts/migrate.sh`.
+- Применить миграции: `make migrate` (или `services/backend/scripts/migrate.sh`).
 - Создать новую миграцию: `make makemigrations name="describe_change"`.
+- Workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
 
 ## Event Publishing
 
@@ -165,6 +166,7 @@ await publish_user_registered(event)
 | `make validate-specs` | Проверить YAML спеки |
 | `make lint-specs` | Проверить соответствие спекам |
 | `make lint-controllers` | Проверить синхронизацию контроллеров с протоколами |
+| `make migrate` | Применить миграции (`alembic upgrade head`) |
 | `make makemigrations name="..."` | Создать Alembic миграцию |
 | `make openapi` | Экспорт OpenAPI JSON |
 | `make tests backend` | Запустить тесты backend |
