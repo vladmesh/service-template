@@ -51,8 +51,21 @@ from services.backend.src.main import create_app  # noqa: E402
 @pytest_asyncio.fixture(scope="session")
 async def db_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create database schema once per test session."""
+    from sqlalchemy import event
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{TEST_DB_PATH}", echo=False)
+
+    # SQLite requires explicit transaction management for savepoints to work.
+    # Without this, pysqlite intercepts BEGIN/COMMIT and breaks rollback isolation.
+    # See: https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#serializable-isolation-savepoints-transactional-ddl
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, connection_record):
+        dbapi_conn.isolation_level = None
+
+    @event.listens_for(engine.sync_engine, "begin")
+    def _do_begin(conn):
+        conn.exec_driver_sql("BEGIN")
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     try:
@@ -94,10 +107,8 @@ async def app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     events_module._broker = mock_broker
 
     async def _get_test_db() -> AsyncGenerator[AsyncSession, None]:
-        # Use savepoint to make changes visible within the test transaction
         async with db_session.begin_nested():
             yield db_session
-            await db_session.flush()
 
     application.dependency_overrides[get_async_db] = _get_test_db
     try:
