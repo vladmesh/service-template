@@ -255,7 +255,7 @@ models:
 
 ### tg_bot AGENTS.md documents wrong env var name
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: MEDIUM
 **Источник**: E2E weather_bot Level C (2026-03-04), codegen_orchestrator
 
