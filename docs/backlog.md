@@ -253,6 +253,18 @@ models:
 
 ## Usability Issues (from Testing Feedback)
 
+### tg_bot AGENTS.md documents wrong env var name
+
+**Status**: TODO
+**Priority**: MEDIUM
+**Источник**: E2E weather_bot Level C (2026-03-04), codegen_orchestrator
+
+**Description**: `template/services/tg_bot/AGENTS.md.jinja:40` documents `API_BASE_URL` but the actual code (`main.py.jinja:49`) and `.env.jinja:22` use `BACKEND_API_URL`. Agent reads AGENTS.md, writes code using the wrong variable name, may get runtime errors.
+
+**Root cause**: Commit `370b297` (2026-02-09) renamed the variable in `.env`, `.env.example`, and `main.py` but missed `AGENTS.md.jinja`. Inconsistency persisted for 3+ weeks.
+
+**Fix**: One-line change in `template/services/tg_bot/AGENTS.md.jinja:40` — replace `API_BASE_URL` with `BACKEND_API_URL`.
+
 ### Добавить примеры роутеров и list-эндпоинтов в AGENTS.md
 
 **Status**: DONE
