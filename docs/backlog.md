@@ -540,6 +540,46 @@ migrate:
 
 **Опционально**: Обновить `AGENTS.md` — добавить пример workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
 
+### ORMBase forces `updated_at` on all models
+
+**Status**: OPEN
+**Priority**: LOW
+**Источник**: E2E codegen_orchestrator todo_api Level C (2026-03-04)
+
+**Description**: `ORMBase` bundles both `created_at` and `updated_at` columns. Models that only need `created_at` (e.g., Todo per spec) must use `Base` directly and define `created_at` manually, losing `ORMBase` convenience. Fix: add `CreatedAtBase` with only `created_at`, or make `updated_at` opt-in via a mixin.
+
+### Auto-generate routers from domain specs
+
+**Status**: OPEN
+**Priority**: MEDIUM
+**Источник**: E2E codegen_orchestrator todo_api Level C (2026-03-04)
+
+**Description**: Framework generates protocols and controller stubs from specs, but routers must be written manually. The router pattern is formulaic (map HTTP method to controller method with `Depends` wiring). Generate router stubs alongside controller stubs to reduce boilerplate and prevent spec drift.
+
+### Auto-update `__init__.py` re-exports after generation
+
+**Status**: OPEN
+**Priority**: LOW
+**Источник**: E2E codegen_orchestrator todo_api Level C (2026-03-04)
+
+**Description**: After adding new models, `schemas/__init__.py`, `models/__init__.py`, `repositories/__init__.py` must be manually updated to re-export new classes. The generate command doesn't update these files. Fix: auto-generate these `__init__.py` files or remove the re-export pattern in favor of direct imports.
+
+### `make setup` not idempotent — fails if `.venv` exists
+
+**Status**: OPEN
+**Priority**: LOW
+**Источник**: E2E codegen_orchestrator weather_bot worker audit (2026-03-04)
+
+**Description**: `make setup` fails with "A virtual environment already exists at /workspace/.venv. Use --clear to replace it". Fix: change `uv venv` to `uv venv --clear` in setup target for idempotency.
+
+### Xenon excludes don't cover service test directories
+
+**Status**: OPEN
+**Priority**: LOW
+**Источник**: E2E codegen_orchestrator weather_bot worker audit (2026-03-04)
+
+**Description**: Makefile xenon uses `--exclude '.framework/*,tests/*'` which only matches root `tests/`, not `services/*/tests/`. Service test files get flagged for complexity (assertions count as branches). Fix: update pattern to `--exclude '.framework/*,tests/*,services/*/tests/*'`.
+
 ---
 
 ## Закрытые пункты (архив)
