@@ -39,6 +39,9 @@ setup:
 	@echo ">> Generating code from specs"
 	$(PYTHON) -m framework.generate
 {%- endif %}
+	@echo ">> Formatting generated code"
+	$(VENV)/ruff format .
+	$(VENV)/ruff check --fix .
 	@git config core.hooksPath .githooks 2>/dev/null || true
 	@echo ">> Setup complete!"
 
