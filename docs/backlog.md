@@ -540,6 +540,22 @@ migrate:
 
 **Опционально**: Обновить `AGENTS.md` — добавить пример workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
 
+### Broken import in scaffolded user repository
+
+**Status**: OPEN
+**Priority**: HIGH
+**Источник**: E2E codegen_orchestrator todo_api with-PO (2026-03-05)
+
+**Description**: `services/backend/src/app/repositories/user.py:9` imports `from ..schemas import UserCreate, UserUpdate` but the schemas module doesn't exist at that path — schemas are generated in `shared/shared/generated/schemas.py`. Causes `ModuleNotFoundError` and blocks `make migrate`, `make tests`, and any backend import. Fix: update scaffold template to generate `from shared.generated.schemas import UserCreate, UserUpdate` or add re-export module at `services/backend/src/app/schemas.py`.
+
+### Eager import chains cause fragility in scaffolded projects
+
+**Status**: OPEN
+**Priority**: LOW
+**Источник**: E2E codegen_orchestrator todo_api with-PO (2026-03-05)
+
+**Description**: `services/backend/src/__init__.py` eagerly imports `app` and `create_app`, and `api/__init__.py` eagerly imports the router. Any broken import in the chain (routers → controllers → repositories → schemas) causes the entire application to fail at import time. Alembic migrations also affected since `env.py` triggers full app initialization. Fix: use lazy imports or have Alembic `env.py` import models directly without app initialization chain.
+
 ### ORMBase forces `updated_at` on all models
 
 **Status**: OPEN
