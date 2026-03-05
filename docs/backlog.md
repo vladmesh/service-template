@@ -345,10 +345,10 @@ models:
 
 ## Jinja Whitespace в шаблонах документации
 
-**Status**: TODO
+**Status**: DONE
 **Priority**: LOW
 
-**Description**: Шаблоны `TASK.md.jinja`, `CONTRIBUTING.md.jinja`, `ARCHITECTURE.md.jinja` генерируют лишние пустые строки и некорректные отступы из-за whitespace от Jinja conditional blocks. Подробности — в `docs/e2e-issues-iteration6.md` (issues #1-#4, #9). Все функциональные — никакого влияния на работу проекта, только косметика markdown.
+**Description**: Шаблоны `TASK.md.jinja`, `CONTRIBUTING.md.jinja`, `ARCHITECTURE.md.jinja` генерировали лишние пустые строки. Проверка показала — лишних пустых строк больше нет.
 
 ---
 
@@ -542,7 +542,7 @@ migrate:
 
 ### Broken import in scaffolded user repository
 
-**Status**: OPEN
+**Status**: DONE
 **Priority**: HIGH
 **Источник**: E2E codegen_orchestrator todo_api with-PO (2026-03-05)
 
@@ -558,11 +558,13 @@ migrate:
 
 ### ORMBase forces `updated_at` on all models
 
-**Status**: OPEN
+**Status**: DONE
 **Priority**: LOW
 **Источник**: E2E codegen_orchestrator todo_api Level C (2026-03-04)
 
-**Description**: `ORMBase` bundles both `created_at` and `updated_at` columns. Models that only need `created_at` (e.g., Todo per spec) must use `Base` directly and define `created_at` manually, losing `ORMBase` convenience. Fix: add `CreatedAtBase` with only `created_at`, or make `updated_at` opt-in via a mixin.
+**Description**: `ORMBase` bundles both `created_at` and `updated_at` columns. Models that only need `created_at` (e.g., Todo per spec) must use `Base` directly and define `created_at` manually, losing `ORMBase` convenience.
+
+**Fix applied**: `CreatedAtMixin` добавлен в `db.py` (коммит `b0afb10`). Модели могут наследовать `CreatedAtMixin` + `Base` для `created_at` only, или `ORMBase` для обоих timestamps.
 
 ### Auto-generate routers from domain specs
 
@@ -582,19 +584,23 @@ migrate:
 
 ### `make setup` not idempotent — fails if `.venv` exists
 
-**Status**: OPEN
+**Status**: DONE
 **Priority**: LOW
 **Источник**: E2E codegen_orchestrator weather_bot worker audit (2026-03-04)
 
-**Description**: `make setup` fails with "A virtual environment already exists at /workspace/.venv. Use --clear to replace it". Fix: change `uv venv` to `uv venv --clear` in setup target for idempotency.
+**Description**: `make setup` fails with "A virtual environment already exists at /workspace/.venv. Use --clear to replace it".
+
+**Fix applied**: `uv venv --quiet 2>/dev/null || uv venv --clear --quiet` в `Makefile.jinja` (коммит `b605d3c`).
 
 ### Xenon excludes don't cover service test directories
 
-**Status**: OPEN
+**Status**: DONE
 **Priority**: LOW
 **Источник**: E2E codegen_orchestrator weather_bot worker audit (2026-03-04)
 
-**Description**: Makefile xenon uses `--exclude '.framework/*,tests/*'` which only matches root `tests/`, not `services/*/tests/`. Service test files get flagged for complexity (assertions count as branches). Fix: update pattern to `--exclude '.framework/*,tests/*,services/*/tests/*'`.
+**Description**: Makefile xenon uses `--exclude '.framework/*,tests/*'` which only matches root `tests/`, not `services/*/tests/`.
+
+**Fix applied**: Обе xenon-команды обновлены: `--exclude '.framework/*,tests/*,services/*/tests/*'` (коммит `b605d3c`).
 
 ---
 
