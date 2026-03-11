@@ -8,6 +8,29 @@ Event-driven FastStream worker, подписывающийся на Redis Stream
 - Запуск и тесты только через `make` + Docker. Не устанавливайте deps на хост.
 - Точка входа: `services/notifications_worker/src/main.py`.
 
+## Import Rules
+
+**PYTHONPATH** в Docker: `/app`
+
+Используйте **fully qualified absolute imports** от корня проекта:
+
+```python
+# Внутри notifications_worker — fully qualified
+from services.notifications_worker.src.controllers.notifications import NotificationsController
+from services.notifications_worker.src.generated.protocols import NotificationsControllerProtocol
+
+# Shared-пакет
+from shared.generated.schemas import UserRegistered
+from shared.generated.events import get_broker
+```
+
+**Запрещено:**
+```python
+# НЕ ДЕЛАЙТЕ ТАК:
+from src.controllers.notifications import ...           # src — не пакет верхнего уровня
+from notifications_worker.src.controllers import ...    # нет такого пакета
+```
+
 ## Architecture
 
 Сервис использует spec-first event adapter:

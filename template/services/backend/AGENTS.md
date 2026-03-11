@@ -5,6 +5,37 @@
 - Код, тесты и зависимости живут в `services/backend`. Не разносите `Dockerfile`, `src/` или `tests/` по другим каталогам.
 - Любые команды запускайте через `make` и docker-compose (см. `CONTRIBUTING.md`). Локальный Python не используем.
 
+## Import Rules
+
+**PYTHONPATH** в Docker: `/app`
+
+Используйте **fully qualified absolute imports** от корня проекта:
+
+```python
+# Внутри backend — fully qualified
+from services.backend.src.controllers.users import UsersController
+from services.backend.src.core.db import get_async_db
+from services.backend.src.generated.protocols import UsersControllerProtocol
+
+# Shared-пакет
+from shared.generated.schemas import UserCreate, UserRead
+from shared.generated.events import get_broker
+```
+
+**Исключение** — relative imports допустимы внутри одного пакета (например, `src/app/api/`):
+```python
+# В src/app/api/router.py
+from .routers.users import router as users_router
+```
+
+**Запрещено:**
+```python
+# НЕ ДЕЛАЙТЕ ТАК:
+from src.controllers.users import ...        # src — не пакет верхнего уровня
+from backend.src.controllers import ...      # нет такого пакета
+from .controllers.users import ...           # relative import через границу пакета
+```
+
 ## Spec-First Workflow
 
 Backend использует spec-first подход: модели и протоколы генерируются из YAML-спецификаций.
