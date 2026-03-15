@@ -22,6 +22,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
     ports:
       - "${BACKEND_PORT:-8000}:8000"
 {%- endif %}
@@ -66,6 +72,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     volumes:
       - db_data:/var/lib/postgresql/data
 {%- endif %}
@@ -88,6 +95,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 5s
 {%- endif %}
 {%- if 'backend' in modules %}
 
