@@ -74,7 +74,11 @@ fi
 if ! $DOCKER_AVAILABLE; then
     echo ""
     echo "[pre-push] Docker not available, running native ruff check..."
-    if command -v ruff >/dev/null 2>&1; then
+    if [ -x .venv/bin/ruff ]; then
+        .venv/bin/ruff check .
+        echo ""
+        echo "[pre-push] Native lint passed. Full CI will run on GitHub."
+    elif command -v ruff >/dev/null 2>&1; then
         ruff check .
         echo ""
         echo "[pre-push] Native lint passed. Full CI will run on GitHub."
