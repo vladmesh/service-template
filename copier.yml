@@ -47,7 +47,7 @@ _skip_if_exists:
 project_name:
   type: str
   help: "Project name (lowercase, hyphens allowed, e.g. 'my-awesome-api')"
-  validator: "{% if not project_name | regex_search('^[a-z][a-z0-9-]*$') %}Project name must be lowercase, start with a letter, and contain only letters, numbers, and hyphens{% endif %}"
+  validator: "{% if not project_name | regex_search('^[a-z][a-z0-9_-]*$') %}Project name must be lowercase, start with a letter, and contain only letters, numbers, hyphens, and underscores{% endif %}"
 
 project_slug:
   type: str

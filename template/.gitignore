@@ -15,3 +15,7 @@ services/*/.venv/
 
 build/
 dist/
+
+# Worker runtime files (injected by orchestrator, not part of project source)
+REPORT.md
+TASK.md
