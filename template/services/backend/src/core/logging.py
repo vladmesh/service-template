@@ -1,38 +1,14 @@
 """Logging configuration for the backend application."""
 
-import logging
-from logging.config import dictConfig
+from __future__ import annotations
+
+from shared.logging import configure_logging as _configure
 
 from .settings import get_settings
 
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        }
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-        }
-    },
-    "root": {
-        "level": "INFO",
-        "handlers": ["console"],
-    },
-}
-
 
 def configure_logging() -> None:
-    """Configure logging based on settings."""
+    """Configure structured logging for the backend service."""
 
     settings = get_settings()
-    dictConfig(LOGGING_CONFIG)
-    logging.getLogger(__name__).info(
-        "Logging configured for %s in %s mode",
-        settings.app_name,
-        settings.environment,
-    )
+    _configure(service_name=settings.app_name, log_level="DEBUG" if settings.debug else "INFO")

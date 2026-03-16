@@ -434,6 +434,62 @@ ModuleNotFoundError: No module named 'shared.generated'
 
 **Description**: Review templates in `.framework/framework/templates/scaffold/services/` to ensure they use the latest best practices adopted by main services.
 
+## Product Analytics: Structured Logging
+
+### Task 1: structlog + FastAPI request middleware + error logging
+
+**Status**: TODO
+**Priority**: HIGH
+
+**Description**: Добавить structured JSON logging как стандарт для всех python-сервисов. Основной deliverable — единообразные логи в stdout, которые оркестратор может собирать для ЛК пользователя.
+
+**Scope**:
+1. **shared: logging config** — модуль в `shared/shared/generated/` с настройкой structlog, JSON formatter, стандартные поля (timestamp, level, event, service, method, path, status_code, duration_ms, user_id, error)
+2. **FastAPI request middleware** — автоматический structured log каждого запроса/ответа
+3. **Хук `get_request_user_id(request) -> str | None`** — переопределяемая функция для извлечения user_id из auth context. Дефолт: `None` (пользователь подключает auth → переопределяет → получает UUID)
+4. **Error logging** — exception handler для unhandled errors в том же JSON-формате (exception_type, message, traceback)
+5. **structlog в зависимости** — добавить в base dependencies python-сервисов
+6. **Тесты** — unit-тесты на формат логов и middleware
+
+**Всё generated-код** (не scaffold), обновляется через `copier update`.
+
+**Формат лога запроса**:
+```json
+{
+  "timestamp": "2026-03-17T12:00:00Z",
+  "level": "info",
+  "event": "request",
+  "service": "weather-bot",
+  "method": "POST",
+  "path": "/webhook",
+  "status_code": 200,
+  "duration_ms": 45.2,
+  "user_id": null,
+  "error": null
+}
+```
+
+**Контекст**: Оркестратор собирает эти логи для построения продуктовой аналитики (DAU, new/returning users, error rate). Шаблон отвечает только за запись логов — сбор и хранение на стороне оркестратора. user_id в логах пишется plain (для дебага на сервере), оркестратор хэширует при записи в свою БД.
+
+### Task 2: Telegram bot update middleware
+
+**Status**: TODO
+**Priority**: HIGH
+**Depends on**: Task 1 (shared logging config)
+
+**Description**: Structured logging middleware для Telegram бота — аналог FastAPI middleware из Task 1, но для входящих update'ов.
+
+**Scope**:
+1. **Update middleware** — логирует каждый входящий update в том же JSON-формате
+2. **user_id = `tg:{from_user.id}`** — захардкожен, хук не нужен (в Telegram всегда есть from_user.id)
+3. **Поля**: command/callback вместо path, `tg:{id}` как user_id
+4. **Error logging** — обёртка над handler'ами, логирует exception, не роняет процесс
+5. **Тесты**
+
+**Контекст**: Standalone боты (без бэкенда) — частый кейс (`modules=tg_bot`). Middleware обеспечивает аналитику даже без FastAPI-бэкенда.
+
+---
+
 ## Simplification & Unification Tasks
 
 ### Unified Handlers: Error Handling Strategy

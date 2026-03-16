@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from http import HTTPStatus
-import logging
 import os
 from typing import Any, Self
 
 import httpx
+import structlog
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = structlog.stdlib.get_logger()
 
 
 class ServiceClient:

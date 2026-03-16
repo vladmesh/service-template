@@ -3,21 +3,20 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-import logging
 import os
 
 from faststream import FastStream
 from faststream.redis import RedisBroker
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
+
+from shared.logging import configure_logging
 
 from .controllers.notifications import NotificationsController
 from .generated.event_adapter import create_event_adapter
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
+configure_logging(service_name="notifications_worker")
+logger = structlog.stdlib.get_logger()
 
 
 @asynccontextmanager
