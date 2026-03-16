@@ -32,17 +32,19 @@ await publish_command_received(event)
 
 ## Import Rules
 
-**PYTHONPATH** в Docker: `/app:/app/services/tg_bot/src`
+**PYTHONPATH** в Docker: `/app`
 
-Поскольку `src/` добавлен в PYTHONPATH, внутри сервиса используйте **relative imports**:
+Все сервисы используют одинаковый PYTHONPATH. Два стиля импортов:
 
 ```python
-# Внутри services/tg_bot/src/ — relative imports
+# Внутри services/tg_bot/src/ — relative imports (предпочтительно)
 from .handlers import handle_start, handle_message
 from .config import get_settings
-from .keyboards import main_menu_keyboard
 
-# Shared-пакет — absolute import (через /app в PYTHONPATH)
+# Absolute imports (тоже работают, но менее предпочтительны)
+from services.tg_bot.src.handlers import handle_start
+
+# Shared-пакет — всегда absolute import
 from shared.generated.schemas import CommandReceived
 from shared.generated.events import get_broker, publish_command_received
 ```
@@ -51,7 +53,6 @@ from shared.generated.events import get_broker, publish_command_received
 ```python
 # НЕ ДЕЛАЙТЕ ТАК:
 from src.handlers import ...                        # src — не пакет верхнего уровня
-from services.tg_bot.src.handlers import ...        # избыточно, ломается при изменении имени сервиса
 import handlers                                     # bare import, не работает как пакет
 ```
 
