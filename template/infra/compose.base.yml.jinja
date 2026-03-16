@@ -4,6 +4,8 @@ x-backend-env: &backend-env
   ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-service}
 
 {% endif -%}
+name: {{ project_slug }}
+
 services:
 {%- if 'backend' in modules %}
   backend:
