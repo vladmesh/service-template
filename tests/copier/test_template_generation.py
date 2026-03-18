@@ -938,6 +938,47 @@ class TestGeneratedCodeQuality:
         )
 
 
+class TestEntrypointSafety:
+    """Verify that Dockerfile entrypoints have no relative imports."""
+
+    @staticmethod
+    def _extract_python_entrypoint(dockerfile: Path) -> str | None:
+        """Parse CMD from a Dockerfile and return the Python file path, if any."""
+        for line in dockerfile.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped.upper().startswith("CMD"):
+                continue
+            # CMD ["python", "services/.../main.py"]
+            if "python" in stripped:
+                parts = stripped.split('"')
+                for part in parts:
+                    if part.endswith(".py"):
+                        return part
+        return None
+
+    @pytest.mark.parametrize(
+        "fixture_name",
+        ["project_backend", "project_standalone", "project_backend_tg_bot", "project_fullstack"],
+    )
+    def test_no_relative_imports_in_entrypoints(self, fixture_name: str, request):
+        """Entrypoint files must not use relative imports (they run as scripts)."""
+        project: Path = request.getfixturevalue(fixture_name)
+        errors = []
+        for dockerfile in project.rglob("services/*/Dockerfile"):
+            entrypoint = self._extract_python_entrypoint(dockerfile)
+            if entrypoint is None:
+                continue
+            entrypoint_path = project / entrypoint
+            if not entrypoint_path.exists():
+                continue
+            content = entrypoint_path.read_text()
+            for i, line in enumerate(content.splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("from .") and "import" in stripped:
+                    errors.append(f"{entrypoint}:{i}: {stripped}")
+        assert not errors, "Relative imports in script-mode entrypoints:\n" + "\n".join(errors)
+
+
 class TestTemplateTestHealth:
     """Verify that template test files are correct before running them."""
 
@@ -1124,4 +1165,86 @@ class TestSlowIntegration:
         )
         assert result.returncode == 0, (
             f"make tests failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    @pytest.mark.parametrize(
+        ("service", "modules"),
+        [
+            ("backend", "backend,tg_bot"),
+            ("tg_bot", "backend,tg_bot"),
+            ("notifications_worker", "backend,tg_bot,notifications"),
+        ],
+    )
+    def test_docker_entrypoint_imports(self, tmp_path: Path, service: str, modules: str):
+        """Build Docker image and verify entrypoint imports succeed."""
+        output = run_copier(tmp_path, modules)
+
+        # make setup to generate code and install deps
+        result = subprocess.run(  # noqa: S603, S607
+            ["make", "setup"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, (
+            f"make setup failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        infra = output / "infra"
+        if not infra.exists():
+            pytest.skip("infra/ directory not found in generated project")
+
+        compose_file = None
+        for name in ("compose.base.yml", "docker-compose.yml", "compose.yml"):
+            if (infra / name).exists():
+                compose_file = name
+                break
+        if compose_file is None:
+            pytest.skip("No compose file found in infra/")
+
+        compose_cmd = ["docker", "compose", "-f", compose_file]
+
+        # Build the specific service image
+        result = subprocess.run(  # noqa: S603
+            [*compose_cmd, "build", service],
+            cwd=infra,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        assert result.returncode == 0, (
+            f"docker compose build {service} failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        # Extract the entrypoint module and verify imports work inside the container
+        dockerfile = output / "services" / service / "Dockerfile"
+        entrypoint = TestEntrypointSafety._extract_python_entrypoint(dockerfile)
+        if entrypoint is None:
+            pytest.skip(f"No Python entrypoint in {service} Dockerfile")
+
+        # Convert file path to module path (services/x/src/main.py → services.x.src.main)
+        module_path = entrypoint.replace("/", ".").removesuffix(".py")
+
+        result = subprocess.run(  # noqa: S603
+            [
+                *compose_cmd,
+                "run",
+                "--rm",
+                "--no-deps",
+                "--entrypoint",
+                "python",
+                service,
+                "-c",
+                f"import {module_path}; print('OK')",
+            ],
+            cwd=infra,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"Import check failed for {service} (module={module_path}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )

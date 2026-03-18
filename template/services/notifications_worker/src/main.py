@@ -10,10 +10,9 @@ from faststream.redis import RedisBroker
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from services.notifications_worker.src.controllers.notifications import NotificationsController
+from services.notifications_worker.src.generated.event_adapter import create_event_adapter
 from shared.logging import configure_logging
-
-from .controllers.notifications import NotificationsController
-from .generated.event_adapter import create_event_adapter
 
 configure_logging(service_name="notifications_worker")
 logger = structlog.stdlib.get_logger()

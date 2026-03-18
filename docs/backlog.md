@@ -419,6 +419,87 @@ ModuleNotFoundError: No module named 'shared.generated'
 
 ---
 
+## Container Startup Validation
+
+### tg_bot crash loop: relative import in main.py + add container startup tests
+
+**Status**: TODO
+**Priority**: HIGH
+**Источник**: E2E weather_bot (2026-03-18), `codegen_orchestrator/docs/e2e_results/weather_bot-20260318.md`
+
+**Description**: `main.py.jinja:30` uses `from .middleware import install_update_logging` — relative import. But Dockerfile runs it as a script (`python services/tg_bot/src/main.py`), not as a module. Result: `ImportError: attempted relative import with no known parent package`. Backend works, tg_bot crash-loops (15 restarts), deploy fails.
+
+**Корневая причина**: Relative import в файле, который запускается как скрипт. Тесты не ловят — unit-тесты импортируют через абсолютные пути (`from services.tg_bot.src.middleware import ...`), а `main.py` как скрипт никто не запускает до деплоя.
+
+**Широкий класс багов**: Контейнер не стартует (import error, missing dep, wrong entrypoint, config mismatch). Сейчас ловим только на deploy, нужно ловить в тестах шаблона.
+
+**Два решения (реализовать оба)**:
+
+#### A. Быстрый фикс + smoke test (ловит конкретный баг и аналоги)
+
+1. **Починить import**: `main.py.jinja:30` — заменить `from .middleware` на `from services.tg_bot.src.middleware` (абсолютный, совместим с `PYTHONPATH=/app`).
+
+2. **Добавить `test_smoke.py` для tg_bot** (как у `notifications_worker`):
+   ```python
+   def test_imports():
+       from services.tg_bot.src.main import build_application
+       from services.tg_bot.src.middleware import install_update_logging
+       assert build_application is not None
+       assert install_update_logging is not None
+   ```
+
+3. **Entrypoint lint в copier тестах**: Для каждого сервиса — парсить `CMD` из Dockerfile, проверить что entrypoint-файл не содержит `from .` (relative imports запрещены в script-mode entrypoints):
+   ```python
+   def test_no_relative_imports_in_entrypoints(generated_project):
+       for dockerfile in generated_project.glob("services/*/Dockerfile"):
+           cmd_file = extract_cmd_target(dockerfile)
+           content = (generated_project / cmd_file).read_text()
+           assert "from ." not in content, f"Relative import in entrypoint {cmd_file}"
+   ```
+
+#### B. Docker build + startup test (ловит весь класс "контейнер не стартует")
+
+Добавить slow copier тест — после генерации проекта, собрать Docker-образы и проверить что все контейнеры стартуют без crash loop:
+
+```python
+@pytest.mark.slow
+def test_containers_start_without_crash(generated_project_with_setup):
+    """Build images, start containers, verify no crash loops."""
+    infra = generated_project_with_setup / "infra"
+    # Build
+    subprocess.run(["docker", "compose", "-f", "compose.base.yml", "build"], cwd=infra, check=True)
+    # Start
+    subprocess.run(["docker", "compose", "-f", "compose.base.yml", "up", "-d"], cwd=infra, check=True)
+    try:
+        time.sleep(15)
+        result = subprocess.run(
+            ["docker", "compose", "-f", "compose.base.yml", "ps", "--format", "json"],
+            cwd=infra, capture_output=True, text=True
+        )
+        containers = json.loads(result.stdout)
+        for c in containers:
+            assert c["State"] == "running", f"{c['Name']} not running: {c['State']}"
+            # Check no restart loops
+            inspect = subprocess.run(
+                ["docker", "inspect", "--format", "{{.RestartCount}}", c["ID"]],
+                capture_output=True, text=True
+            )
+            assert inspect.stdout.strip() == "0", f"{c['Name']} restarted {inspect.stdout.strip()} times"
+    finally:
+        subprocess.run(["docker", "compose", "-f", "compose.base.yml", "down", "-v"], cwd=infra)
+```
+
+Одна комбинация `backend+tg_bot` покрывает 90% кейсов. Запускается в CI через `make test-copier-slow`.
+
+**Что это ловит**: import errors, missing deps, wrong entrypoints, config mismatches, health check failures — всё что приводит к crash loop на deploy.
+
+**Затронутые файлы**:
+- `template/services/tg_bot/src/main.py.jinja:30` — fix relative import
+- `template/services/tg_bot/tests/unit/test_smoke.py` — new smoke test
+- `tests/copier/test_template_generation.py` — entrypoint lint + Docker startup test
+
+---
+
 ## Infrastructure Audit Fixes
 
 ### Add Cache Mounts to Dockerfiles

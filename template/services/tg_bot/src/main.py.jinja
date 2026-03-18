@@ -27,7 +27,7 @@ from shared.generated.schemas import CommandReceived, UserCreate, UserRead
 from shared.http_client import ServiceClient
 {%- endif %}
 
-from .middleware import install_update_logging
+from services.tg_bot.src.middleware import install_update_logging
 
 configure_logging(service_name="tg_bot")
 LOGGER = structlog.stdlib.get_logger()
