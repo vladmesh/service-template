@@ -21,3 +21,13 @@ dev = [
 
 [tool.uv.sources]
 shared = { path = "../../shared", editable = true }
+
+[tool.deptry]
+ignore_notebooks = true
+pep621_dev_dependency_groups = ["dev"]
+
+[tool.deptry.per_rule_ignores]
+# Internal packages (services.*) are not pip dependencies
+DEP001 = ["services"]
+# Transitive deps used directly — structlog via shared
+DEP003 = ["structlog"]

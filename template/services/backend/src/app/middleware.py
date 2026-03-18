@@ -66,10 +66,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 duration_ms=duration_ms,
             )
             return response
-        except Exception:
+        except Exception as exc:
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            logger.exception("unhandled_exception", duration_ms=duration_ms)
-            raise
+            logger.error(
+                "unhandled_exception",
+                duration_ms=duration_ms,
+                exception_type=type(exc).__name__,
+                exception_message=str(exc),
+                exc_info=exc,
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
         finally:
             structlog.contextvars.unbind_contextvars("method", "path", "user_id")
 

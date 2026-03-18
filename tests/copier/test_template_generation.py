@@ -3,11 +3,14 @@
 Run with: make test-copier
 """
 
+import ast
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
+import tomllib
 
 import pytest
 
@@ -932,6 +935,92 @@ class TestGeneratedCodeQuality:
         assert result.returncode == 0, (
             f"Strict linting failed on generated code.\n"
             f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
+
+class TestTemplateTestHealth:
+    """Verify that template test files are correct before running them."""
+
+    def test_async_fixtures_use_pytest_asyncio_decorator(self, project_backend_tg_bot: Path):
+        """Async generator fixtures must use @pytest_asyncio.fixture, not @pytest.fixture.
+
+        pytest-asyncio won't handle async teardown properly with the wrong decorator,
+        causing tests to receive coroutine objects instead of resolved values.
+        """
+        errors = []
+        for test_file in project_backend_tg_bot.rglob("tests/**/test_*.py"):
+            source = test_file.read_text()
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                continue
+
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not isinstance(node, ast.AsyncFunctionDef):
+                    continue
+
+                is_fixture = False
+                is_asyncio_fixture = False
+                for dec in node.decorator_list:
+                    dec_name = ast.unparse(dec)
+                    if "pytest_asyncio.fixture" in dec_name:
+                        is_asyncio_fixture = True
+                    elif "pytest.fixture" in dec_name:
+                        is_fixture = True
+
+                if is_fixture and not is_asyncio_fixture:
+                    rel = test_file.relative_to(project_backend_tg_bot)
+                    errors.append(
+                        f"{rel}:{node.lineno} — async def {node.name}() "
+                        f"uses @pytest.fixture instead of @pytest_asyncio.fixture"
+                    )
+
+        assert not errors, "Async fixtures must use @pytest_asyncio.fixture:\n" + "\n".join(errors)
+
+    def test_shared_transitive_deps_in_service_lockfiles(self, project_backend_tg_bot: Path):
+        """Service uv.lock files must include transitive deps from shared package.
+
+        shared/pyproject.toml declares dependencies (e.g. structlog) that services
+        consume via path dep. CI runs 'uv sync --frozen' which won't install
+        packages missing from the lock file.
+        """
+        shared_toml = project_backend_tg_bot / "shared" / "pyproject.toml"
+        if not shared_toml.exists():
+            pytest.skip("no shared package")
+
+        # Parse direct deps from shared/pyproject.toml
+        with open(shared_toml, "rb") as f:
+            pyproject = tomllib.load(f)
+
+        raw_deps = pyproject.get("project", {}).get("dependencies", [])
+        assert raw_deps, "No dependencies found in shared/pyproject.toml"
+
+        shared_deps = set()
+        for dep_str in raw_deps:
+            # Extract package name (before any version specifier, extras, or markers)
+            pkg = re.split(r"[>=<!\[;]", dep_str)[0].strip().lower()
+            if pkg:
+                shared_deps.add(pkg)
+
+        errors = []
+        for svc_dir in sorted((project_backend_tg_bot / "services").iterdir()):
+            lock_file = svc_dir / "uv.lock"
+            if not lock_file.exists():
+                continue
+            lock_content = lock_file.read_text().lower()
+            for dep in shared_deps:
+                # uv.lock uses [[package]] sections with name = "pkg"
+                if f'name = "{dep}"' not in lock_content:
+                    errors.append(
+                        f"services/{svc_dir.name}/uv.lock missing '{dep}' "
+                        f"(transitive dep from shared)"
+                    )
+
+        assert not errors, (
+            "Transitive deps from shared/ must be in service lock files "
+            "(CI uses 'uv sync --frozen'):\n" + "\n".join(errors)
         )
 
 

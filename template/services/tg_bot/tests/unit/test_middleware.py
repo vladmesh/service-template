@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import json
-from unittest.mock import MagicMock
+import logging
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import structlog
 from telegram import Chat, Message, Update, User
 from telegram.ext import ApplicationBuilder
 
@@ -13,6 +16,29 @@ from services.tg_bot.src.middleware import _extract_update_info, install_update_
 from shared.logging import configure_logging
 
 configure_logging(service_name="tg_bot_test")
+
+
+@pytest.fixture()
+def log_capture():
+    """Capture structlog JSON output via a dedicated handler."""
+    buf = io.StringIO()
+    handler = logging.StreamHandler(buf)
+    handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(),
+            foreign_pre_chain=[
+                structlog.contextvars.merge_contextvars,
+                structlog.stdlib.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
+                structlog.processors.format_exc_info,
+                structlog.processors.UnicodeDecoder(),
+            ],
+        )
+    )
+    root = logging.getLogger()
+    root.addHandler(handler)
+    yield buf
+    root.removeHandler(handler)
 
 
 def _make_update(
@@ -76,19 +102,28 @@ class TestExtractUpdateInfo:
 
 class TestInstallUpdateLogging:
     @pytest.mark.asyncio
-    async def test_update_logged_with_standard_fields(self, capsys) -> None:
+    @patch("telegram.Bot.initialize", new_callable=AsyncMock)
+    @patch("telegram.Bot.get_me", new_callable=AsyncMock)
+    async def test_update_logged_with_standard_fields(
+        self, mock_get_me, mock_bot_init, log_capture
+    ) -> None:
         app = ApplicationBuilder().token("fake:token").build()
-        app.add_handler(
-            MagicMock(check_update=MagicMock(return_value=None)),
-        )
+        await app.initialize()
+
+        async def _noop(update, context):
+            pass
+
+        from telegram.ext import TypeHandler
+
+        app.add_handler(TypeHandler(Update, _noop))
         install_update_logging(app)
 
         update = _make_update(text="/start")
         await app.process_update(update)
 
-        captured = capsys.readouterr()
+        output = log_capture.getvalue()
         log_lines = []
-        for line in captured.out.strip().splitlines():
+        for line in output.strip().splitlines():
             try:
                 parsed = json.loads(line)
                 if parsed.get("event") == "update":
@@ -96,7 +131,7 @@ class TestInstallUpdateLogging:
             except json.JSONDecodeError:
                 continue
 
-        assert len(log_lines) >= 1, f"Expected update log, got: {captured.out}"
+        assert len(log_lines) >= 1, f"Expected update log, got: {output}"
         log = log_lines[-1]
         assert log["user_id"] == "tg:42"
         assert log["update_type"] == "command"
@@ -104,8 +139,11 @@ class TestInstallUpdateLogging:
         assert "duration_ms" in log
 
     @pytest.mark.asyncio
-    async def test_handler_error_logged(self, capsys) -> None:
+    @patch("telegram.Bot.initialize", new_callable=AsyncMock)
+    @patch("telegram.Bot.get_me", new_callable=AsyncMock)
+    async def test_handler_error_logged(self, mock_get_me, mock_bot_init, log_capture) -> None:
         app = ApplicationBuilder().token("fake:token").build()
+        await app.initialize()
 
         async def _boom(update, context):
             raise ValueError("test boom")
@@ -119,9 +157,9 @@ class TestInstallUpdateLogging:
         # process_update should not raise — error handler catches it
         await app.process_update(update)
 
-        captured = capsys.readouterr()
+        output = log_capture.getvalue()
         error_logs = []
-        for line in captured.out.strip().splitlines():
+        for line in output.strip().splitlines():
             try:
                 parsed = json.loads(line)
                 if parsed.get("event") == "handler_error":
@@ -129,7 +167,7 @@ class TestInstallUpdateLogging:
             except json.JSONDecodeError:
                 continue
 
-        assert len(error_logs) >= 1, f"Expected error log, got: {captured.out}"
+        assert len(error_logs) >= 1, f"Expected error log, got: {output}"
         log = error_logs[-1]
         assert log["exception_type"] == "ValueError"
         assert "test boom" in log["exception_message"]
