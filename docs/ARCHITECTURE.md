@@ -339,7 +339,7 @@ The project is a collection of modular services defined in `services.yml`.
 
 ## Framework Development
 
-This repository structure is for **generated products**. Framework development happens in the [service-template](https://github.com/your-org/service-template) repository:
+This repository structure is for **generated products**. Framework development happens in the [service-template](https://github.com/vladmesh/service-template) repository:
 
 - `framework/`: Source code for generators and validators
   - `generators/`: Python generators for each artifact type

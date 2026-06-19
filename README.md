@@ -13,10 +13,10 @@ A rigid, spec-first, modular framework for building AI-Agent-ready microservices
 pip install copier
 
 # Generate a new project
-copier copy gh:your-org/service-template my-project
+copier copy gh:vladmesh/service-template my-project
 
 # Or with specific modules (e.g. standalone bot)
-copier copy gh:your-org/service-template my-project \
+copier copy gh:vladmesh/service-template my-project \
   --data project_name=my-project \
   --data modules=tg_bot
 ```
