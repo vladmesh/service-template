@@ -107,7 +107,7 @@ class TypeScriptGenerator:
         props = []
         for field_name, field_spec in fields.items():
             ts_type = field_to_typescript(field_spec)
-            optional = "?" if field_spec.default is not None else ""
+            optional = "" if field_spec.is_required else "?"
             props.append(f"  {field_name}{optional}: {ts_type};")
 
         return f"export interface {name} {{\n" + "\n".join(props) + "\n}"

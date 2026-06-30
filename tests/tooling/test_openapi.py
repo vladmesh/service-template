@@ -161,3 +161,67 @@ operations:
     content = _generate(root)
     param = content["paths"]["/users/{id}"]["get"]["parameters"][0]
     assert param["schema"] == {"type": "string", "format": "uuid"}
+
+
+def test_openapi_required_excludes_optional_and_defaulted(fake_repo) -> None:
+    """required must drop field-level optional, variant-level optional, and defaulted fields."""
+    root, _ = fake_repo
+
+    spec_dir = root / "shared" / "spec"
+    spec_dir.mkdir(parents=True)
+    (spec_dir / "models.yaml").write_text(
+        """
+models:
+  User:
+    fields:
+      id:
+        type: int
+        readonly: true
+      name:
+        type: string
+      nickname:
+        type: string
+        optional: true
+      is_admin:
+        type: bool
+        default: false
+    variants:
+      Update:
+        optional: [name]
+      Read: {}
+""",
+        encoding="utf-8",
+    )
+
+    service_spec_dir = root / "services" / "backend" / "spec"
+    service_spec_dir.mkdir(parents=True)
+    (service_spec_dir / "users.yaml").write_text(
+        """
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
+  get:
+    output: User
+    params:
+      - name: id
+        type: int
+    rest:
+      method: GET
+      path: "/{id}"
+""",
+        encoding="utf-8",
+    )
+
+    schemas = _generate(root)["components"]["schemas"]
+
+    # Base: required keeps mandatory fields, drops field-level optional and defaulted ones
+    base = schemas["User"]
+    assert base["required"] == ["id", "name"]
+    assert base["properties"]["nickname"]["nullable"] is True
+
+    # Update variant: name is variant-level optional -> not required
+    assert "name" not in schemas["UserUpdate"]["required"]

@@ -99,6 +99,15 @@ class FieldSpec(BaseModel):
         return schema
 
     @property
+    def is_required(self) -> bool:
+        """Whether the field must be provided: no default and not field-level optional.
+
+        Variant-level optional is layered on top by the owning model, not here.
+        This is the single source of truth for field requiredness across generators.
+        """
+        return not self.optional and self.default is None
+
+    @property
     def is_enum(self) -> bool:
         """Check if this field is an enum type."""
         return isinstance(self.type_spec, EnumType)
@@ -260,12 +269,8 @@ class ModelsSpec(BaseModel):
 
             properties[field_name] = prop
 
-            # Required if: no default AND not explicitly optional (variant-level or field-level)
-            is_variant_optional = field_name in optional_fields
-            is_field_optional = field.optional  # Field-level optional: true
-            has_default = field.default is not None
-
-            if not is_variant_optional and not is_field_optional and not has_default:
+            # Required unless the variant marks it optional or the field itself is not required
+            if field_name not in optional_fields and field.is_required:
                 required.append(field_name)
 
         return {
