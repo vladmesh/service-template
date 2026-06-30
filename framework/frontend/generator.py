@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from framework.lib.env import get_repo_root
+from framework.lib.fs import atomic_write_text
 from framework.spec.loader import AllSpecs, load_specs
 from framework.spec.models import FieldSpec
 from framework.spec.types import EnumType, type_spec_to_typescript
@@ -93,8 +94,7 @@ def generate_typescript(
     content = generator.generate()
 
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(content)
+        atomic_write_text(output_path, content)
 
     return content
 

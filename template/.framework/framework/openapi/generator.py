@@ -13,6 +13,7 @@ from typing import Any
 
 from framework.generators.context import OperationContextBuilder
 from framework.lib.env import get_repo_root
+from framework.lib.fs import atomic_write_text
 from framework.spec.loader import AllSpecs, load_specs
 from framework.spec.operations import OperationSpec
 
@@ -185,9 +186,7 @@ def generate_openapi(
     openapi = generator.generate(title=title, version=version, service_name=service_name)
 
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with output_path.open("w") as f:
-            json.dump(openapi, f, indent=2)
+        atomic_write_text(output_path, json.dumps(openapi, indent=2))
 
     return openapi
 

@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22); 4.1, 4.2, 4.7, 4.8 отложены по согласованию (требуют либо решения по дизайну, либо более широкой правки).
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22) и 4.7 (атомарные записи файлов); 4.1, 4.2, 4.8 отложены по согласованию (требуют либо решения по дизайну, либо более широкой правки).
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -34,7 +34,8 @@
 | 4.5 stdlib logging → structlog | ✅ сделано | — |
 | 4.6 `async_database_url` substring-эвристика | ✅ сделано | — |
 | 4.9 diff в check-framework-sync.sh + routers→domains | ✅ сделано | — |
-| 4.1, 4.2, 4.7, 4.8 косметика | ⏭ отложено | — |
+| 4.7 неатомарные записи файлов | ✅ сделано | — |
+| 4.1, 4.2, 4.8 косметика | ⏭ отложено | — |
 
 Проверка: `make test` (112), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. На сгенерированных проектах прогнаны юнит-тесты backend (13) и notifications_worker (4); mypy воркера чист при `warn_unused_ignores=True`.
 
@@ -249,7 +250,8 @@ if ctx.response_many:
 **Где:** `settings.py:91` — `if ... and "+async" in self.database_url_override:`. Хрупкая эвристика; опереться на уже существующее явное поле `async_database_url_override`.
 
 ### 4.7 [MINOR] Неатомарные записи файлов
-**Где:** `generators/base.py:36-41` (`write_text`), `schemas.py:33-56` (три последовательные записи в один путь: codegen → regex-чистка → запись), `openapi/generator.py:228-231`, `frontend/generator.py:136-138`. Прерывание оставляет усечённый артефакт в read-only зоне. Писать во временный файл и `os.replace`; для `schemas` делать regex-чистку в памяти до единственной записи.
+**Статус:** ✅ Сделано. Добавлен `framework/lib/fs.py::atomic_write_text` (temp-file в той же директории + `os.replace`, с очисткой temp-файла в `except`). `BaseGenerator.write_file`, `generate_openapi` и `generate_typescript` переведены на него. В `SchemasGenerator.generate` codegen теперь пишет в scratch-файл (`tempfile.mkstemp` рядом с целевым путём), regex-чистка идёт в памяти над прочитанным scratch-содержимым, и в целевой путь идёт один вызов `write_file` (уже атомарный) — было «codegen → regex-чистка поверх финального файла → перезапись». Проверено побайтово: `generate_openapi`/`generate_typescript` дают идентичный seed; для `schemas.py` regen старым и новым кодом в одном окружении даёт идентичный вывод (расхождение с закоммиченным seed — независимый от этой правки env-дрейф `datamodel-code-generator`, тот же, что и в обновлении 2.6–2.8). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные.
+**Было:** `generators/base.py:36-41` (`write_text`), `schemas.py:33-56` (три последовательные записи в один путь: codegen → regex-чистка → запись), `openapi/generator.py:228-231`, `frontend/generator.py:136-138`. Прерывание оставляет усечённый артефакт в read-only зоне.
 
 ### 4.8 [MINOR] Два рукописных AST-walker'а с расходящимся swallow
 **Где:** `enforce_spec_compliance.py:36-75` (`except SyntaxError: return set()`) и `lint/controller_sync.py:40-60` (`except Exception: print(...); return []`). Общий хелпер `parse_python(path) -> ast.Module | None` унифицировал бы. Плюс `is_violation(node, content, ...)` не использует параметр `content`. Низкий приоритет.
@@ -299,7 +301,7 @@ if ctx.response_many:
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. ✅ `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8) — сделано.
 
-**Косметика по остаточному принципу:** ✅ частично (4.3, 4.4, 4.5, 4.6, 4.9). Осталось 4.1, 4.2, 4.7, 4.8.
+**Косметика по остаточному принципу:** ✅ частично (4.3, 4.4, 4.5, 4.6, 4.7, 4.9). Осталось 4.1, 4.2, 4.8.
 
 ## Планка одобрения
 
@@ -319,4 +321,6 @@ if ctx.response_many:
 
 **Обновление (2.6–2.8):** раздел 2 закрыт. 2.6 (`unwrap_list` — единый владелец распаковки `list[X]`), 2.7 (канонический `load_service_specs` через `loader.load_yaml_file`; мёртвый `build_service_specs` удалён) и 2.8 (единый `computed_return_type` в протокол-шаблоне; осиротевшие `OperationContext.return_type`/`OperationSpec.return_type` удалены) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Вывод генераторов байт-в-байт прежний (регенерация seed'ов old vs new даёт идентичное дерево, кроме не относящегося к правкам env-дрейфа `datamodel-code-generator` в `schemas.py`). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. Остаётся только косметика 4.1–4.9.
 
-**Обновление (косметика 4.3, 4.4, 4.5, 4.6, 4.9):** на ветке `vladmesh/audit-4-cosmetics` (PR #22) разобраны быстрые, механические находки раздела 4: удалена дублирующая ручная валидация env-переменных и хрупкая substring-эвристика в `settings.py` (4.3, 4.6), `http_client` больше не использует `os.getenv` с дефолтом (4.4), контроллер уведомлений переведён на `structlog` (4.5, со смок-тестом на `capture_logs()` вместо `caplog`), `check-framework-sync.sh` печатает diff при рассинхроне, а `routers` в генераторе/шаблоне протоколов переименован в `domains` (4.9). Регенерация seed `protocols.py` byte-identical. Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные; сгенерированный проект (backend+notifications) — реальные unit-тесты backend и notifications_worker в отдельном venv (17) зелёные. Остаются 4.1, 4.2, 4.7, 4.8 — требуют либо решения по дизайну (4.2), либо более широкой правки с обновлением тестов (4.1), либо многофайлового рефакторинга (4.7, 4.8).
+**Обновление (косметика 4.3, 4.4, 4.5, 4.6, 4.9):** на ветке `vladmesh/audit-4-cosmetics` (PR #22) разобраны быстрые, механические находки раздела 4: удалена дублирующая ручная валидация env-переменных и хрупкая substring-эвристика в `settings.py` (4.3, 4.6), `http_client` больше не использует `os.getenv` с дефолтом (4.4), контроллер уведомлений переведён на `structlog` (4.5, со смок-тестом на `capture_logs()` вместо `caplog`), `check-framework-sync.sh` печатает diff при рассинхроне, а `routers` в генераторе/шаблоне протоколов переименован в `domains` (4.9). Регенерация seed `protocols.py` byte-identical. Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные; сгенерированный проект (backend+notifications) — реальные unit-тесты backend и notifications_worker в отдельном venv (17) зелёные. Остаются 4.1, 4.2, 4.8 — требуют либо решения по дизайну (4.2), либо более широкой правки с обновлением тестов (4.1), либо многофайлового рефакторинга (4.8).
+
+**Обновление (4.7):** разобрана находка про неатомарные записи файлов. Введён `framework/lib/fs.py::atomic_write_text` (temp-file + `os.replace`); на него переведены `BaseGenerator.write_file`, `generate_openapi`, `generate_typescript`. `SchemasGenerator.generate` теперь гонит datamodel-codegen через scratch-файл и делает regex-чистку в памяти до единственной записи в целевой путь — вместо «codegen-запись → regex поверх финального файла → перезапись». Регенерация seed'ов `openapi.json`/`types.ts` byte-identical; для `schemas.py` побайтовое сравнение вывода старого и нового кода в одном окружении тоже совпадает (расхождение с закоммиченным seed — независимый env-дрейф `datamodel-code-generator`, не связанный с этой правкой). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные.
