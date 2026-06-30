@@ -26,9 +26,6 @@ class FieldSpec(BaseModel):
 
     type_spec: TypeSpec = Field(..., alias="type_data")
 
-    # Raw type for reconstruction
-    raw_type: dict[str, Any] | str = Field(..., exclude=True)
-
     # Constraints (numeric)
     ge: int | float | None = None
     gt: int | float | None = None
@@ -51,10 +48,7 @@ class FieldSpec(BaseModel):
         """Create FieldSpec from raw YAML dict."""
         # Handle shorthand (just "int")
         if isinstance(data, str):
-            return cls(
-                type_data=parse_type_spec(data),
-                raw_type=data,
-            )
+            return cls(type_data=parse_type_spec(data))
 
         # Extract type and parse it
         type_data = data.get("type")
@@ -62,18 +56,11 @@ class FieldSpec(BaseModel):
             msg = "Field must have a 'type' key"
             raise ValueError(msg)
 
-        # Handle shorthand (just "int") vs full dict
-        if isinstance(type_data, str):
-            raw_type = type_data
-            type_spec = parse_type_spec(type_data)
-        else:
-            raw_type = type_data
-            type_spec = parse_type_spec(type_data)
+        type_spec = parse_type_spec(type_data)
 
         # Build remaining fields
         return cls(
             type_data=type_spec,
-            raw_type=raw_type,
             ge=data.get("ge"),
             gt=data.get("gt"),
             le=data.get("le"),
