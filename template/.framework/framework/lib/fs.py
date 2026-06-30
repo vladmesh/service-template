@@ -1,8 +1,21 @@
 """Filesystem helpers shared across generators."""
 
+import ast
 import os
 from pathlib import Path
 import tempfile
+
+
+def parse_python(path: Path) -> ast.Module | None:
+    """Parse a Python file into an AST module, or None if it can't be read or parsed.
+
+    Shared by the AST-based linters so they swallow unreadable/unparseable files
+    the same way instead of each catching a different exception set.
+    """
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
 
 
 def atomic_write_text(path: Path, content: str) -> None:

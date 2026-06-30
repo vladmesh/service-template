@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22), 4.7 (атомарные записи файлов), а также 4.1 (nullable → `anyOf` под OpenAPI 3.1) и 4.2 (TS enum → именованный type-алиас). Остаётся 4.8 (общий AST-walker, многофайловый рефакторинг).
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22), 4.7 (атомарные записи файлов), а также 4.1 (nullable → `anyOf` под OpenAPI 3.1), 4.2 (TS enum → именованный type-алиас) и 4.8 (общий хелпер `parse_python` для обоих AST-walker'ов). Раздел 4 закрыт полностью.
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -37,7 +37,7 @@
 | 4.7 неатомарные записи файлов | ✅ сделано | — |
 | 4.1 nullable → anyOf (OpenAPI 3.1) | ✅ сделано | — |
 | 4.2 TS enum → именованный type-алиас | ✅ сделано | — |
-| 4.8 общий AST-walker | ⏭ отложено | — |
+| 4.8 общий AST-walker | ✅ сделано | — |
 
 Проверка: `make test` (112), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. На сгенерированных проектах прогнаны юнит-тесты backend (13) и notifications_worker (4); mypy воркера чист при `warn_unused_ignores=True`.
 
@@ -254,7 +254,8 @@ if ctx.response_many:
 **Было:** `generators/base.py:36-41` (`write_text`), `schemas.py:33-56` (три последовательные записи в один путь: codegen → regex-чистка → запись), `openapi/generator.py:228-231`, `frontend/generator.py:136-138`. Прерывание оставляет усечённый артефакт в read-only зоне.
 
 ### 4.8 [MINOR] Два рукописных AST-walker'а с расходящимся swallow
-**Где:** `enforce_spec_compliance.py:36-75` (`except SyntaxError: return set()`) и `lint/controller_sync.py:40-60` (`except Exception: print(...); return []`). Общий хелпер `parse_python(path) -> ast.Module | None` унифицировал бы. Плюс `is_violation(node, content, ...)` не использует параметр `content`. Низкий приоритет.
+**Статус:** ✅ Сделано. Общий хелпер `parse_python(path) -> ast.Module | None` в `framework/lib/fs.py` (ловит `OSError`/`SyntaxError`, возвращает `None`) теперь используют оба walker'а — `enforce_spec_compliance.check_file` и `lint/controller_sync.get_controller_methods`, swallow единый. Неиспользуемый параметр `content` убран из `is_violation(...)`.
+**Где (исходно):** `enforce_spec_compliance.py:36-75` (`except SyntaxError: return set()`) и `lint/controller_sync.py:40-60` (`except Exception: print(...); return []`). Общий хелпер `parse_python(path) -> ast.Module | None` унифицировал бы. Плюс `is_violation(node, content, ...)` не использует параметр `content`. Низкий приоритет.
 
 ### 4.9 [MINOR] `check-framework-sync.sh` прячет diff; naming-дрейф
 **Статус:** ✅ Сделано (PR #22). Скрипт печатает реальный diff при рассинхроне; `routers` → `domains` в генераторе, шаблоне и docstring `context.py`. Регенерация seed `backend/.../generated/protocols.py` даёт идентичный файл (переименование не меняет вывод).
@@ -301,7 +302,7 @@ if ctx.response_many:
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. ✅ `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8) — сделано.
 
-**Косметика по остаточному принципу:** ✅ почти вся (4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.9). Осталось 4.8.
+**Косметика по остаточному принципу:** ✅ вся (4.1–4.9).
 
 ## Планка одобрения
 

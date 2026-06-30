@@ -32,7 +32,7 @@ def test_is_violation_base_model(fake_repo: FakeRepo) -> None:
 
     violations_found = False
     for node in ast.walk(tree):
-        if enforce_mod.is_violation(node, content):
+        if enforce_mod.is_violation(node):
             violations_found = True
             break
 
@@ -59,7 +59,7 @@ def test_is_violation_api_router(fake_repo: FakeRepo) -> None:
 
     violations_found = False
     for node in ast.walk(tree):
-        if enforce_mod.is_violation(node, content):
+        if enforce_mod.is_violation(node):
             violations_found = True
             break
 
