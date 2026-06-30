@@ -206,6 +206,12 @@ class TestTypeSpecToJsonSchema:
         schema = type_spec_to_json_schema(spec)
         assert schema == {"type": "string", "enum": ["a", "b"], "default": "a"}
 
+    def test_optional_to_schema(self) -> None:
+        """Optional maps to anyOf with a null branch (OpenAPI 3.1 form)."""
+        spec = OptionalType(type="optional", of=PrimitiveType(type="string"))
+        schema = type_spec_to_json_schema(spec)
+        assert schema == {"anyOf": [{"type": "string"}, {"type": "null"}]}
+
     def test_primitive_result_is_independent(self) -> None:
         """Mutating one primitive schema must not affect later calls."""
         first = type_spec_to_json_schema(PrimitiveType(type="int"))

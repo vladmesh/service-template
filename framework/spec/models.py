@@ -76,25 +76,33 @@ class FieldSpec(BaseModel):
         """Convert field spec to JSON Schema."""
         schema = type_spec_to_json_schema(self.type_spec)
 
-        # Add constraints
+        # Numeric/string constraints describe the value type. If the type itself
+        # is already nullable (anyOf with a null branch), attach them to the typed
+        # branch rather than alongside anyOf.
+        typed = schema["anyOf"][0] if "anyOf" in schema else schema
         if self.ge is not None:
-            schema["minimum"] = self.ge
+            typed["minimum"] = self.ge
         if self.gt is not None:
-            schema["exclusiveMinimum"] = self.gt
+            typed["exclusiveMinimum"] = self.gt
         if self.le is not None:
-            schema["maximum"] = self.le
+            typed["maximum"] = self.le
         if self.lt is not None:
-            schema["exclusiveMaximum"] = self.lt
+            typed["exclusiveMaximum"] = self.lt
         if self.min_length is not None:
-            schema["minLength"] = self.min_length
+            typed["minLength"] = self.min_length
         if self.max_length is not None:
-            schema["maxLength"] = self.max_length
+            typed["maxLength"] = self.max_length
+
+        # Field-level optional (no default) adds a null branch unless the type
+        # already carries one. Same anyOf form as the canonical type converter.
+        if self.optional and self.default is None and "anyOf" not in schema:
+            schema = {"anyOf": [schema, {"type": "null"}]}
+
+        # Annotations live at field (top) level, beside anyOf when present.
         if self.default is not None:
             schema["default"] = self.default
         if self.readonly:
             schema["readOnly"] = True
-        if self.optional and self.default is None:
-            schema["nullable"] = True
 
         return schema
 

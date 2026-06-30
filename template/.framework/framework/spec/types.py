@@ -198,8 +198,9 @@ class _JsonSchemaRenderer:
         return {"type": "object", "additionalProperties": value}
 
     def optional_of(self, inner: dict[str, Any]) -> dict[str, Any]:
-        # JSON Schema nullable pattern
-        return {**inner, "nullable": True}
+        # JSON Schema 2020-12 / OpenAPI 3.1 nullable form (the 3.0 `nullable`
+        # keyword was removed). Matches what Pydantic v2 / FastAPI emit for X | None.
+        return {"anyOf": [inner, {"type": "null"}]}
 
     def enum_of(self, values: list[str], default: str | None) -> dict[str, Any]:
         schema: dict[str, Any] = {"type": "string", "enum": values}
