@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from structlog.testing import capture_logs
 
 
 def test_imports() -> None:
@@ -20,10 +21,8 @@ def test_imports() -> None:
 
 
 @pytest.mark.asyncio
-async def test_handle_user_registered_logs_event(caplog: pytest.LogCaptureFixture) -> None:
+async def test_handle_user_registered_logs_event() -> None:
     """Test that handle_user_registered logs the event correctly."""
-    import logging
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from services.notifications_worker.src.controllers.notifications import (
@@ -41,12 +40,13 @@ async def test_handle_user_registered_logs_event(caplog: pytest.LogCaptureFixtur
     # Mock session
     session = AsyncMock(spec=AsyncSession)
 
-    with caplog.at_level(logging.INFO):
+    with capture_logs() as logs:
         await controller.on_user_registered(session, event)
 
-    assert "Controller handled User registered" in caplog.text
-    assert "user_id=123" in caplog.text
-    assert "test@example.com" in caplog.text
+    assert len(logs) == 1
+    assert logs[0]["event"] == "Controller handled user registered"
+    assert logs[0]["user_id"] == event.user_id
+    assert logs[0]["email"] == event.email
 
 
 @pytest.mark.asyncio

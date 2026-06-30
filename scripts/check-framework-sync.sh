@@ -12,17 +12,21 @@ TARGET_DIR="$ROOT_DIR/template/.framework/framework"
 echo "Checking framework sync status..."
 
 # Compare directories using diff (excluding __pycache__)
-if diff -r \
+DIFF_OUTPUT=$(diff -r \
     --exclude="__pycache__" \
     --exclude="*.pyc" \
     --exclude=".pytest_cache" \
     --exclude=".mypy_cache" \
     --exclude=".ruff_cache" \
-    "$SOURCE_DIR" "$TARGET_DIR" > /dev/null 2>&1; then
+    "$SOURCE_DIR" "$TARGET_DIR") || true
+
+if [ -z "$DIFF_OUTPUT" ]; then
     echo "✅ framework/ and template/.framework/framework/ are in sync"
     exit 0
 else
     echo "❌ ERROR: framework/ and template/.framework/framework/ are OUT OF SYNC"
+    echo ""
+    echo "$DIFF_OUTPUT"
     echo ""
     echo "Please run:"
     echo "  make sync-framework"

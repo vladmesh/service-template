@@ -61,7 +61,7 @@ class ProtocolsGenerator(BaseGenerator):
             self.render_to_file(
                 "protocols.py.j2",
                 output_file,
-                routers=domains_context,  # Template expects 'routers' key
+                domains=domains_context,
                 imports=services_imports[service_name],
                 param_type_imports=sorted(services_param_type_imports[service_name]),
             )

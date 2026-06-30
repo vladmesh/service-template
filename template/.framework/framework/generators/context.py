@@ -1,7 +1,7 @@
 """Operation context builder for code generation.
 
 Provides a unified way to build template context for operations,
-eliminating duplication between routers, protocols, and controllers generators.
+eliminating duplication between protocols and controllers generators.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class ParamContext:
 class OperationContext:
     """Complete context for generating code for an operation.
 
-    This is the unified structure used by all generators (routers, protocols,
+    This is the unified structure used by all generators (protocols,
     controllers, event handlers).
     """
 
