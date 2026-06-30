@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30, ветка `vladmesh/audit_fixes`. В работу взяты разделы 1 (корректность) и 3 (мёртвый код). Раздел 2 (фасад) и косметика 4.1–4.9 отложены по согласованию.
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Остаток раздела 2 (фасад) и косметика 4.1–4.9 отложены по согласованию.
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -16,7 +16,8 @@
 | 1.4 tz-мутация ORM | ✅ сделано (TzAwareDateTime) | `9f94c00` |
 | 1.5 двойной exception-handler | ✅ сделано | `3aedd84` |
 | 1.6 OpenAPI uuid-параметр | ✅ сделано | `3e89d61` |
-| 2.1–2.8 фасад/дедупликация | ⏭ отложено | — |
+| 2.5 модель→JSON-schema + `FieldSpec.is_required` | ✅ сделано | `f2ec7cf` |
+| 2.1–2.4, 2.6–2.8 фасад/дедупликация | ⏭ отложено | — |
 | 3.1, 3.2, 3.4 compose-рендер + service_info | ✅ сделано | `078649c` |
 | 3.3 stub_missing_methods | ✅ сделано | `090282b` |
 | 3.5 raw_type | ✅ сделано | `bcea93e` |
@@ -111,7 +112,7 @@ if ctx.response_many:
 
 ## 2. Дублирование и «канонический фасад»
 
-**Статус раздела:** ⏭ Отложено. Раздел 2 не входил в текущий заход (взяты только 1 и 3). Естественный следующий шаг — 2.5 (`FieldSpec.is_required` как единый источник + переиспользование `ModelsSpec.to_json_schema` в OpenAPI), он же разблокирует проверку `required` для optional в 4.10.
+**Статус раздела:** частично. 2.5 сделана (`f2ec7cf`); остальное (2.1–2.4, 2.6–2.8) отложено. Следующий естественный шаг из оставшегося — 2.1 (один fold для dispatch по `TypeSpec` + перенос TS-конвертера в `types.py`).
 
 ### 2.1 [MAJOR] Тройной (и четвёртый) dispatch по `TypeSpec`
 **Где:** `spec/types.py:105` (`type_spec_to_python`), `spec/types.py:140` (`type_spec_to_json_schema`), `frontend/generator.py:23` (`type_spec_to_typescript`), плюс строковый `openapi/generator.py:20`
@@ -134,6 +135,7 @@ if ctx.response_many:
 **Как чинить:** сделать ключ структурным. Свойства `DomainSpec.service_name` / `.module_name` и хелперы `protocol_name_for(module)` / `controller_path(...)` в `generators/context.py`. Все 5+ мест сводятся к одному вызову.
 
 ### 2.5 [MAJOR] Модель→JSON-schema продублирована и расходится по `required`
+**Статус:** ✅ Сделано (`f2ec7cf`). Удалены `_model_to_schema`/`_variant_to_schema` в OpenAPI; `_generate_schemas` возвращает канонические `definitions`. Введён `FieldSpec.is_required`, через него идут и построение модель-схемы, и TS-генератор. Seed `backend/docs/openapi.json` регенерирован отдельным коммитом (`4bbb5de`). Покрыто тестом в 4.10.
 **Где:** `openapi/generator.py:68-122` против `spec/models.py:235-290`
 **Проблема:** обе итерируют модели+варианты, зовут `field_spec.to_json_schema()` и строят `{type, title, properties, required, additionalProperties:False}`. OpenAPI-копия выводит `required` **неверно**: `_model_to_schema:93` использует `field_spec.default is None and not field_name.startswith("_")` (игнорирует `optional: true`, тащит ad-hoc спецслучай с подчёркиванием), а `_variant_to_schema:113` проверяет только `default is None` (полностью игнорирует variant-level `optional`). Две OpenAPI-функции даже между собой несогласованы. Канонический `ModelsSpec.to_json_schema()` делает это правильно; внутри схем нет `$ref`, так что разница `definitions` vs `components/schemas` неважна.
 **Как чинить:** удалить все три метода; в `_generate_schemas` вернуть `self.specs.models.to_json_schema()["definitions"]` (опционально добавить методу `ModelsSpec` возврат «голого» словаря определений).
@@ -235,7 +237,7 @@ if ctx.response_many:
 - `protocols.py:86`: `routers=domains_context  # Template expects 'routers' key` и `protocols.py.j2:25` `{% for router in routers %}` — генератора `routers` в пайплайне нет. Переименовать в `domains`, убрать комментарий-обходку, поправить docstring `context.py:3-4`.
 
 ### 4.10 [MINOR] Неглубокие тесты пропускают баги
-**Статус:** ✅ Частично (`55dc5e6`). Добавлены кейсы на list-ответы, uuid/int-параметры, форму `required` без дефолтов. Корректность `required` для optional (связано с 2.5) отложена.
+**Статус:** ✅ Сделано. `55dc5e6` добавил кейсы на list-ответы, uuid/int-параметры, форму `required` без дефолтов; `f2ec7cf` — корректность `required` для field/variant-optional и дефолтных полей (вместе с 2.5).
 **Где:** `tests/tooling/test_openapi.py` ассертит только версию OpenAPI, наличие одного пути и одного имени схемы. Не проверяет `list[...]`-ответы, корректность `required`, типы параметров, схемы вариантов. Именно поэтому баги 1.1, 1.6 и расхождение `required` (2.5) проходят. Расширить покрытие на эти случаи.
 
 ---
@@ -271,7 +273,7 @@ if ctx.response_many:
 6. Один fold для dispatch по `TypeSpec` (2.1) и перенос TS-конвертера в `types.py`.
 7. `render_to_file` в `BaseGenerator` (2.2); передавать `OperationContext` в шаблоны напрямую (2.3).
 8. Свойства `DomainSpec.service_name/.module_name` + хелперы имён/путей (2.4).
-9. OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5).
+9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8).
 
 **Косметика по остаточному принципу:** 4.1–4.9.
@@ -281,3 +283,5 @@ if ctx.response_many:
 Не одобрено. Блокеры: баги корректности раздела 1 (отгружаются в каждый проект), ~500 строк мёртвого кода (3.1), и систематический «канонический фасад», сохраняющий побочную сложность там, где виден ход на её удаление.
 
 **Обновление (ветка `vladmesh/audit_fixes`):** два из трёх блокеров сняты. Баги корректности раздела 1 исправлены и покрыты тестами; мёртвый код раздела 3 удалён. Оставшийся блокер — «канонический фасад» раздела 2, отложен до отдельного захода.
+
+**Обновление (2.5):** начат разбор «канонического фасада». 2.5 (модель→JSON-schema через канонический `ModelsSpec.to_json_schema`, единый `FieldSpec.is_required`) сделана. Остаток раздела 2 (2.1–2.4, 2.6–2.8) отложен.

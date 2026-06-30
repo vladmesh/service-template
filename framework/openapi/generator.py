@@ -70,60 +70,13 @@ class OpenAPIGenerator:
         return openapi
 
     def _generate_schemas(self) -> dict[str, Any]:
-        """Generate JSON Schema definitions from models."""
-        schemas = {}
+        """Generate JSON Schema definitions from models.
 
-        for model_name, model_spec in self.specs.models.models.items():
-            # Base model
-            schemas[model_name] = self._model_to_schema(model_spec, model_name)
-
-            # Variants
-            for variant_name in model_spec.variants:
-                variant_full_name = f"{model_name}{variant_name}"
-                fields = model_spec.get_variant_fields(variant_name)
-                schemas[variant_full_name] = self._variant_to_schema(
-                    model_name, variant_name, fields
-                )
-
-        return schemas
-
-    def _model_to_schema(self, model_spec, model_name: str) -> dict[str, Any]:
-        """Convert ModelSpec to JSON Schema."""
-        properties = {}
-        required = []
-
-        for field_name, field_spec in model_spec.fields.items():
-            properties[field_name] = field_spec.to_json_schema()
-            if field_spec.default is None and not field_name.startswith("_"):
-                required.append(field_name)
-
-        return {
-            "type": "object",
-            "title": model_name,
-            "properties": properties,
-            "required": required,
-            "additionalProperties": False,
-        }
-
-    def _variant_to_schema(
-        self, model_name: str, variant_name: str, fields: dict
-    ) -> dict[str, Any]:
-        """Convert variant fields to JSON Schema."""
-        properties = {}
-        required = []
-
-        for field_name, field_spec in fields.items():
-            properties[field_name] = field_spec.to_json_schema()
-            if field_spec.default is None:
-                required.append(field_name)
-
-        return {
-            "type": "object",
-            "title": f"{model_name}{variant_name}",
-            "properties": properties,
-            "required": required,
-            "additionalProperties": False,
-        }
+        Reuses the canonical ModelsSpec.to_json_schema() so schema shape and the
+        required-field derivation match the Pydantic codegen exactly. Model schemas
+        contain no $ref, so the definitions map straight into components/schemas.
+        """
+        return self.specs.models.to_json_schema()["definitions"]
 
     def _generate_paths(self, service_name: str | None = None) -> dict[str, Any]:
         """Generate OpenAPI paths from domains."""
