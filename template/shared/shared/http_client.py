@@ -38,7 +38,7 @@ class ServiceClient:
         max_retries: int = 3,
         initial_delay: float = 1.0,
     ) -> None:
-        self.base_url = base_url or os.getenv(base_url_env, "")
+        self.base_url = base_url or os.getenv(base_url_env) or ""
         if not self.base_url:
             raise ValueError(
                 f"{type(self).__name__} requires base_url or {base_url_env} environment variable"

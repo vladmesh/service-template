@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import logging
-
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from shared.generated.schemas import UserRegisteredEvent
 
-logger = logging.getLogger(__name__)
+logger = structlog.stdlib.get_logger()
 
 
 class NotificationsController:
@@ -19,8 +18,8 @@ class NotificationsController:
     ) -> None:
         """Handle user registration."""
         logger.info(
-            "Controller handled User registered: user_id=%s, email=%s, timestamp=%s",
-            payload.user_id,
-            payload.email,
-            payload.timestamp,
+            "Controller handled user registered",
+            user_id=payload.user_id,
+            email=payload.email,
+            timestamp=payload.timestamp,
         )

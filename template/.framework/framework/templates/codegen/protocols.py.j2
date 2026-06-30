@@ -22,11 +22,11 @@ from shared.generated.schemas import (
 )
 {% endif %}
 
-{% for router in routers %}
-class {{ router.protocol_name }}(Protocol):
-    """Protocol for {{ router.name }} controller."""
+{% for domain in domains %}
+class {{ domain.protocol_name }}(Protocol):
+    """Protocol for {{ domain.name }} controller."""
 
-{% for handler in router.handlers %}
+{% for handler in domain.handlers %}
 {% if handler.is_events_only %}
     # Events-only operation (no REST endpoint)
 {% elif handler.is_dual_transport %}
