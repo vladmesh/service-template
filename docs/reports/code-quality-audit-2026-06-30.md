@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью; осталась только косметика 4.1–4.9, отложена по согласованию.
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22); 4.1, 4.2, 4.7, 4.8 отложены по согласованию (требуют либо решения по дизайну, либо более широкой правки).
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -29,7 +29,12 @@
 | 3.5 raw_type | ✅ сделано | `bcea93e` |
 | 3.6 async_handlers + fallback | ✅ сделано | `a47feea` |
 | 4.10 покрытие test_openapi | ✅ сделано | `55dc5e6` |
-| 4.1–4.9 косметика | ⏭ отложено | — |
+| 4.3 `_validate_required_env_vars` | ✅ сделано | — |
+| 4.4 `http_client` os.getenv с дефолтом | ✅ сделано | — |
+| 4.5 stdlib logging → structlog | ✅ сделано | — |
+| 4.6 `async_database_url` substring-эвристика | ✅ сделано | — |
+| 4.9 diff в check-framework-sync.sh + routers→domains | ✅ сделано | — |
+| 4.1, 4.2, 4.7, 4.8 косметика | ⏭ отложено | — |
 
 Проверка: `make test` (112), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. На сгенерированных проектах прогнаны юнит-тесты backend (13) и notifications_worker (4); mypy воркера чист при `warn_unused_ignores=True`.
 
@@ -224,19 +229,23 @@ if ctx.response_many:
 **Как чинить:** выбрать одно: либо ссылаться на именованный enum из свойства интерфейса, либо убрать `_generate_enum` и оставить инлайн-union.
 
 ### 4.3 [MINOR] `Settings._validate_required_env_vars` дублирует валидацию pydantic
+**Статус:** ✅ Сделано (PR #22). Метод и вызов удалены.
 **Где:** `template/services/backend/src/core/settings.py:22-43`, вызов `:118`
 **Проблема:** 8 перечисленных переменных уже объявлены как обязательные поля; `Settings()` на строке 117 кинет `ValidationError` до строки 118. Ручной цикл ценен только для пустых строк и требует ручной синхронизации со списком полей (риск дрейфа). Не нарушение «без дефолтов env» (корректно падает), но избыточный слой.
 **Как чинить:** удалить метод и вызов; при желании дружелюбного сообщения выводить недостающие из `model_fields`/`model_validator`.
 
 ### 4.4 [MINOR] `http_client` использует `os.getenv` с дефолтом
+**Статус:** ✅ Сделано (PR #22). `os.getenv(base_url_env) or ""`, `raise` ниже не тронут.
 **Где:** `template/shared/shared/http_client.py:41` — `os.getenv(base_url_env, "")`
 **Проблема:** по духу правила корректно (пустая строка тут же триггерит `raise`), но буквально это форма `os.getenv(VAR, "default")`, которую правило запрещает, и так читается на ревью и grep-линте.
 **Как чинить:** `os.getenv(base_url_env)` без дефолта, далее тот же `if not ...: raise`.
 
 ### 4.5 [MINOR] Контроллер уведомлений использует stdlib `logging` вместо structlog
+**Статус:** ✅ Сделано (PR #22). `structlog.stdlib.get_logger()` + структурированные kwargs. Смок-тест переведён с `caplog` на `structlog.testing.capture_logs()` (structlog не идёт через stdlib logging без явной `configure_logging()`, которую этот тест не вызывает).
 **Где:** `template/services/notifications_worker/src/controllers/notifications.py:3,9` — рендерится (общий корневой хендлер маршрутизирует stdlib через structlog), но теряет структурированные kwargs/contextvars, принятые везде. Привести к `structlog.stdlib.get_logger()`.
 
 ### 4.6 [MINOR] `async_database_url` нюхает подстроку `+async`
+**Статус:** ✅ Сделано (PR #22). Эвристика удалена, остался только явный `async_database_url_override`.
 **Где:** `settings.py:91` — `if ... and "+async" in self.database_url_override:`. Хрупкая эвристика; опереться на уже существующее явное поле `async_database_url_override`.
 
 ### 4.7 [MINOR] Неатомарные записи файлов
@@ -246,6 +255,7 @@ if ctx.response_many:
 **Где:** `enforce_spec_compliance.py:36-75` (`except SyntaxError: return set()`) и `lint/controller_sync.py:40-60` (`except Exception: print(...); return []`). Общий хелпер `parse_python(path) -> ast.Module | None` унифицировал бы. Плюс `is_violation(node, content, ...)` не использует параметр `content`. Низкий приоритет.
 
 ### 4.9 [MINOR] `check-framework-sync.sh` прячет diff; naming-дрейф
+**Статус:** ✅ Сделано (PR #22). Скрипт печатает реальный diff при рассинхроне; `routers` → `domains` в генераторе, шаблоне и docstring `context.py`. Регенерация seed `backend/.../generated/protocols.py` даёт идентичный файл (переименование не меняет вывод).
 - `scripts/check-framework-sync.sh:15-21`: `diff -r ... > /dev/null` сообщает о рассинхроне, но не показывает что именно отличается. Преамбула путей продублирована в обоих скриптах.
 - `protocols.py:86`: `routers=domains_context  # Template expects 'routers' key` и `protocols.py.j2:25` `{% for router in routers %}` — генератора `routers` в пайплайне нет. Переименовать в `domains`, убрать комментарий-обходку, поправить docstring `context.py:3-4`.
 
@@ -289,7 +299,7 @@ if ctx.response_many:
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. ✅ `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8) — сделано.
 
-**Косметика по остаточному принципу:** 4.1–4.9.
+**Косметика по остаточному принципу:** ✅ частично (4.3, 4.4, 4.5, 4.6, 4.9). Осталось 4.1, 4.2, 4.7, 4.8.
 
 ## Планка одобрения
 
@@ -308,3 +318,5 @@ if ctx.response_many:
 **Обновление (2.4):** разбор фасада продолжен. 2.4 (структурный `domain_key`: поле `DomainSpec.service_name` + свойства `protocol_name`/`controller_class_name`, хелпер `controller_path`; все 5+ мест ручной деривации сведены к одному владельцу) сделана. Вывод генераторов байт-в-байт прежний. Остаток раздела 2 — только MINOR-дедупликация 2.6–2.8.
 
 **Обновление (2.6–2.8):** раздел 2 закрыт. 2.6 (`unwrap_list` — единый владелец распаковки `list[X]`), 2.7 (канонический `load_service_specs` через `loader.load_yaml_file`; мёртвый `build_service_specs` удалён) и 2.8 (единый `computed_return_type` в протокол-шаблоне; осиротевшие `OperationContext.return_type`/`OperationSpec.return_type` удалены) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Вывод генераторов байт-в-байт прежний (регенерация seed'ов old vs new даёт идентичное дерево, кроме не относящегося к правкам env-дрейфа `datamodel-code-generator` в `schemas.py`). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. Остаётся только косметика 4.1–4.9.
+
+**Обновление (косметика 4.3, 4.4, 4.5, 4.6, 4.9):** на ветке `vladmesh/audit-4-cosmetics` (PR #22) разобраны быстрые, механические находки раздела 4: удалена дублирующая ручная валидация env-переменных и хрупкая substring-эвристика в `settings.py` (4.3, 4.6), `http_client` больше не использует `os.getenv` с дефолтом (4.4), контроллер уведомлений переведён на `structlog` (4.5, со смок-тестом на `capture_logs()` вместо `caplog`), `check-framework-sync.sh` печатает diff при рассинхроне, а `routers` в генераторе/шаблоне протоколов переименован в `domains` (4.9). Регенерация seed `protocols.py` byte-identical. Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные; сгенерированный проект (backend+notifications) — реальные unit-тесты backend и notifications_worker в отдельном venv (17) зелёные. Остаются 4.1, 4.2, 4.7, 4.8 — требуют либо решения по дизайну (4.2), либо более широкой правки с обновлением тестов (4.1), либо многофайлового рефакторинга (4.7, 4.8).
