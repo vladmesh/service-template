@@ -1,7 +1,6 @@
 """Controller-Protocol synchronization checker.
 
 Checks that controller classes implement all methods defined in their protocols.
-Can auto-stub missing methods if requested.
 """
 
 from __future__ import annotations
@@ -109,55 +108,6 @@ def check_controller_sync(
         )
 
     return results
-
-
-def stub_missing_methods(result: ControllerSyncResult) -> None:
-    """Add stub methods to a controller for missing protocol methods."""
-    if result.is_synced:
-        return
-
-    if not result.controller_path.exists():
-        # Controller doesn't exist, let generator create it
-        return
-
-    content = result.controller_path.read_text()
-
-    # Generate stubs
-    stubs = []
-    for method in result.missing_methods:
-        # Build parameter list
-        params_str = "self"
-        for name, type_ in method.params:
-            params_str += f", {name}: {type_}"
-
-        stub = f'''
-    async def {method.name}({params_str}) -> {method.return_type}:
-        """TODO: Implement {method.name}."""
-        raise NotImplementedError("{method.name} not implemented")
-'''
-        stubs.append(stub)
-
-    # Find the class definition and append stubs before the end
-    # Simple approach: look for the last line and insert before it
-    lines = content.rstrip().split("\n")
-
-    # Find the class indentation by looking for "class " line
-    class_found = False
-
-    for line in lines:
-        if line.strip().startswith("class ") and "Controller" in line:
-            class_found = True
-            break
-
-    if not class_found:
-        # No controller class found, skip
-        return
-
-    # Append stubs
-    stub_content = "".join(stubs)
-    new_content = content.rstrip() + "\n" + stub_content
-
-    result.controller_path.write_text(new_content)
 
 
 def lint_controllers_cli(repo_root: Path) -> tuple[bool, str]:
