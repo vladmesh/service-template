@@ -83,6 +83,28 @@ def test_scaffold_preserves_existing_files(fake_repo: FakeRepo) -> None:
     assert not report.errors
 
 
+def test_load_service_specs_reads_registry(fake_repo: FakeRepo) -> None:
+    root, scaffold_mod = fake_repo
+    (root / "services.yml").write_text(
+        "version: 2\n"
+        "services:\n"
+        "  - name: alpha\n"
+        "    type: python-fastapi\n"
+        "    description: Alpha service\n"
+        "  - name: beta\n"
+        "    type: node\n"
+        "    scaffold: false\n",
+        encoding="utf-8",
+    )
+
+    specs = scaffold_mod.load_service_specs(root / "services.yml")
+
+    assert [s.slug for s in specs] == ["alpha", "beta"]
+    assert specs[0].service_type == "python-fastapi"
+    assert specs[0].description == "Alpha service"
+    assert specs[1].scaffold_enabled is False
+
+
 def test_scaffold_reports_unknown_template(fake_repo: FakeRepo) -> None:
     root, scaffold_mod = fake_repo
     spec = scaffold_mod.ServiceSpec(

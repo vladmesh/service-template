@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Остаток раздела 2 (2.6–2.8) и косметика 4.1–4.9 отложены по согласованию.
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью; осталась только косметика 4.1–4.9, отложена по согласованию.
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -21,7 +21,9 @@
 | 2.2 `render_to_file` в `BaseGenerator` | ✅ сделано | `af9839d` |
 | 2.3 типизированный контекст в шаблоны | ✅ сделано | `af9839d` |
 | 2.4 структурный `domain_key` (имена/путь) | ✅ сделано | — |
-| 2.6–2.8 дедупликация | ⏭ отложено | — |
+| 2.6 `unwrap_list` (распаковка `list[X]`) | ✅ сделано | — |
+| 2.7 `load_service_specs` (единый ридер реестра) | ✅ сделано | — |
+| 2.8 единый `computed_return_type` | ✅ сделано | — |
 | 3.1, 3.2, 3.4 compose-рендер + service_info | ✅ сделано | `078649c` |
 | 3.3 stub_missing_methods | ✅ сделано | `090282b` |
 | 3.5 raw_type | ✅ сделано | `bcea93e` |
@@ -116,7 +118,7 @@ if ctx.response_many:
 
 ## 2. Дублирование и «канонический фасад»
 
-**Статус раздела:** частично. 2.5 (`f2ec7cf`), 2.1 (`61329dc`), 2.2, 2.3 (`af9839d`) и 2.4 сделаны; остаётся дедупликация 2.6–2.8 (мельче, MINOR).
+**Статус раздела:** закрыт. 2.5 (`f2ec7cf`), 2.1 (`61329dc`), 2.2, 2.3 (`af9839d`), 2.4, а также дедупликация 2.6–2.8 — все сделаны.
 
 ### 2.1 [MAJOR] Тройной (и четвёртый) dispatch по `TypeSpec`
 **Статус:** ✅ Сделано (`61329dc`). Введён `fold_type_spec(spec, renderer)` с протоколом `TypeRenderer` из 5 листовых хуков — единственный обход union. `type_spec_to_python/_json_schema/_typescript` схлопнуты в тонкие обёртки над рендерерами. TS-конвертер перенесён в `types.py` (реэкспортится из `frontend/generator`), обработка ошибки выровнена на `raise`. Для валидных спеков вывод байт-в-байт прежний (seed `backend/docs/openapi.json` регенерируется без изменений); единственное поведенческое отличие — `raise` на не-`TypeSpec` объекте вместо возврата `"unknown"`. Покрыто тестами в `tests/unit/test_spec_types.py`.
@@ -151,16 +153,19 @@ if ctx.response_many:
 Связанная находка: **«обязательность поля» выводится 4 разными способами** — `models.py:276`, `openapi:93`, `openapi:113`, `frontend/generator.py:110`. Канонический ответ — свойство `FieldSpec.is_required`, используемое везде.
 
 ### 2.6 [MINOR] Распаковка `list[X]`/`List[X]` в 6 местах / 3 файлах
+**Статус:** ✅ Сделано. Введён `unwrap_list(ref) -> tuple[bool, str]` в `spec/operations.py` — единый владелец соглашения «ссылка на список моделей». `OperationSpec.response_many`/`base_output_model` и `loader.extract_base_model` сведены к нему. Шорткат-парсер `list[...]`/`dict[...]` в `parse_type_spec` (`types.py`) не трогался: это отдельная грамматика типов (рекурсия + dict), а не ссылка на модель; `unwrap_list` там не применим без расширения принимаемого синтаксиса.
 **Где:** `operations.py:120,127,129`, `loader.py:131,133`, `types.py:188` (подтверждено `grep`)
 **Проблема:** один и тот же протокол `startswith("list[")/("List[")` + срез `[5:-1]` переописан в `extract_base_model`, `base_output_model` и наполовину в `response_many`. У соглашения «ссылка на список моделей» нет единого владельца.
 **Как чинить:** один хелпер `unwrap_list(ref) -> tuple[bool, str]`; три места схлопываются.
 
 ### 2.7 [MINOR] Загрузка реестра `services.yml` переписана 3–4 раза
+**Статус:** ✅ Сделано. Две из трёх копий-ридеров (`compose_blocks.load_registry`, `service_info`) уже удалены в 3.1. Оставшийся `build_service_specs(registry: dict)` был мёртв (ноль вызовов, даже в тестах) и брал уже загруженный dict. Заменён каноническим `load_service_specs(path) -> list[ServiceSpec]` в `lib/service_scaffold.py`, читающим файл через `loader.load_yaml_file`; конвертация dict→`ServiceSpec` ушла в приватный `_specs_from_registry`. Теперь единственные ридеры `services.yml` — канонический `load_yaml_file` и existence-проверки в `lib/env.py` (не загрузка). Добавлен тест `test_load_service_specs_reads_registry`.
 **Где:** `compose_blocks.py:207` (`load_registry`), `service_info.py:25-41`, `service_scaffold.py:60-90` (`build_service_specs`), против `spec/loader.py:45` (`load_yaml_file`)
 **Проблема:** загрузка `services.yml` и обход `registry["services"]` с `isinstance`-гардами существуют в трёх копиях, возвращающих `dict[str, Any]`, плюс четвёртый YAML-загрузчик в spec-слое. `service_info` даже импортирует типизированный `build_service_specs`, но в `gather_tests` снова ходит по сырым dict-ам через `iter_services` — два несогласованных пути по одному файлу в одном модуле. `Any` течёт везде из-за отсутствия типизированной модели реестра.
 **Как чинить:** один канонический `load_service_specs(path) -> list[ServiceSpec]`, переиспользующий `loader.load_yaml_file`. (Частично растворяется удалением мёртвого кода из раздела 3.)
 
 ### 2.8 [MINOR] `return_type` против `computed_return_type`: риск рассинхрона protocol/controller
+**Статус:** ✅ Сделано. `protocols.py.j2` теперь рендерит `computed_return_type` (как и `controller.py.j2` и линтер `controller_sync`). Осиротевшие `OperationContext.return_type` (поле + присваивание) и `OperationSpec.return_type` (свойство) удалены. Для валидных спеков шаблона вывод байт-в-байт прежний (регенерация seed `backend/.../generated/protocols.py` даёт идентичный файл), т.к. при написании `list[Model]` оба свойства совпадают; расхождение возникало бы только на `List[Model]` (capital L), который теперь сводится к `list[Model]` в обоих местах.
 **Где:** `protocols.py:50` (`ctx.return_type`) против `controllers.py:61` (`ctx.computed_return_type`)
 **Проблема:** сигнатура протокола и сигнатура его реализации должны совпадать точно, но протокол рендерит сырой `return_type`, а контроллер — пересобранный `computed_return_type`. Сегодня совпадают; при ином написании `list[...]` в спеке разойдутся молча.
 **Как чинить:** оставить одно свойство (`computed_return_type`), читать его и там, и там.
@@ -282,7 +287,7 @@ if ctx.response_many:
 7. ✅ `render_to_file` в `BaseGenerator` (2.2); `OperationContext` в шаблоны напрямую (2.3) — сделано (`af9839d`).
 8. ✅ Структурный `domain_key`: `DomainSpec.service_name` + свойства `protocol_name`/`controller_class_name` + хелпер `controller_path` (2.4) — сделано.
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
-10. `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8).
+10. ✅ `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8) — сделано.
 
 **Косметика по остаточному принципу:** 4.1–4.9.
 
@@ -292,6 +297,8 @@ if ctx.response_many:
 
 **Обновление (ветка `vladmesh/audit_fixes`):** два из трёх блокеров сняты. Баги корректности раздела 1 исправлены и покрыты тестами; мёртвый код раздела 3 удалён. Оставшийся блокер — «канонический фасад» раздела 2, отложен до отдельного захода.
 
+**Обновление (раздел 2 закрыт):** снят и третий блокер. «Канонический фасад» разобран полностью (2.1–2.8): dispatch по `TypeSpec`, Jinja-бойлерплейт, типизированный контекст, деривация имён `domain_key`, модель→JSON-schema, распаковка `list[X]`, ридер `services.yml` и `return_type` сведены к единым владельцам. Остаётся только косметика 4.1–4.9 (MINOR).
+
 **Обновление (2.5):** начат разбор «канонического фасада». 2.5 (модель→JSON-schema через канонический `ModelsSpec.to_json_schema`, единый `FieldSpec.is_required`) сделана. Остаток раздела 2 (2.1–2.4, 2.6–2.8) отложен.
 
 **Обновление (2.1):** разбор фасада продолжен. 2.1 (один `fold_type_spec` для dispatch по `TypeSpec`, перенос TS-конвертера в `types.py`) сделана (`61329dc`). Остаток раздела 2 (2.2–2.4, 2.6–2.8) отложен.
@@ -299,3 +306,5 @@ if ctx.response_many:
 **Обновление (2.2 + 2.3):** разбор фасада продолжен. 2.2 (`render_to_file` + кешируемый `env` в `BaseGenerator`, схлопывание 4 инлайн-`Environment`) и 2.3 (передача типизированного `OperationContext`/`ParamContext` в шаблоны вместо ad-hoc `handler_ctx`) сделаны (`af9839d`). Вывод генераторов байт-в-байт прежний. Остаток раздела 2 (2.4, 2.6–2.8) отложен.
 
 **Обновление (2.4):** разбор фасада продолжен. 2.4 (структурный `domain_key`: поле `DomainSpec.service_name` + свойства `protocol_name`/`controller_class_name`, хелпер `controller_path`; все 5+ мест ручной деривации сведены к одному владельцу) сделана. Вывод генераторов байт-в-байт прежний. Остаток раздела 2 — только MINOR-дедупликация 2.6–2.8.
+
+**Обновление (2.6–2.8):** раздел 2 закрыт. 2.6 (`unwrap_list` — единый владелец распаковки `list[X]`), 2.7 (канонический `load_service_specs` через `loader.load_yaml_file`; мёртвый `build_service_specs` удалён) и 2.8 (единый `computed_return_type` в протокол-шаблоне; осиротевшие `OperationContext.return_type`/`OperationSpec.return_type` удалены) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Вывод генераторов байт-в-байт прежний (регенерация seed'ов old vs new даёт идентичное дерево, кроме не относящегося к правкам env-дрейфа `datamodel-code-generator` в `schemas.py`). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. Остаётся только косметика 4.1–4.9.

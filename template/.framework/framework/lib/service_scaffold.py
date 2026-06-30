@@ -9,6 +9,7 @@ import shutil
 from typing import Any
 
 from framework.lib.env import get_framework_dir, get_repo_root
+from framework.spec.loader import load_yaml_file
 
 ROOT = get_repo_root()
 FRAMEWORK_DIR = get_framework_dir()
@@ -57,8 +58,17 @@ class ScaffoldReport:
         self.errors.append(message)
 
 
-def build_service_specs(registry: dict[str, Any]) -> list[ServiceSpec]:
-    """Convert services.yml data into ServiceSpec objects."""
+def load_service_specs(services_file: Path) -> list[ServiceSpec]:
+    """Load services.yml and convert it into ServiceSpec objects.
+
+    Single canonical reader for the service registry; reuses the spec loader's
+    YAML parsing instead of re-reading the file ad hoc.
+    """
+    return _specs_from_registry(load_yaml_file(services_file))
+
+
+def _specs_from_registry(registry: dict[str, Any]) -> list[ServiceSpec]:
+    """Convert raw services.yml data into ServiceSpec objects."""
 
     specs: list[ServiceSpec] = []
     services = registry.get("services", [])

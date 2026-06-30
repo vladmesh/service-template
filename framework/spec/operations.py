@@ -11,6 +11,20 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 
+def unwrap_list(ref: str) -> tuple[bool, str]:
+    """Split a model reference into (is_list, base_model).
+
+    Single owner of the "list of models" convention:
+        "User"       -> (False, "User")
+        "list[User]" -> (True, "User")
+        "List[User]" -> (True, "User")
+    """
+    for prefix in ("list[", "List["):
+        if ref.startswith(prefix) and ref.endswith("]"):
+            return True, ref[len(prefix) : -1]
+    return False, ref
+
+
 class ParamSpec(BaseModel):
     """Specification for an operation parameter (path param, query param, etc).
 
@@ -117,23 +131,14 @@ class OperationSpec(BaseModel):
         """Check if output is a list type."""
         if not self.output_model:
             return False
-        return self.output_model.startswith("list[") or self.output_model.startswith("List[")
+        return unwrap_list(self.output_model)[0]
 
     @property
     def base_output_model(self) -> str | None:
         """Get the base output model (unwrapping list[] if present)."""
         if not self.output_model:
             return None
-        if self.output_model.startswith("list[") and self.output_model.endswith("]"):
-            return self.output_model[5:-1]
-        if self.output_model.startswith("List[") and self.output_model.endswith("]"):
-            return self.output_model[5:-1]
-        return self.output_model
-
-    @property
-    def return_type(self) -> str:
-        """Get the Python return type annotation."""
-        return self.output_model or "None"
+        return unwrap_list(self.output_model)[1]
 
     @classmethod
     def from_yaml(cls, name: str, data: dict[str, Any]) -> OperationSpec:
