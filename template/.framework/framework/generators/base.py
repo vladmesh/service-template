@@ -8,6 +8,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
+from framework.lib.fs import atomic_write_text
 from framework.spec.loader import AllSpecs
 
 GENERATED_HEADER = """\
@@ -62,10 +63,8 @@ class BaseGenerator(ABC):
 
     def write_file(self, path: Path, content: str, *, add_header: bool = True) -> None:
         """Write generated content to file with optional header."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-
         final_content = GENERATED_HEADER + content if add_header else content
-        path.write_text(final_content)
+        atomic_write_text(path, final_content)
 
     def format_file(self, path: Path) -> None:
         """Format generated file with ruff."""
