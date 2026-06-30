@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from framework.generators.context import OperationContextBuilder, controller_path
+from framework.lib.fs import parse_python
 from framework.spec.loader import AllSpecs
 
 
@@ -38,12 +39,8 @@ class ControllerSyncResult:
 
 def get_controller_methods(controller_path: Path) -> set[str]:
     """Extract method names from a controller file using AST."""
-    if not controller_path.exists():
-        return set()
-
-    try:
-        tree = ast.parse(controller_path.read_text())
-    except SyntaxError:
+    tree = parse_python(controller_path)
+    if tree is None:
         return set()
 
     methods: set[str] = set()

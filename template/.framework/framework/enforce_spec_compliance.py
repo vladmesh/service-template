@@ -5,11 +5,11 @@ from pathlib import Path
 import sys
 
 from framework.lib.env import get_repo_root
+from framework.lib.fs import parse_python
 
 
 def is_violation(
     node: ast.AST,
-    content: str,
     *,
     check_base_model: bool = True,
     check_api_router: bool = True,
@@ -40,19 +40,16 @@ def check_file(
     check_api_router: bool = True,
 ) -> list[tuple[int, str]]:
     """Check a single file for violations."""
-    try:
-        content = file_path.read_text(encoding="utf-8")
-        tree = ast.parse(content)
-    except Exception as e:
-        print(f"Failed to parse {file_path}: {e}")
+    tree = parse_python(file_path)
+    if tree is None:
         return []
 
     violations = []
-    lines = content.splitlines()
+    lines = file_path.read_text(encoding="utf-8").splitlines()
 
     for node in ast.walk(tree):
         if is_violation(
-            node, content, check_base_model=check_base_model, check_api_router=check_api_router
+            node, check_base_model=check_base_model, check_api_router=check_api_router
         ):
             # Check for noqa on the same line
             lineno = node.lineno
