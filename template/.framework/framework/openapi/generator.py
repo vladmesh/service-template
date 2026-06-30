@@ -18,12 +18,9 @@ from framework.spec.operations import OperationSpec
 
 
 def type_to_openapi_schema(type_str: str) -> dict[str, Any]:
-    """Convert type string to OpenAPI schema reference."""
-    # If it's a model reference, use $ref
-    if type_str and type_str[0].isupper():
-        return {"$ref": f"#/components/schemas/{type_str}"}
-
-    # Primitive type mapping
+    """Convert a Python type name (as produced by type_spec_to_python) to an OpenAPI schema."""
+    # Primitive mapping must win before the capitalized-name heuristic below,
+    # otherwise "UUID" is treated as a model name and yields a dangling $ref.
     mapping = {
         "int": {"type": "integer"},
         "string": {"type": "string"},
@@ -32,7 +29,14 @@ def type_to_openapi_schema(type_str: str) -> dict[str, Any]:
         "float": {"type": "number"},
         "UUID": {"type": "string", "format": "uuid"},
     }
-    return mapping.get(type_str, {"type": "string"})
+    if type_str in mapping:
+        return mapping[type_str]
+
+    # Otherwise a capitalized name is a model reference.
+    if type_str and type_str[0].isupper():
+        return {"$ref": f"#/components/schemas/{type_str}"}
+
+    return {"type": "string"}
 
 
 class OpenAPIGenerator:
