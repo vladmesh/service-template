@@ -12,7 +12,20 @@ from typing import TYPE_CHECKING
 from framework.spec.types import parse_type_spec, type_spec_to_python
 
 if TYPE_CHECKING:
-    from framework.spec.operations import OperationSpec
+    from pathlib import Path
+
+    from framework.spec.operations import DomainSpec, OperationSpec
+
+
+def controller_path(repo_root: Path, domain: DomainSpec) -> Path:
+    """Path to a domain's controller implementation file.
+
+    Single owner of the controllers/<module>.py convention, shared by the
+    controllers generator (writes the file) and the sync linter (reads it).
+    """
+    return (
+        repo_root / "services" / domain.service_name / "src" / "controllers" / f"{domain.name}.py"
+    )
 
 # Param types that need explicit imports in generated code
 _PARAM_TYPE_IMPORTS: dict[str, str] = {

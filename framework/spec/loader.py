@@ -239,7 +239,9 @@ def _load_service_specs(
             if spec_file.stem == "manifest":
                 continue
             domain_key = f"{service_name}/{spec_file.stem}"
-            domains[domain_key] = load_domain(spec_file)
+            domain = load_domain(spec_file)
+            domain.service_name = service_name
+            domains[domain_key] = domain
 
         # Load manifest if exists
         manifest_file = spec_dir / "manifest.yaml"

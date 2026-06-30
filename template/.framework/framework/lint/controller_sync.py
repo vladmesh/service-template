@@ -9,7 +9,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from framework.generators.context import OperationContextBuilder
+from framework.generators.context import OperationContextBuilder, controller_path
 from framework.spec.loader import AllSpecs
 
 
@@ -70,16 +70,12 @@ def check_controller_sync(
     results = []
     context_builder = OperationContextBuilder()
 
-    for domain_key, domain in specs.domains.items():
-        service_name, module_name = domain_key.split("/")
-        controller_path = (
-            repo_root / "services" / service_name / "src" / "controllers" / f"{module_name}.py"
-        )
-
-        protocol_name = f"{module_name.capitalize()}ControllerProtocol"
+    for domain in specs.domains.values():
+        path = controller_path(repo_root, domain)
+        protocol_name = domain.protocol_name
 
         # Get actual methods from controller
-        actual_methods = get_controller_methods(controller_path)
+        actual_methods = get_controller_methods(path)
 
         # Find missing methods with their signatures
         missing = []
@@ -101,7 +97,7 @@ def check_controller_sync(
 
         results.append(
             ControllerSyncResult(
-                controller_path=controller_path,
+                controller_path=path,
                 protocol_name=protocol_name,
                 missing_methods=missing,
             )

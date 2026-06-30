@@ -184,11 +184,22 @@ class DomainSpec(BaseModel):
     A domain corresponds to a spec file like users.yaml.
     """
 
-    name: str  # e.g., "users"
+    name: str  # e.g., "users" (also the module name)
+    service_name: str = ""  # Owning service; set by loader
     config: DomainConfig = Field(default_factory=DomainConfig)
     operations: list[OperationSpec] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}
+
+    @property
+    def protocol_name(self) -> str:
+        """Controller protocol class name, e.g. 'UsersControllerProtocol'."""
+        return f"{self.name.capitalize()}ControllerProtocol"
+
+    @property
+    def controller_class_name(self) -> str:
+        """Controller implementation class name, e.g. 'UsersController'."""
+        return f"{self.name.capitalize()}Controller"
 
     @classmethod
     def from_yaml(cls, name: str, data: dict[str, Any]) -> DomainSpec:

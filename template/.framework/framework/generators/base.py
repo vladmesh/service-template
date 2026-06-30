@@ -1,8 +1,12 @@
 """Base generator class for all code generators."""
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from pathlib import Path
 import subprocess  # noqa: S404
+from typing import Any
+
+from jinja2 import Environment, FileSystemLoader
 
 from framework.spec.loader import AllSpecs
 
@@ -32,6 +36,29 @@ class BaseGenerator(ABC):
     def generate(self) -> list[Path]:
         """Generate files and return list of generated paths."""
         ...
+
+    @cached_property
+    def env(self) -> Environment:
+        """Jinja environment for codegen templates (built once per generator)."""
+        return Environment(
+            loader=FileSystemLoader(str(self.templates_dir)),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            autoescape=False,  # noqa: S701
+        )
+
+    def render_to_file(
+        self,
+        template_name: str,
+        output_file: Path,
+        *,
+        add_header: bool = True,
+        **context: Any,
+    ) -> None:
+        """Render a codegen template to a file and format it."""
+        content = self.env.get_template(template_name).render(**context)
+        self.write_file(output_file, content, add_header=add_header)
+        self.format_file(output_file)
 
     def write_file(self, path: Path, content: str, *, add_header: bool = True) -> None:
         """Write generated content to file with optional header."""

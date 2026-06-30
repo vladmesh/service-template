@@ -38,8 +38,8 @@ class {{ router.protocol_name }}(Protocol):
         {% for param in handler.params %}
         {{ param.name }}: {{ param.type }},
         {% endfor %}
-        {% if handler.request_model %}
-        payload: {{ handler.request_model }},
+        {% if handler.input_model %}
+        payload: {{ handler.input_model }},
         {% endif %}
     ) -> {{ handler.return_type }}:
         ...

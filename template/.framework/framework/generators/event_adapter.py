@@ -7,8 +7,6 @@ This is part of the unified handlers architecture.
 
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-
 from framework.generators.base import BaseGenerator
 from framework.generators.context import OperationContextBuilder
 
@@ -34,8 +32,8 @@ class EventAdapterGenerator(BaseGenerator):
         # Group domains by service and collect event operations
         services_data: dict[str, dict] = {}
 
-        for domain_key, domain in sorted(self.specs.domains.items()):
-            service_name, domain_name = domain_key.split("/")
+        for _domain_key, domain in sorted(self.specs.domains.items()):
+            service_name = domain.service_name
 
             # Get operations that have events configured
             events_ops = domain.get_events_operations()
@@ -48,7 +46,6 @@ class EventAdapterGenerator(BaseGenerator):
                     "imports": set(),
                 }
 
-            protocol_name = f"{domain_name.capitalize()}ControllerProtocol"
             handlers = []
 
             for operation in events_ops:
@@ -58,15 +55,7 @@ class EventAdapterGenerator(BaseGenerator):
                 if not ctx.subscribe_channel:
                     continue
 
-                handler_ctx = {
-                    "name": ctx.name,
-                    "subscribe_channel": ctx.subscribe_channel,
-                    "publish_on_success_channel": ctx.publish_channel,
-                    "publish_on_error_channel": ctx.publish_on_error_channel,
-                    "message_model": ctx.input_model,
-                    "return_type": ctx.return_type,
-                }
-                handlers.append(handler_ctx)
+                handlers.append(ctx)
 
                 # Collect imports
                 services_data[service_name]["imports"].update(ctx.imports)
@@ -74,21 +63,13 @@ class EventAdapterGenerator(BaseGenerator):
             if handlers:
                 services_data[service_name]["domains"].append(
                     {
-                        "name": domain_name,
-                        "protocol_name": protocol_name,
+                        "name": domain.name,
+                        "protocol_name": domain.protocol_name,
                         "handlers": handlers,
                     }
                 )
 
         # Generate event_adapter.py for each service with event handlers
-        env = Environment(
-            loader=FileSystemLoader(str(self.templates_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            autoescape=False,  # noqa: S701
-        )
-        template = env.get_template("event_adapter.py.j2")
-
         for service_name, data in services_data.items():
             if not data["domains"]:
                 continue
@@ -102,13 +83,13 @@ class EventAdapterGenerator(BaseGenerator):
                 / "event_adapter.py"
             )
 
-            content = template.render(
+            self.render_to_file(
+                "event_adapter.py.j2",
+                output_file,
                 service_name=service_name,
                 domains=data["domains"],
                 imports=data["imports"],
             )
-            self.write_file(output_file, content)
-            self.format_file(output_file)
             generated_files.append(output_file)
 
         return generated_files
