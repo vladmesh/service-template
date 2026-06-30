@@ -3,15 +3,14 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-import os
 
 from faststream import FastStream
-from faststream.redis import RedisBroker
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from services.notifications_worker.src.controllers.notifications import NotificationsController
 from services.notifications_worker.src.generated.event_adapter import create_event_adapter
+from shared.generated.events import get_broker
 from shared.logging import configure_logging
 
 configure_logging(service_name="notifications_worker")
@@ -34,11 +33,9 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 async def main() -> None:
     """Run the notifications worker."""
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        raise RuntimeError("REDIS_URL is not set; please add it to your environment variables")
-
-    broker = RedisBroker(redis_url)
+    # Reuse the canonical broker so publishers and subscribers share one
+    # wire format (BinaryMessageFormatV1) and one REDIS_URL read.
+    broker = get_broker()
 
     # Register unified handlers
     create_event_adapter(
