@@ -36,5 +36,7 @@ models:
     assert "export interface User {" in content
     assert "id: number;" in content
     assert "name: string;" in content
-    assert "export enum UserRole {" in content
-    assert 'admin = "admin",' in content
+    # Enum field is a named string-literal type alias, referenced by the interface
+    assert 'export type UserRole = "admin" | "user";' in content
+    assert "role: UserRole;" in content
+    assert "export enum" not in content

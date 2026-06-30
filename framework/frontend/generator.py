@@ -34,39 +34,55 @@ class TypeScriptGenerator:
             "",
         ]
 
-        # Generate enums first
+        # Named string-literal type aliases for enum fields, referenced by the
+        # interfaces below. Modern TS avoids `enum` (runtime cost, friction with
+        # erasable-syntax / type-stripping); a `type` alias is reusable and erasable.
         for model_name, model_spec in self.specs.models.models.items():
             for field_name, field_spec in model_spec.fields.items():
                 if isinstance(field_spec.type_spec, EnumType):
-                    enum_name = f"{model_name}{field_name.title()}"
+                    enum_name = self._enum_type_name(model_name, field_name)
                     lines.append(self._generate_enum(enum_name, field_spec.type_spec))
                     lines.append("")
 
         # Generate interfaces
         for model_name, model_spec in self.specs.models.models.items():
             # Base interface
-            lines.append(self._generate_interface(model_name, model_spec.fields))
+            lines.append(self._generate_interface(model_name, model_name, model_spec.fields))
             lines.append("")
 
             # Variant interfaces
             for variant_name in model_spec.variants:
                 variant_full_name = f"{model_name}{variant_name}"
                 fields = model_spec.get_variant_fields(variant_name)
-                lines.append(self._generate_interface(variant_full_name, fields))
+                lines.append(self._generate_interface(variant_full_name, model_name, fields))
                 lines.append("")
 
         return "\n".join(lines)
 
-    def _generate_enum(self, name: str, spec: EnumType) -> str:
-        """Generate TypeScript enum."""
-        values = [f'  {v} = "{v}",' for v in spec.values]
-        return f"export enum {name} {{\n" + "\n".join(values) + "\n}"
+    @staticmethod
+    def _enum_type_name(model_name: str, field_name: str) -> str:
+        """Name of the generated type alias for an enum field."""
+        return f"{model_name}{field_name.title()}"
 
-    def _generate_interface(self, name: str, fields: dict[str, FieldSpec]) -> str:
-        """Generate TypeScript interface."""
+    def _generate_enum(self, name: str, spec: EnumType) -> str:
+        """Generate a TypeScript string-literal union type alias."""
+        union = " | ".join(f'"{v}"' for v in spec.values)
+        return f"export type {name} = {union};"
+
+    def _generate_interface(
+        self, name: str, model_name: str, fields: dict[str, FieldSpec]
+    ) -> str:
+        """Generate TypeScript interface.
+
+        Enum fields reference their named type alias (keyed on the base model
+        name so variants point at the same alias); other fields render inline.
+        """
         props = []
         for field_name, field_spec in fields.items():
-            ts_type = field_to_typescript(field_spec)
+            if isinstance(field_spec.type_spec, EnumType):
+                ts_type = self._enum_type_name(model_name, field_name)
+            else:
+                ts_type = field_to_typescript(field_spec)
             optional = "" if field_spec.is_required else "?"
             props.append(f"  {field_name}{optional}: {ts_type};")
 
