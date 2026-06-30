@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC
-
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,11 +35,6 @@ async def _ensure_unique_telegram(
 
 
 def _to_schema(user: User) -> UserRead:
-    # Fix for SQLite returning naive datetimes in tests
-    if user.created_at and user.created_at.tzinfo is None:
-        user.created_at = user.created_at.replace(tzinfo=UTC)
-    if user.updated_at and user.updated_at.tzinfo is None:
-        user.updated_at = user.updated_at.replace(tzinfo=UTC)
     return UserRead.model_validate(user, from_attributes=True)
 
 

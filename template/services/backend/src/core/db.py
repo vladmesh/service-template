@@ -1,9 +1,9 @@
 """Database engine and session management."""
 
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, TypeDecorator, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -16,6 +16,24 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
+class TzAwareDateTime(TypeDecorator):
+    """DateTime column that always yields timezone-aware values on read.
+
+    Postgres with ``timezone=True`` already returns aware datetimes, so this is a
+    no-op in production. SQLite (used in tests) drops tzinfo on round-trip; this
+    re-attaches UTC so loaded values stay aware and satisfy the AwareDatetime
+    schemas, without mutating ORM instances in request handlers.
+    """
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_result_value(self, value: datetime | None, dialect: object) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
@@ -26,7 +44,7 @@ class CreatedAtMixin:
     """Mixin that adds created_at timestamp."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        TzAwareDateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 
@@ -36,7 +54,10 @@ class ORMBase(CreatedAtMixin, Base):
     __abstract__ = True
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        TzAwareDateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
