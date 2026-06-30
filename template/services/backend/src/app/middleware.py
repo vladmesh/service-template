@@ -81,22 +81,3 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             )
         finally:
             structlog.contextvars.unbind_contextvars("method", "path", "user_id")
-
-
-# ---------------------------------------------------------------------------
-# Exception handler — catches anything that slips past normal error handling
-# ---------------------------------------------------------------------------
-def register_exception_handler(app: FastAPI) -> None:
-    """Attach a catch-all handler that logs unhandled exceptions as structured JSON."""
-
-    @app.exception_handler(Exception)
-    async def _unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
-        logger.error(
-            "unhandled_exception",
-            method=request.method,
-            path=request.url.path,
-            exception_type=type(exc).__name__,
-            exception_message=str(exc),
-            exc_info=exc,
-        )
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})

@@ -57,14 +57,10 @@ def _parse_log_lines(output: str, event_name: str) -> list[dict]:
 def log_app() -> FastAPI:
     """Minimal FastAPI app with logging middleware wired in."""
 
-    from services.backend.src.app.middleware import (
-        RequestLoggingMiddleware,
-        register_exception_handler,
-    )
+    from services.backend.src.app.middleware import RequestLoggingMiddleware
 
     app = FastAPI()
     app.add_middleware(RequestLoggingMiddleware)
-    register_exception_handler(app)
 
     @app.get("/hello")
     async def _hello():
