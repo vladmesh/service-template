@@ -63,7 +63,7 @@ class EventAdapterGenerator(BaseGenerator):
                     "subscribe_channel": ctx.subscribe_channel,
                     "publish_on_success_channel": ctx.publish_channel,
                     "publish_on_error_channel": ctx.publish_on_error_channel,
-                    "message_model": ctx.input_model or "dict",
+                    "message_model": ctx.input_model,
                     "return_type": ctx.return_type,
                 }
                 handlers.append(handler_ctx)
