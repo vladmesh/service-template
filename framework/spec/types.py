@@ -7,7 +7,7 @@ Defines the formal grammar of types supported in models.yaml:
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
 
@@ -102,76 +102,159 @@ OptionalType.model_rebuild()
 _type_spec_adapter = TypeAdapter(TypeSpec)
 
 
-def type_spec_to_python(spec: TypeSpec) -> str:
-    """Convert TypeSpec to Python type annotation string."""
+T = TypeVar("T")
+
+
+class TypeRenderer(Protocol[T]):
+    """Leaf hooks for rendering a TypeSpec into a value of type T.
+
+    fold_type_spec owns the structural recursion; a renderer only says how to
+    render the five variant shapes. Children passed to the composite hooks
+    (list/dict/optional) are already folded.
+    """
+
+    def primitive(self, name: str) -> T: ...
+    def list_of(self, item: T) -> T: ...
+    def dict_of(self, key: T, value: T) -> T: ...
+    def optional_of(self, inner: T) -> T: ...
+    def enum_of(self, values: list[str], default: str | None) -> T: ...
+
+
+def fold_type_spec(spec: TypeSpec, renderer: TypeRenderer[T]) -> T:
+    """Fold a TypeSpec into a value of type T using renderer's leaf hooks.
+
+    This is the single structural traversal of the TypeSpec union. Adding a new
+    variant means extending this fold and the TypeRenderer protocol once, instead
+    of patching every converter.
+    """
     if isinstance(spec, PrimitiveType):
-        mapping = {
-            "int": "int",
-            "string": "str",
-            "bool": "bool",
-            "float": "float",
-            "datetime": "AwareDatetime",
-            "uuid": "UUID",
-        }
-        return mapping[spec.type]
-
+        return renderer.primitive(spec.type)
     if isinstance(spec, ListType):
-        inner = type_spec_to_python(spec.of)
-        return f"list[{inner}]"
-
+        return renderer.list_of(fold_type_spec(spec.of, renderer))
     if isinstance(spec, DictType):
-        key = type_spec_to_python(spec.key)
-        value = type_spec_to_python(spec.value)
-        return f"dict[{key}, {value}]"
-
+        return renderer.dict_of(
+            fold_type_spec(spec.key, renderer),
+            fold_type_spec(spec.value, renderer),
+        )
     if isinstance(spec, OptionalType):
-        inner = type_spec_to_python(spec.of)
-        return f"{inner} | None"
-
+        return renderer.optional_of(fold_type_spec(spec.of, renderer))
     if isinstance(spec, EnumType):
-        # Enum types are generated as separate classes, referenced by name
-        # The actual class name is determined at generation time
-        return "str"  # Placeholder, actual enum class name added by generator
+        return renderer.enum_of(spec.values, spec.default)
 
     msg = f"Unknown type spec: {spec}"
     raise ValueError(msg)
 
 
-def type_spec_to_json_schema(spec: TypeSpec) -> dict[str, Any]:
-    """Convert TypeSpec to JSON Schema."""
-    if isinstance(spec, PrimitiveType):
-        mapping = {
-            "int": {"type": "integer"},
-            "string": {"type": "string"},
-            "bool": {"type": "boolean"},
-            "float": {"type": "number"},
-            "datetime": {"type": "string", "format": "date-time"},
-            "uuid": {"type": "string", "format": "uuid"},
-        }
-        return mapping[spec.type]
+class _PythonRenderer:
+    """Render a TypeSpec as a Python type annotation string."""
 
-    if isinstance(spec, ListType):
-        return {"type": "array", "items": type_spec_to_json_schema(spec.of)}
+    _PRIMITIVES = {
+        "int": "int",
+        "string": "str",
+        "bool": "bool",
+        "float": "float",
+        "datetime": "AwareDatetime",
+        "uuid": "UUID",
+    }
 
-    if isinstance(spec, DictType):
-        return {
-            "type": "object",
-            "additionalProperties": type_spec_to_json_schema(spec.value),
-        }
+    def primitive(self, name: str) -> str:
+        return self._PRIMITIVES[name]
 
-    if isinstance(spec, OptionalType):
-        inner = type_spec_to_json_schema(spec.of)
+    def list_of(self, item: str) -> str:
+        return f"list[{item}]"
+
+    def dict_of(self, key: str, value: str) -> str:
+        return f"dict[{key}, {value}]"
+
+    def optional_of(self, inner: str) -> str:
+        return f"{inner} | None"
+
+    def enum_of(self, values: list[str], default: str | None) -> str:
+        # Enum types are generated as separate classes, referenced by name.
+        # The actual class name is added by the generator; "str" is a placeholder.
+        return "str"
+
+
+class _JsonSchemaRenderer:
+    """Render a TypeSpec as a JSON Schema fragment."""
+
+    _PRIMITIVES: dict[str, dict[str, Any]] = {
+        "int": {"type": "integer"},
+        "string": {"type": "string"},
+        "bool": {"type": "boolean"},
+        "float": {"type": "number"},
+        "datetime": {"type": "string", "format": "date-time"},
+        "uuid": {"type": "string", "format": "uuid"},
+    }
+
+    def primitive(self, name: str) -> dict[str, Any]:
+        # Copy so callers can mutate the result without touching the shared table.
+        return dict(self._PRIMITIVES[name])
+
+    def list_of(self, item: dict[str, Any]) -> dict[str, Any]:
+        return {"type": "array", "items": item}
+
+    def dict_of(self, key: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
+        return {"type": "object", "additionalProperties": value}
+
+    def optional_of(self, inner: dict[str, Any]) -> dict[str, Any]:
         # JSON Schema nullable pattern
         return {**inner, "nullable": True}
 
-    if isinstance(spec, EnumType):
-        schema: dict[str, Any] = {"type": "string", "enum": spec.values}
-        if spec.default is not None:
-            schema["default"] = spec.default
+    def enum_of(self, values: list[str], default: str | None) -> dict[str, Any]:
+        schema: dict[str, Any] = {"type": "string", "enum": values}
+        if default is not None:
+            schema["default"] = default
         return schema
 
-    msg = f"Unknown type spec: {spec}"
-    raise ValueError(msg)
+
+class _TypeScriptRenderer:
+    """Render a TypeSpec as a TypeScript type string."""
+
+    _PRIMITIVES = {
+        "int": "number",
+        "float": "number",
+        "string": "string",
+        "bool": "boolean",
+        "datetime": "string",  # ISO datetime string
+        "uuid": "string",
+    }
+
+    def primitive(self, name: str) -> str:
+        return self._PRIMITIVES[name]
+
+    def list_of(self, item: str) -> str:
+        return f"{item}[]"
+
+    def dict_of(self, key: str, value: str) -> str:
+        return f"Record<{key}, {value}>"
+
+    def optional_of(self, inner: str) -> str:
+        return f"{inner} | null"
+
+    def enum_of(self, values: list[str], default: str | None) -> str:
+        # Inline union of string literals
+        return " | ".join(f'"{v}"' for v in values)
+
+
+_PYTHON_RENDERER = _PythonRenderer()
+_JSON_SCHEMA_RENDERER = _JsonSchemaRenderer()
+_TYPESCRIPT_RENDERER = _TypeScriptRenderer()
+
+
+def type_spec_to_python(spec: TypeSpec) -> str:
+    """Convert TypeSpec to a Python type annotation string."""
+    return fold_type_spec(spec, _PYTHON_RENDERER)
+
+
+def type_spec_to_json_schema(spec: TypeSpec) -> dict[str, Any]:
+    """Convert TypeSpec to a JSON Schema fragment."""
+    return fold_type_spec(spec, _JSON_SCHEMA_RENDERER)
+
+
+def type_spec_to_typescript(spec: TypeSpec) -> str:
+    """Convert TypeSpec to a TypeScript type string."""
+    return fold_type_spec(spec, _TYPESCRIPT_RENDERER)
 
 
 def parse_type_spec(data: dict[str, Any] | str) -> TypeSpec:
