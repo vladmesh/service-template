@@ -7,6 +7,28 @@
   },
   "paths": {
     "/users": {
+      "get": {
+        "operationId": "list_users",
+        "summary": "List Users",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserRead"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "create_user",
         "summary": "Create User",
@@ -128,37 +150,6 @@
           }
         ]
       }
-    },
-    "/debug/command": {
-      "post": {
-        "operationId": "command",
-        "summary": "Command",
-        "tags": [
-          "debug"
-        ],
-        "responses": {
-          "202": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommandReceived"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommandReceivedCreate"
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -225,13 +216,10 @@
             "minimum": 0
           },
           "is_admin": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           }
         },
-        "required": [
-          "telegram_id"
-        ],
+        "required": [],
         "additionalProperties": false
       },
       "UserRead": {
@@ -344,8 +332,7 @@
         "required": [
           "command",
           "args",
-          "user_id",
-          "timestamp"
+          "user_id"
         ],
         "additionalProperties": false
       }
