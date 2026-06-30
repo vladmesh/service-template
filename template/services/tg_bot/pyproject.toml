@@ -29,6 +29,9 @@ pep621_dev_dependency_groups = ["dev"]
 [tool.deptry.per_rule_ignores]
 # Internal packages (services.*) are not pip dependencies
 DEP001 = ["services"]
+# httpx is imported directly only when the backend module is present; without it
+# httpx stays a transitive dep of python-telegram-bot, so skip the unused warning.
+DEP002 = ["httpx"]
 # Transitive deps used directly — structlog via shared
 DEP003 = ["structlog"]
 
