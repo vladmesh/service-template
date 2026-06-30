@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-
 from framework.generators.base import BaseGenerator
 
 
@@ -38,22 +36,12 @@ class EventsGenerator(BaseGenerator):
             if event.subscribe:
                 subscribers.append(event_ctx)
 
-        context = {
-            "publishers": publishers,
-            "subscribers": subscribers,
-            "imports": imports,
-        }
-
-        env = Environment(
-            loader=FileSystemLoader(str(self.templates_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            autoescape=False,  # noqa: S701
+        self.render_to_file(
+            "events.py.j2",
+            self.output_file,
+            publishers=publishers,
+            subscribers=subscribers,
+            imports=imports,
         )
-        template = env.get_template("events.py.j2")
-
-        content = template.render(**context)
-        self.write_file(self.output_file, content)
-        self.format_file(self.output_file)
 
         return [self.output_file]

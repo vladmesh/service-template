@@ -5,8 +5,6 @@ Generates typing.Protocol classes from domain specifications.
 
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-
 from framework.generators.base import BaseGenerator
 from framework.generators.context import OperationContextBuilder
 
@@ -42,23 +40,11 @@ class ProtocolsGenerator(BaseGenerator):
             for operation in domain.operations:
                 ctx = self.context_builder.build_for_protocol(operation)
 
-                handler_ctx = {
-                    "name": ctx.name,
-                    "params": [{"name": p.name, "type": p.type} for p in ctx.params],
-                    "request_model": ctx.input_model,
-                    "response_model": ctx.output_model,
-                    "return_type": ctx.return_type,
-                    # Transport type flags for unified handlers
-                    "is_rest_only": ctx.is_rest_only,
-                    "is_events_only": ctx.is_events_only,
-                    "is_dual_transport": ctx.is_dual_transport,
-                }
-
                 # Collect imports
                 services_imports[service_name].update(ctx.imports)
                 services_param_type_imports[service_name].update(ctx.param_type_imports)
 
-                handlers.append(handler_ctx)
+                handlers.append(ctx)
 
             services_domains[service_name].append(
                 {
@@ -69,26 +55,18 @@ class ProtocolsGenerator(BaseGenerator):
             )
 
         # Generate protocols.py for each service
-        env = Environment(
-            loader=FileSystemLoader(str(self.templates_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            autoescape=False,  # noqa: S701
-        )
-        template = env.get_template("protocols.py.j2")
-
         for service_name, domains_context in services_domains.items():
             output_file = (
                 self.repo_root / "services" / service_name / "src" / "generated" / "protocols.py"
             )
 
-            content = template.render(
+            self.render_to_file(
+                "protocols.py.j2",
+                output_file,
                 routers=domains_context,  # Template expects 'routers' key
                 imports=services_imports[service_name],
                 param_type_imports=sorted(services_param_type_imports[service_name]),
             )
-            self.write_file(output_file, content)
-            self.format_file(output_file)
             generated_files.append(output_file)
 
         return generated_files

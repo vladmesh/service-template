@@ -57,16 +57,16 @@ def create_event_adapter(
 {% if handler.subscribe_channel %}
 
     @broker.subscriber("{{ handler.subscribe_channel }}")
-    async def handle_{{ handler.name }}(event: {{ handler.message_model }}) -> None:
+    async def handle_{{ handler.name }}(event: {{ handler.input_model }}) -> None:
         """Handle {{ handler.subscribe_channel }} events."""
         controller = get_{{ domain.name }}_controller()
         if get_session is None:
             # Stateless service: no DB session to open or commit.
 {% if handler.publish_on_error_channel %}
             try:
-{% if handler.publish_on_success_channel %}
+{% if handler.publish_channel %}
                 result = await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
-                await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+                await broker.publish(result, "{{ handler.publish_channel }}")
 {% else %}
                 await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
 {% endif %}
@@ -76,19 +76,19 @@ def create_event_adapter(
                     "{{ handler.publish_on_error_channel }}",
                 )
                 raise
-{% elif handler.publish_on_success_channel %}
+{% elif handler.publish_channel %}
             result = await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
-            await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+            await broker.publish(result, "{{ handler.publish_channel }}")
 {% else %}
             await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
 {% endif %}
             return
         async with get_session() as session:
             try:
-{% if handler.publish_on_success_channel %}
+{% if handler.publish_channel %}
                 result = await controller.{{ handler.name }}(session, payload=event)
                 await session.commit()
-                await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+                await broker.publish(result, "{{ handler.publish_channel }}")
 {% else %}
                 await controller.{{ handler.name }}(session, payload=event)
                 await session.commit()

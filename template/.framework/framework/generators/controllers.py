@@ -6,8 +6,6 @@ Uses OperationContextBuilder for unified context building.
 
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-
 from framework.generators.base import BaseGenerator
 from framework.generators.context import OperationContextBuilder
 
@@ -52,36 +50,18 @@ class ControllersGenerator(BaseGenerator):
 
         for operation in domain.operations:
             ctx = self.context_builder.build_for_protocol(operation)
-
-            handler_ctx = {
-                "name": ctx.name,
-                "params": [{"name": p.name, "type": p.type} for p in ctx.params],
-                "request_model": ctx.input_model,
-                "response_model": ctx.output_model,
-                "return_type": ctx.computed_return_type,
-            }
-
             imports.update(ctx.imports)
             param_type_imports.update(ctx.param_type_imports)
-            handlers.append(handler_ctx)
+            handlers.append(ctx)
 
-        context = {
-            "module_name": module_name,
-            "protocol_name": f"{module_name.capitalize()}ControllerProtocol",
-            "handlers": handlers,
-            "imports": imports,
-            "param_type_imports": sorted(param_type_imports),
-        }
-
-        env = Environment(
-            loader=FileSystemLoader(str(self.templates_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            autoescape=False,  # noqa: S701
-        )
-        template = env.get_template("controller.py.j2")
-
-        content = template.render(**context)
         # Controllers are editable, don't add generated header
-        self.write_file(output_file, content, add_header=False)
-        self.format_file(output_file)
+        self.render_to_file(
+            "controller.py.j2",
+            output_file,
+            add_header=False,
+            module_name=module_name,
+            protocol_name=f"{module_name.capitalize()}ControllerProtocol",
+            handlers=handlers,
+            imports=imports,
+            param_type_imports=sorted(param_type_imports),
+        )
