@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`) и 2.3 (типизированный контекст в шаблоны) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Остаток раздела 2 (2.4, 2.6–2.8) и косметика 4.1–4.9 отложены по согласованию.
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Остаток раздела 2 (2.6–2.8) и косметика 4.1–4.9 отложены по согласованию.
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -20,7 +20,8 @@
 | 2.1 один fold для dispatch по `TypeSpec` | ✅ сделано | `61329dc` |
 | 2.2 `render_to_file` в `BaseGenerator` | ✅ сделано | `af9839d` |
 | 2.3 типизированный контекст в шаблоны | ✅ сделано | `af9839d` |
-| 2.4, 2.6–2.8 фасад/дедупликация | ⏭ отложено | — |
+| 2.4 структурный `domain_key` (имена/путь) | ✅ сделано | — |
+| 2.6–2.8 дедупликация | ⏭ отложено | — |
 | 3.1, 3.2, 3.4 compose-рендер + service_info | ✅ сделано | `078649c` |
 | 3.3 stub_missing_methods | ✅ сделано | `090282b` |
 | 3.5 raw_type | ✅ сделано | `bcea93e` |
@@ -115,7 +116,7 @@ if ctx.response_many:
 
 ## 2. Дублирование и «канонический фасад»
 
-**Статус раздела:** частично. 2.5 (`f2ec7cf`), 2.1 (`61329dc`), 2.2 и 2.3 (`af9839d`) сделаны; остальное (2.4, 2.6–2.8) отложено. Следующий естественный шаг из оставшегося — 2.4 (структурный `domain_key`: свойства `DomainSpec.service_name/.module_name` + хелперы имён/путей).
+**Статус раздела:** частично. 2.5 (`f2ec7cf`), 2.1 (`61329dc`), 2.2, 2.3 (`af9839d`) и 2.4 сделаны; остаётся дедупликация 2.6–2.8 (мельче, MINOR).
 
 ### 2.1 [MAJOR] Тройной (и четвёртый) dispatch по `TypeSpec`
 **Статус:** ✅ Сделано (`61329dc`). Введён `fold_type_spec(spec, renderer)` с протоколом `TypeRenderer` из 5 листовых хуков — единственный обход union. `type_spec_to_python/_json_schema/_typescript` схлопнуты в тонкие обёртки над рендерерами. TS-конвертер перенесён в `types.py` (реэкспортится из `frontend/generator`), обработка ошибки выровнена на `raise`. Для валидных спеков вывод байт-в-байт прежний (seed `backend/docs/openapi.json` регенерируется без изменений); единственное поведенческое отличие — `raise` на не-`TypeSpec` объекте вместо возврата `"unknown"`. Покрыто тестами в `tests/unit/test_spec_types.py`.
@@ -136,6 +137,7 @@ if ctx.response_many:
 **Как чинить:** Jinja прекрасно читает атрибуты — передавать `OperationContext`/`ParamContext` прямо в шаблон, удалив все три блока `handler_ctx = {...}`. Парой идёт 2.4.
 
 ### 2.4 [MAJOR] Деривация имён `domain_key`/protocol-name дублирована по 4 файлам
+**Статус:** ✅ Сделано. Ключ стал структурным: `DomainSpec` получил поле `service_name` (ставит loader, как `ServiceManifest.service`) и свойства `protocol_name`/`controller_class_name` — единственный владелец конвенции имён. Все 5 `domain_key.split("/")` и 5 ручных `…capitalize()+ControllerProtocol` (включая `controller.py.j2` и линтер) сведены к `domain.service_name`/`domain.name`/`domain.protocol_name`. Путь к файлу контроллера (общий у генератора и линтера — реальная пара риска рассинхрона) вынесен в хелпер `controller_path(repo_root, domain)` в `context.py`. Уточнение к рецепту: имена живут свойствами на `DomainSpec`, а не свободными функциями `protocol_name_for(...)` — единый владелец = сама модель; `module_name` отдельной обёрткой не вводился, т.к. `DomainSpec.name` уже и есть имя модуля. Вывод генераторов байт-в-байт прежний (регенерация old vs new даёт идентичное дерево, включая контроллеры).
 **Где:** `lint/controller_sync.py:75,80`, `generators/controllers.py:28,70`, `generators/protocols.py:32,39`, `generators/event_adapter.py:38,51`, плюс шаблон `controller.py.j2:21`
 **Проблема:** подтверждено `grep`: `service_name, … = domain_key.split("/")` в **5 местах**; `f"{module_name.capitalize()}ControllerProtocol"` в **5 местах** (включая Jinja-шаблон и линтер). `DomainSpec` не несёт ни имени сервиса, ни имени протокола, поэтому каждый потребитель парсит составной ключ заново. Линтер `controller_sync` независимо переписывает то же соглашение — конкретный риск рассинхрона.
 **Как чинить:** сделать ключ структурным. Свойства `DomainSpec.service_name` / `.module_name` и хелперы `protocol_name_for(module)` / `controller_path(...)` в `generators/context.py`. Все 5+ мест сводятся к одному вызову.
@@ -278,7 +280,7 @@ if ctx.response_many:
 **Затем централизация (схлопнуть фасад):**
 6. ✅ Один fold для dispatch по `TypeSpec` (2.1) и перенос TS-конвертера в `types.py` — сделано (`61329dc`).
 7. ✅ `render_to_file` в `BaseGenerator` (2.2); `OperationContext` в шаблоны напрямую (2.3) — сделано (`af9839d`).
-8. Свойства `DomainSpec.service_name/.module_name` + хелперы имён/путей (2.4).
+8. ✅ Структурный `domain_key`: `DomainSpec.service_name` + свойства `protocol_name`/`controller_class_name` + хелпер `controller_path` (2.4) — сделано.
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8).
 
@@ -295,3 +297,5 @@ if ctx.response_many:
 **Обновление (2.1):** разбор фасада продолжен. 2.1 (один `fold_type_spec` для dispatch по `TypeSpec`, перенос TS-конвертера в `types.py`) сделана (`61329dc`). Остаток раздела 2 (2.2–2.4, 2.6–2.8) отложен.
 
 **Обновление (2.2 + 2.3):** разбор фасада продолжен. 2.2 (`render_to_file` + кешируемый `env` в `BaseGenerator`, схлопывание 4 инлайн-`Environment`) и 2.3 (передача типизированного `OperationContext`/`ParamContext` в шаблоны вместо ad-hoc `handler_ctx`) сделаны (`af9839d`). Вывод генераторов байт-в-байт прежний. Остаток раздела 2 (2.4, 2.6–2.8) отложен.
+
+**Обновление (2.4):** разбор фасада продолжен. 2.4 (структурный `domain_key`: поле `DomainSpec.service_name` + свойства `protocol_name`/`controller_class_name`, хелпер `controller_path`; все 5+ мест ручной деривации сведены к одному владельцу) сделана. Вывод генераторов байт-в-байт прежний. Остаток раздела 2 — только MINOR-дедупликация 2.6–2.8.

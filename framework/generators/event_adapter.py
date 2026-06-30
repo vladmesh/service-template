@@ -32,8 +32,8 @@ class EventAdapterGenerator(BaseGenerator):
         # Group domains by service and collect event operations
         services_data: dict[str, dict] = {}
 
-        for domain_key, domain in sorted(self.specs.domains.items()):
-            service_name, domain_name = domain_key.split("/")
+        for _domain_key, domain in sorted(self.specs.domains.items()):
+            service_name = domain.service_name
 
             # Get operations that have events configured
             events_ops = domain.get_events_operations()
@@ -46,7 +46,6 @@ class EventAdapterGenerator(BaseGenerator):
                     "imports": set(),
                 }
 
-            protocol_name = f"{domain_name.capitalize()}ControllerProtocol"
             handlers = []
 
             for operation in events_ops:
@@ -64,8 +63,8 @@ class EventAdapterGenerator(BaseGenerator):
             if handlers:
                 services_data[service_name]["domains"].append(
                     {
-                        "name": domain_name,
-                        "protocol_name": protocol_name,
+                        "name": domain.name,
+                        "protocol_name": domain.protocol_name,
                         "handlers": handlers,
                     }
                 )

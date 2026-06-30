@@ -18,7 +18,7 @@ from shared.generated.schemas import (
 )
 {% endif %}
 
-class {{ module_name.capitalize() }}Controller({{ protocol_name }}):
+class {{ controller_class_name }}({{ protocol_name }}):
     """
     Implementation of {{ protocol_name }}.
     """

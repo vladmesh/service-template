@@ -26,15 +26,13 @@ class ProtocolsGenerator(BaseGenerator):
         services_imports: dict[str, set[str]] = {}
         services_param_type_imports: dict[str, set[str]] = {}
 
-        for domain_key, domain in sorted(self.specs.domains.items()):
-            service_name, domain_name = domain_key.split("/")
+        for _domain_key, domain in sorted(self.specs.domains.items()):
+            service_name = domain.service_name
 
             if service_name not in services_domains:
                 services_domains[service_name] = []
                 services_imports[service_name] = set()
                 services_param_type_imports[service_name] = set()
-
-            protocol_name = f"{domain_name.capitalize()}ControllerProtocol"
 
             handlers = []
             for operation in domain.operations:
@@ -48,8 +46,8 @@ class ProtocolsGenerator(BaseGenerator):
 
             services_domains[service_name].append(
                 {
-                    "name": domain_name,
-                    "protocol_name": protocol_name,
+                    "name": domain.name,
+                    "protocol_name": domain.protocol_name,
                     "handlers": handlers,
                 }
             )

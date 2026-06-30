@@ -82,10 +82,8 @@ class OpenAPIGenerator:
         """Generate OpenAPI paths from domains."""
         paths: dict[str, Any] = {}
 
-        for domain_key, domain in self.specs.domains.items():
-            d_service, _ = domain_key.split("/")
-
-            if service_name and d_service != service_name:
+        for domain in self.specs.domains.values():
+            if service_name and domain.service_name != service_name:
                 continue
 
             # Get REST prefix from domain config
