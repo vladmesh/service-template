@@ -75,7 +75,6 @@ class OperationContext:
     params: list[ParamContext] = field(default_factory=list)
     input_model: str | None = None
     output_model: str | None = None
-    return_type: str = "None"
     imports: set[str] = field(default_factory=set)
     param_type_imports: set[str] = field(default_factory=set)
 
@@ -162,7 +161,6 @@ class OperationContextBuilder:
             params=params,
             input_model=operation.input_model,
             output_model=operation.base_output_model,  # Use unwrapped model
-            return_type=operation.return_type,
             imports=imports,
             param_type_imports=param_type_imports,
             response_many=operation.response_many,  # Pass the list flag

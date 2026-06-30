@@ -15,7 +15,7 @@ import yaml
 
 from framework.spec.events import EventsSpec
 from framework.spec.models import ModelsSpec
-from framework.spec.operations import DomainSpec, ServiceManifest
+from framework.spec.operations import DomainSpec, ServiceManifest, unwrap_list
 
 
 class SpecValidationError(Exception):
@@ -128,11 +128,7 @@ def extract_base_model(model_ref: str) -> str:
         - "list[User]" -> "User"
         - "List[User]" -> "User"
     """
-    if model_ref.startswith("list[") and model_ref.endswith("]"):
-        return model_ref[5:-1]
-    if model_ref.startswith("List[") and model_ref.endswith("]"):
-        return model_ref[5:-1]
-    return model_ref
+    return unwrap_list(model_ref)[1]
 
 
 def validate_model_references(

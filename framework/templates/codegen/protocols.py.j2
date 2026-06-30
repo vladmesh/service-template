@@ -41,7 +41,7 @@ class {{ router.protocol_name }}(Protocol):
         {% if handler.input_model %}
         payload: {{ handler.input_model }},
         {% endif %}
-    ) -> {{ handler.return_type }}:
+    ) -> {{ handler.computed_return_type }}:
         ...
 
 {% endfor %}
