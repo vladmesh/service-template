@@ -10,13 +10,10 @@ on:
       - 'tests/copier/**'
       - '.github/workflows/test-template.yml'
   pull_request:
+    # No path filter: this is a required status check on main, so it must run on
+    # every PR. A path-filtered required check that never triggers blocks merges.
     branches:
       - main
-    paths:
-      - 'copier.yml'
-      - 'template/**'
-      - 'tests/copier/**'
-      - '.github/workflows/test-template.yml'
   workflow_dispatch:
 
 env:
