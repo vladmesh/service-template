@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находка 2.1 (один fold для dispatch по `TypeSpec`) сделана на ветке `vladmesh/audit-2.1-typespec-fold`. Остаток раздела 2 (фасад) и косметика 4.1–4.9 отложены по согласованию.
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`) и 2.3 (типизированный контекст в шаблоны) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Остаток раздела 2 (2.4, 2.6–2.8) и косметика 4.1–4.9 отложены по согласованию.
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -18,7 +18,9 @@
 | 1.6 OpenAPI uuid-параметр | ✅ сделано | `3e89d61` |
 | 2.5 модель→JSON-schema + `FieldSpec.is_required` | ✅ сделано | `f2ec7cf` |
 | 2.1 один fold для dispatch по `TypeSpec` | ✅ сделано | `61329dc` |
-| 2.2–2.4, 2.6–2.8 фасад/дедупликация | ⏭ отложено | — |
+| 2.2 `render_to_file` в `BaseGenerator` | ✅ сделано | `af9839d` |
+| 2.3 типизированный контекст в шаблоны | ✅ сделано | `af9839d` |
+| 2.4, 2.6–2.8 фасад/дедупликация | ⏭ отложено | — |
 | 3.1, 3.2, 3.4 compose-рендер + service_info | ✅ сделано | `078649c` |
 | 3.3 stub_missing_methods | ✅ сделано | `090282b` |
 | 3.5 raw_type | ✅ сделано | `bcea93e` |
@@ -113,7 +115,7 @@ if ctx.response_many:
 
 ## 2. Дублирование и «канонический фасад»
 
-**Статус раздела:** частично. 2.5 (`f2ec7cf`) и 2.1 (`61329dc`) сделаны; остальное (2.2–2.4, 2.6–2.8) отложено. Следующий естественный шаг из оставшегося — 2.2/2.3 (`render_to_file` в `BaseGenerator`, передача `OperationContext` в шаблоны).
+**Статус раздела:** частично. 2.5 (`f2ec7cf`), 2.1 (`61329dc`), 2.2 и 2.3 (`af9839d`) сделаны; остальное (2.4, 2.6–2.8) отложено. Следующий естественный шаг из оставшегося — 2.4 (структурный `domain_key`: свойства `DomainSpec.service_name/.module_name` + хелперы имён/путей).
 
 ### 2.1 [MAJOR] Тройной (и четвёртый) dispatch по `TypeSpec`
 **Статус:** ✅ Сделано (`61329dc`). Введён `fold_type_spec(spec, renderer)` с протоколом `TypeRenderer` из 5 листовых хуков — единственный обход union. `type_spec_to_python/_json_schema/_typescript` схлопнуты в тонкие обёртки над рендерерами. TS-конвертер перенесён в `types.py` (реэкспортится из `frontend/generator`), обработка ошибки выровнена на `raise`. Для валидных спеков вывод байт-в-байт прежний (seed `backend/docs/openapi.json` регенерируется без изменений); единственное поведенческое отличие — `raise` на не-`TypeSpec` объекте вместо возврата `"unknown"`. Покрыто тестами в `tests/unit/test_spec_types.py`.
@@ -122,11 +124,13 @@ if ctx.response_many:
 **Как чинить (judo):** вынести структурную рекурсию один раз. Либо маленький протокол-рендерер с 5 хуками-листьями и единым `render(spec, renderer)`, владеющим обходом; тогда `to_python/to_json_schema/to_typescript` схлопываются в ~6 строк без рекурсии и dispatch. Перенести TS-конвертер в `types.py`, выровнять обработку ошибки на `raise`.
 
 ### 2.2 [MAJOR] `base.py` — тонкая обёртка; Jinja-бойлерплейт продублирован 4×
+**Статус:** ✅ Сделано (`af9839d`). В `BaseGenerator` добавлены кешируемое свойство `env` и метод `render_to_file(template_name, output_file, *, add_header=True, **ctx)`. Все 4 генератора сведены на него, инлайн-`Environment(` остался только в `base.py`. Вывод байт-в-байт прежний (регенерация seed'ов старым vs новым кодом даёт идентичное дерево).
 **Где:** `generators/base.py:18-53` против `controllers.py:77-85`, `protocols.py:72-90`, `events.py:47-56`, `event_adapter.py:84-109`
 **Проблема:** `BaseGenerator` владеет только `write_file` + `format_file`. Сам поток (`Environment(FileSystemLoader(...), trim_blocks=True, lstrip_blocks=True, autoescape=False)` → `get_template` → `render` → `write_file` → `format_file`) переписан байт-в-байт в четырёх генераторах, вместе с повторяющимся `# noqa: S701`. Подтверждено `grep`: 4 инлайн-конструкции `Environment(`.
 **Как чинить:** добавить в базу кешируемое свойство `self.env` и метод `render_to_file(template_name, output_file, *, add_header=True, **ctx)`. Хвост каждого генератора сводится к одному вызову.
 
 ### 2.3 [MAJOR] Типизированный `OperationContext` строится и выбрасывается в ad-hoc dict-ы
+**Статус:** ✅ Сделано (`af9839d`). Три блока `handler_ctx = {...}` удалены; `OperationContext`/`ParamContext` передаются в шаблоны напрямую. Шаблоны читают атрибуты контекста (`input_model`, `computed_return_type`/`return_type`, `publish_channel`, …). Расхождение `return_type` (protocol) vs `computed_return_type` (controller) оставлено как есть — это 2.8, отложено.
 **Где:** `context.py:53-107` против `controllers.py:56-62`, `protocols.py:45-55`, `event_adapter.py:61-68`
 **Проблема:** `OperationContextBuilder` выдаёт типизированный объект, а каждый генератор тут же переупаковывает его в нетипизированный `handler_ctx` для Jinja, вручную переотбирая поля. Строка `"params": [{"name": p.name, "type": p.type} for p in ctx.params]` идентична в `controllers.py:58` и `protocols.py:47`. Дублирование, которое контекст должен был убрать, просто переехало на слой выше. Типизированный контракт умирает на границе шаблона.
 **Как чинить:** Jinja прекрасно читает атрибуты — передавать `OperationContext`/`ParamContext` прямо в шаблон, удалив все три блока `handler_ctx = {...}`. Парой идёт 2.4.
@@ -273,7 +277,7 @@ if ctx.response_many:
 
 **Затем централизация (схлопнуть фасад):**
 6. ✅ Один fold для dispatch по `TypeSpec` (2.1) и перенос TS-конвертера в `types.py` — сделано (`61329dc`).
-7. `render_to_file` в `BaseGenerator` (2.2); передавать `OperationContext` в шаблоны напрямую (2.3).
+7. ✅ `render_to_file` в `BaseGenerator` (2.2); `OperationContext` в шаблоны напрямую (2.3) — сделано (`af9839d`).
 8. Свойства `DomainSpec.service_name/.module_name` + хелперы имён/путей (2.4).
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8).
@@ -289,3 +293,5 @@ if ctx.response_many:
 **Обновление (2.5):** начат разбор «канонического фасада». 2.5 (модель→JSON-schema через канонический `ModelsSpec.to_json_schema`, единый `FieldSpec.is_required`) сделана. Остаток раздела 2 (2.1–2.4, 2.6–2.8) отложен.
 
 **Обновление (2.1):** разбор фасада продолжен. 2.1 (один `fold_type_spec` для dispatch по `TypeSpec`, перенос TS-конвертера в `types.py`) сделана (`61329dc`). Остаток раздела 2 (2.2–2.4, 2.6–2.8) отложен.
+
+**Обновление (2.2 + 2.3):** разбор фасада продолжен. 2.2 (`render_to_file` + кешируемый `env` в `BaseGenerator`, схлопывание 4 инлайн-`Environment`) и 2.3 (передача типизированного `OperationContext`/`ParamContext` в шаблоны вместо ad-hoc `handler_ctx`) сделаны (`af9839d`). Вывод генераторов байт-в-байт прежний. Остаток раздела 2 (2.4, 2.6–2.8) отложен.
