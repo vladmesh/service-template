@@ -12,6 +12,7 @@ from framework.spec.types import (
     parse_type_spec,
     type_spec_to_json_schema,
     type_spec_to_python,
+    type_spec_to_typescript,
 )
 
 
@@ -204,3 +205,66 @@ class TestTypeSpecToJsonSchema:
         spec = EnumType(type="enum", values=["a", "b"], default="a")
         schema = type_spec_to_json_schema(spec)
         assert schema == {"type": "string", "enum": ["a", "b"], "default": "a"}
+
+    def test_primitive_result_is_independent(self) -> None:
+        """Mutating one primitive schema must not affect later calls."""
+        first = type_spec_to_json_schema(PrimitiveType(type="int"))
+        first["minimum"] = 0
+        second = type_spec_to_json_schema(PrimitiveType(type="int"))
+        assert second == {"type": "integer"}
+
+
+class TestTypeSpecToTypeScript:
+    """Tests for type_spec_to_typescript function."""
+
+    def test_primitive_to_typescript(self) -> None:
+        """Primitives map to TypeScript types."""
+        assert type_spec_to_typescript(PrimitiveType(type="int")) == "number"
+        assert type_spec_to_typescript(PrimitiveType(type="float")) == "number"
+        assert type_spec_to_typescript(PrimitiveType(type="string")) == "string"
+        assert type_spec_to_typescript(PrimitiveType(type="bool")) == "boolean"
+        assert type_spec_to_typescript(PrimitiveType(type="datetime")) == "string"
+        assert type_spec_to_typescript(PrimitiveType(type="uuid")) == "string"
+
+    def test_list_to_typescript(self) -> None:
+        """List maps to T[]."""
+        spec = ListType(type="list", of=PrimitiveType(type="int"))
+        assert type_spec_to_typescript(spec) == "number[]"
+
+    def test_dict_to_typescript(self) -> None:
+        """Dict maps to Record<K, V>."""
+        spec = DictType(
+            type="dict",
+            key=PrimitiveType(type="string"),
+            value=PrimitiveType(type="int"),
+        )
+        assert type_spec_to_typescript(spec) == "Record<string, number>"
+
+    def test_optional_to_typescript(self) -> None:
+        """Optional maps to T | null."""
+        spec = OptionalType(type="optional", of=PrimitiveType(type="string"))
+        assert type_spec_to_typescript(spec) == "string | null"
+
+    def test_enum_to_typescript(self) -> None:
+        """Enum maps to an inline union of string literals."""
+        spec = EnumType(type="enum", values=["a", "b"])
+        assert type_spec_to_typescript(spec) == '"a" | "b"'
+
+    def test_nested_list_optional(self) -> None:
+        """Nested variants fold through the single traversal."""
+        spec = ListType(
+            type="list",
+            of=OptionalType(type="optional", of=PrimitiveType(type="int")),
+        )
+        assert type_spec_to_typescript(spec) == "number | null[]"
+
+
+class TestFoldTypeSpec:
+    """Tests for the shared fold that all converters share."""
+
+    def test_unknown_spec_raises(self) -> None:
+        """An object outside the TypeSpec union raises instead of silently passing."""
+        # Every converter funnels through fold_type_spec, so the public entrypoint
+        # exercises the same raise path. TypeScript used to swallow this as "unknown".
+        with pytest.raises(ValueError, match="Unknown type spec"):
+            type_spec_to_typescript(object())

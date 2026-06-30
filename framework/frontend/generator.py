@@ -10,48 +10,7 @@ from pathlib import Path
 from framework.lib.env import get_repo_root
 from framework.spec.loader import AllSpecs, load_specs
 from framework.spec.models import FieldSpec
-from framework.spec.types import (
-    DictType,
-    EnumType,
-    ListType,
-    OptionalType,
-    PrimitiveType,
-    TypeSpec,
-)
-
-
-def type_spec_to_typescript(spec: TypeSpec) -> str:
-    """Convert TypeSpec to TypeScript type string."""
-    if isinstance(spec, PrimitiveType):
-        mapping = {
-            "int": "number",
-            "float": "number",
-            "string": "string",
-            "bool": "boolean",
-            "datetime": "string",  # ISO datetime string
-            "uuid": "string",
-        }
-        return mapping.get(spec.type, "unknown")
-
-    if isinstance(spec, ListType):
-        inner = type_spec_to_typescript(spec.of)
-        return f"{inner}[]"
-
-    if isinstance(spec, DictType):
-        key = type_spec_to_typescript(spec.key)
-        value = type_spec_to_typescript(spec.value)
-        return f"Record<{key}, {value}>"
-
-    if isinstance(spec, OptionalType):
-        inner = type_spec_to_typescript(spec.of)
-        return f"{inner} | null"
-
-    if isinstance(spec, EnumType):
-        # Return union of string literals
-        values = " | ".join(f'"{v}"' for v in spec.values)
-        return values
-
-    return "unknown"
+from framework.spec.types import EnumType, type_spec_to_typescript
 
 
 def field_to_typescript(field: FieldSpec) -> str:
