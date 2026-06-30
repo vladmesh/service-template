@@ -69,7 +69,7 @@ async def test_main_starts_faststream(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         patch("services.notifications_worker.src.main.FastStream") as mock_faststream,
-        patch("services.notifications_worker.src.main.RedisBroker"),
+        patch("services.notifications_worker.src.main.get_broker"),
     ):
         mock_faststream.return_value.run = mock_app_run
 

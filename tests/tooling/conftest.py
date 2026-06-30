@@ -8,8 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from framework import service_info
-from framework.lib import compose_blocks, service_scaffold
+from framework.lib import service_scaffold
 
 
 @pytest.fixture
@@ -20,8 +19,6 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     monkeypatch.setenv("SERVICE_TEMPLATE_ROOT", str(root))
 
     scaffold_mod = importlib.reload(service_scaffold)
-    compose_mod = importlib.reload(compose_blocks)
-    importlib.reload(service_info)
 
     infra_dir = root / "infra"
     infra_dir.mkdir(parents=True, exist_ok=True)
@@ -34,12 +31,10 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator:
     # Create minimal specs for services that need them
     (root / "services").mkdir(exist_ok=True)
 
-    yield root, scaffold_mod, compose_mod
+    yield root, scaffold_mod
 
     monkeypatch.delenv("SERVICE_TEMPLATE_ROOT", raising=False)
     importlib.reload(service_scaffold)
-    importlib.reload(compose_blocks)
-    importlib.reload(service_info)
 
 
 def create_python_template(

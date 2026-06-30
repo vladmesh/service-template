@@ -4,6 +4,32 @@
 **Охват:** вся кодовая база (`framework/`, `template/`, `tests/`, скрипты, инфраструктура). Зеркало `template/.framework/` не рассматривалось отдельно, т.к. это копия `framework/`.
 **Метод:** пять параллельных глубоких ревью по срезам плюс независимая перепроверка ключевых находок чтением исходников и `grep` по всему дереву.
 
+## Статус выполнения
+
+Обновлено 2026-06-30, ветка `vladmesh/audit_fixes`. В работу взяты разделы 1 (корректность) и 3 (мёртвый код). Раздел 2 (фасад) и косметика 4.1–4.9 отложены по согласованию.
+
+| Находка | Статус | Коммит |
+|---|---|---|
+| 1.1 OpenAPI list-ответы | ✅ сделано | `f5b2b72` |
+| 1.2 Воркер: get_broker() | ✅ сделано | `239b960` |
+| 1.3 MockSession | ✅ сделано (session-less адаптер) | `428356d` |
+| 1.4 tz-мутация ORM | ✅ сделано (TzAwareDateTime) | `9f94c00` |
+| 1.5 двойной exception-handler | ✅ сделано | `3aedd84` |
+| 1.6 OpenAPI uuid-параметр | ✅ сделано | `3e89d61` |
+| 2.1–2.8 фасад/дедупликация | ⏭ отложено | — |
+| 3.1, 3.2, 3.4 compose-рендер + service_info | ✅ сделано | `078649c` |
+| 3.3 stub_missing_methods | ✅ сделано | `090282b` |
+| 3.5 raw_type | ✅ сделано | `bcea93e` |
+| 3.6 async_handlers + fallback | ✅ сделано | `a47feea` |
+| 4.10 покрытие test_openapi | ✅ сделано | `55dc5e6` |
+| 4.1–4.9 косметика | ⏭ отложено | — |
+
+Проверка: `make test` (112), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. На сгенерированных проектах прогнаны юнит-тесты backend (13) и notifications_worker (4); mypy воркера чист при `warn_unused_ignores=True`.
+
+Уточнение к 1.3/1.4 при реализации:
+- 1.3: «переиспользовать DB-модуль backend/shared» оказалось невозможно (в `shared` нет движка БД, воркер не зависит от БД). Сделан session-less вариант: `get_session` в `event_adapter.py.j2` стал опциональным, воркер вызывает `create_event_adapter` без сессии.
+- 1.4: вместо правки на границе тестов использован тип-колонки `TzAwareDateTime` (no-op на Postgres, доклеивает UTC на SQLite при чтении). Это не дёргает живой ORM-инстанс и не помечает его «грязным», в отличие от conftest-хука на событие загрузки.
+
 ## Вердикт
 
 Структурно кодовая база **не чистая**. Идея «спецификации как единственный источник правды + кодогенерация» здравая, основной поток работает, но есть три системные проблемы, которые по строгой планке должны блокировать одобрение:
@@ -36,6 +62,7 @@
 Эти дефекты копируются в каждый проект, созданный шаблоном, поэтому их вес выше обычного.
 
 ### 1.1 [MAJOR] OpenAPI теряет ответы-коллекции `list[...]`
+**Статус:** ✅ Сделано (`f5b2b72`). Покрыто тестом в 4.10.
 **Где:** `framework/openapi/generator.py:196-204`
 **Проблема:** контекст уже моделирует коллекции (`OperationContext.response_many` ставится из `operation.response_many`, а `ctx.output_model` уже «развёрнут» до базовой модели в `context.py:151,155`). `_operation_to_openapi` игнорирует `ctx.response_many` и всегда отдаёт `{"$ref": ".../{output_model}"}`. Операция `output: list[UserRead]` (например `list_users` в шаблоне) даёт в OpenAPI схему одиночного `UserRead`. Контракт всех коллекционных эндпоинтов неверен.
 **Проверено:** в исходнике. Тест `test_openapi` этот случай не покрывает.
@@ -47,30 +74,35 @@ if ctx.response_many:
 ```
 
 ### 1.2 [MAJOR] Воркер уведомлений создаёт свой `RedisBroker` без `message_format`
+**Статус:** ✅ Сделано (`239b960`). Воркер берёт `get_broker()`; AGENTS.md обновлён.
 **Где:** `template/services/notifications_worker/src/main.py:37-41`
 **Проблема:** канонический `get_broker()` (`shared/.../events.py`, шаблон `events.py.j2:22`) создаёт `RedisBroker(redis_url, message_format=BinaryMessageFormatV1)`. Воркер же делает `RedisBroker(redis_url)` без формата и сам перечитывает `REDIS_URL`. Издатели (tg_bot, backend через `get_broker()`) кодируют сообщения `BinaryMessageFormatV1`, а подписчик воркера (регистрируется на этом «голом» брокере в `event_adapter.py.j2:56`) декодирует дефолтным форматом. Как только проект реально опубликует `user_registered`, форматы на проводе разойдутся.
 **Проверено:** firsthand, оба места.
 **Как чинить:** убрать локальный `RedisBroker(...)` и чтение `REDIS_URL`; импортировать и передавать `get_broker()` из `shared.generated.events` в `create_event_adapter(broker=get_broker(), ...)`. Одно определение брокера, один формат, одно чтение env.
 
 ### 1.3 [MAJOR, латентный] `MockSession` как продакшн-фабрика сессий
+**Статус:** ✅ Сделано (`428356d`). `get_session` в шаблоне адаптера опционален; воркер session-less. См. уточнение в «Статус выполнения».
 **Где:** `template/services/notifications_worker/src/main.py:22-33`
 **Проблема:** класс с буквальным именем `MockSession` и no-op `commit`/`rollback` отдаётся в сгенерированный адаптер, где хэндлер делает `await controller.handler(session, ...)` и `await session.commit()` (`event_adapter.py.j2:67-68`). Сейчас безвреден (контроллер `NotificationsController.on_user_registered` только логирует), но это мина: первый же хэндлер воркера, который запишет в БД, «успешно» ничего не сохранит.
 **Проверено:** firsthand, включая то, что контроллер не пишет в БД.
 **Как чинить:** определить контракт воркера. Либо дать реальную сессию на базе `AsyncSessionLocal` (переиспользовать модуль БД из backend/shared), либо генерировать вариант адаптера без сессии/коммита. Не отгружать объект `Mock*` как рантайм-сессию.
 
 ### 1.4 [MAJOR] Тестовый патч tzinfo для SQLite в горячем пути продакшна
+**Статус:** ✅ Сделано (`9f94c00`). `_to_schema` сведён к `model_validate`; tz через тип-колонки `TzAwareDateTime`.
 **Где:** `template/services/backend/src/controllers/users.py:39-45`
 **Проблема:** `_to_schema` на каждом сериализуемом пользователе (`list/get/create/update`) выполняет ad-hoc спецслучай, существующий только потому, что тесты на SQLite. Хуже того, он **мутирует живой ORM-инстанс** (`user.created_at = user.created_at.replace(...)`) внутри открытой сессии, и «грязный» атрибут может быть записан обратно на `commit()` запроса.
 **Проверено:** firsthand, вызывается из всех read-хэндлеров.
 **Как чинить:** перенести заботу на границу тестов (tz-aware хранение в тестовой БД через `TypeDecorator` или connect-time настройку SQLite, либо тесты на Postgres). Тогда `_to_schema` сводится к `UserRead.model_validate(user, from_attributes=True)` без ветвления и мутации.
 
 ### 1.5 [MAJOR] Двойная обработка исключений: middleware затеняет `register_exception_handler`
+**Статус:** ✅ Сделано (`3aedd84`). `register_exception_handler` удалён; оставлен middleware.
 **Где:** `template/services/backend/src/app/middleware.py:60-83` и `:89-102`, связаны в `app/__init__.py:16-17`
 **Проблема:** `RequestLoggingMiddleware.dispatch` оборачивает `call_next` в `try/except Exception`, логирует `"unhandled_exception"` и возвращает 500. Поскольку `BaseHTTPMiddleware` стоит снаружи Starlette-овского `ServerErrorMiddleware` (куда подключён `@app.exception_handler(Exception)`), необработанное исключение роута перехватывается **middleware первым** и до `register_exception_handler` не доходит. Оба механизма дают идентичный лог и идентичный 500. Один из двух мёртв для случая, ради которого написан.
 **Проверено:** firsthand, обе регистрации присутствуют в `create_app`.
 **Как чинить:** оставить один. Версия в middleware лучше (есть `duration_ms` и привязка contextvars), поэтому удалить `register_exception_handler` и его вызов.
 
 ### 1.6 [MAJOR, латентный] OpenAPI: uuid-параметр пути → битый `$ref`
+**Статус:** ✅ Сделано (`3e89d61`). Маппинг примитивов теперь раньше эвристики заглавной буквы. Покрыто тестом в 4.10.
 **Где:** `framework/openapi/generator.py:20-35` (используется в `:179`)
 **Проблема:** `type_to_openapi_schema(type_str)` — второй, строковый конвертер схемы, принимающий уже сконвертированное Python-имя типа (`ctx.params[].type` прошёл `type_spec_to_python`). Эвристика «модель, если первая буква заглавная» (`type_str[0].isupper()`, строка 23) срабатывает **раньше** маппинга на строке 33: для uuid `type` = `"UUID"` → возвращается `{"$ref": "#/components/schemas/UUID"}` (висячий ref на несуществующую схему), а запись `"UUID"` в маппинге — мёртвая. В дефолтном шаблоне латентно (все path-параметры `int`), но реальный баг для любого uuid-параметра пути. Плюс неизвестные типы тихо проваливаются в `{"type": "string"}`.
 **Как чинить:** см. 2.3 — передавать в схему параметра исходный примитив через канонический `type_spec_to_json_schema(parse_type_spec(...))`, удалить `type_to_openapi_schema` и эвристику с заглавной буквой.
@@ -78,6 +110,8 @@ if ctx.response_many:
 ---
 
 ## 2. Дублирование и «канонический фасад»
+
+**Статус раздела:** ⏭ Отложено. Раздел 2 не входил в текущий заход (взяты только 1 и 3). Естественный следующий шаг — 2.5 (`FieldSpec.is_required` как единый источник + переиспользование `ModelsSpec.to_json_schema` в OpenAPI), он же разблокирует проверку `required` для optional в 4.10.
 
 ### 2.1 [MAJOR] Тройной (и четвёртый) dispatch по `TypeSpec`
 **Где:** `spec/types.py:105` (`type_spec_to_python`), `spec/types.py:140` (`type_spec_to_json_schema`), `frontend/generator.py:23` (`type_spec_to_typescript`), плюс строковый `openapi/generator.py:20`
@@ -126,6 +160,7 @@ if ctx.response_many:
 ## 3. Мёртвый код (главный judo-ход: удаление)
 
 ### 3.1 [BLOCKER] Подсистема рендера compose-блоков + весь `service_info.py` осиротели
+**Статус:** ✅ Сделано (`078649c`). Оба модуля удалены целиком; `compose_blocks.py` тоже (после удаления `service_info` потребителей не осталось).
 **Где:** `framework/lib/compose_blocks.py` (≈250 из 332 строк) + `framework/service_info.py` (весь файл, 168 строк)
 **Проблема:** прослежены все потребители. `render_service_templates`, `build_service_block`, `replace_block`, `indent_template`, `COMPOSE_TARGETS`, маркеры `START_MARKER/END_MARKER`, `_apply_placeholders`, `_unit_test_target`, `_cov_source`, блоки `dev`/`tests_unit` в `DEFAULT_TEMPLATES` — **ноль вызывающих** в `framework/`, `scripts/`, `Makefile`, `copier.yml`, сгенерированном `template/`, CI и git-хуках. `service_info` — единственное, что трогает `compose_blocks.compose_template_for_spec`, и сам `service_info` импортируется только тестами и `tests/tooling/conftest.py` (reload-бухгалтерия). Генерируемый `Makefile.jinja` гонит `log`/`tests` через `docker compose` и глоб `services/*/tests/` напрямую (строки 84, 119), не дёргая `service_info`. Это легаси-дизайн «регенерировать compose из `services.yml`», полностью вытесненный статическими Copier-шаблонами `template/infra/compose.*.yml.jinja`.
 
@@ -134,24 +169,29 @@ if ctx.response_many:
 **Как чинить:** удалить `service_info.py` и его тесты; удалить рендер-машинерию в `compose_blocks.py` (`DEFAULT_TEMPLATES`-строки, `COMPOSE_TARGETS`, маркеры, `render_service_templates`, `build_service_block`, `indent_template`, `replace_block`, `_apply_placeholders`, `_unit_test_target`, `_cov_source`, `_render_depends_on`, `load_registry`). Единственный реально извлекаемый факт (`gather_logs` → «контейнер этого типа логируемый?») это `service_type != "default"`, при нужде однострочный предикат. Это доминирующий ход: убирает ~400 строк и весь хотспот «YAML строками» разом.
 
 ### 3.2 [MAJOR] Строковая хирургия YAML в `_apply_placeholders`
+**Статус:** ✅ Растворилось вместе с удалением `compose_blocks.py` (`078649c`).
 **Где:** `compose_blocks.py:248-287`
 **Проблема:** compose-записи строятся `str.replace` токенов `__SLUG__`, затем `depends_on` вставляется поиском строки `startswith("ports:")` и склейкой срезов списка, а `profiles` — `lines.insert(1, ...)`. Классический хотспот «должны быть данные, а не строки»: позиционная хирургия молча ломается, если в шаблоне нет `ports:` или есть комментарии.
 **Как чинить:** растворяется при удалении по 3.1. Если что-то возродится — строить `dict` на сервис и один `yaml.dump`, а не token-replace + склейку строк.
 
 ### 3.3 [MAJOR] `stub_missing_methods` — мёртвая вторая реализация генерации стабов
+**Статус:** ✅ Сделано (`090282b`). Функция и её экспорт из `lint/__init__.py` удалены.
 **Где:** `framework/lint/controller_sync.py:114-160`
 **Проблема:** экспортируется из `lint/__init__.py`, но не вызывается ничем (ни CLI, ни генератором, ни тестом). Руками строит исходник стабов f-строками и дописывает в файл после подстрокового поиска `class ... Controller`. Живой путь стабинга — `ControllersGenerator` через шаблон `controller.py.j2` + `OperationContextBuilder`. Это параллельный, менее качественный кодоген.
 **Как чинить:** удалить `stub_missing_methods` и его экспорт.
 
 ### 3.4 [MINOR] `_render_depends_on` мёртв и дублирует инлайн-логику
+**Статус:** ✅ Растворилось вместе с удалением `compose_blocks.py` (`078649c`).
 **Где:** `compose_blocks.py:237-245` (подтверждено `grep`: не вызывается; то же рендерится инлайн в `_apply_placeholders:264-277`). Растворяется в 3.1.
 
 ### 3.5 [MINOR] Мёртвое поле `raw_type` + no-op if/else
+**Статус:** ✅ Сделано (`bcea93e`). Поле удалено, ветка схлопнута.
 **Где:** `spec/models.py:30` (декларация), `:65-71` (ветка), присваивания `:56,76`
 **Проблема:** (а) if/else `66-71` имеет идентичные тела в обеих ветках, решение ничего не выбирает; (б) `raw_type` помечен `exclude=True` «для реконструкции», но подтверждено `grep`: только пишется (4 места), нигде не читается. Чистое write-only мёртвое состояние.
 **Как чинить:** удалить поле и схлопнуть ветку до `type_spec = parse_type_spec(type_data)`.
 
 ### 3.6 [MINOR] Мёртвый флаг `async_handlers`
+**Статус:** ✅ Сделано (`a47feea`). Флаг убран из обоих генераторов; недостижимый `or "dict"` тоже.
 **Где:** `controllers.py:74`, `protocols.py:89` — передаётся в оба шаблона, но ни `controller.py.j2`, ни `protocols.py.j2` его не используют (хардкод `async def`). Удалить. Заодно недостижимый fallback `ctx.input_model or "dict"` в `event_adapter.py:66` (инвариант `validate_events_models` уже гарантирует `input_model`).
 
 ---
@@ -195,6 +235,7 @@ if ctx.response_many:
 - `protocols.py:86`: `routers=domains_context  # Template expects 'routers' key` и `protocols.py.j2:25` `{% for router in routers %}` — генератора `routers` в пайплайне нет. Переименовать в `domains`, убрать комментарий-обходку, поправить docstring `context.py:3-4`.
 
 ### 4.10 [MINOR] Неглубокие тесты пропускают баги
+**Статус:** ✅ Частично (`55dc5e6`). Добавлены кейсы на list-ответы, uuid/int-параметры, форму `required` без дефолтов. Корректность `required` для optional (связано с 2.5) отложена.
 **Где:** `tests/tooling/test_openapi.py` ассертит только версию OpenAPI, наличие одного пути и одного имени схемы. Не проверяет `list[...]`-ответы, корректность `required`, типы параметров, схемы вариантов. Именно поэтому баги 1.1, 1.6 и расхождение `required` (2.5) проходят. Расширить покрытие на эти случаи.
 
 ---
@@ -215,13 +256,15 @@ if ctx.response_many:
 
 ## 6. Приоритизированный план
 
-**Сначала корректность (попадает в каждый проект):**
+Шаги 1–5 (разделы 1 и 3) выполнены, см. «Статус выполнения». Шаги 6–10 (раздел 2) и косметика отложены.
+
+**Сначала корректность (попадает в каждый проект):** ✅ выполнено
 1. OpenAPI: учитывать `response_many` для коллекций (1.1).
 2. Воркер: брать `get_broker()` вместо своего `RedisBroker` (1.2), убрать `MockSession` (1.3).
 3. Backend: убрать tz-мутацию ORM из `_to_schema` (1.4); удалить дублирующий exception-handler (1.5).
 4. Расширить `test_openapi` на list-ответы/required/типы параметров (4.10), чтобы зафиксировать регрессии.
 
-**Затем главный judo-ход (удаление):**
+**Затем главный judo-ход (удаление):** ✅ выполнено
 5. Снести подсистему рендера compose + `service_info.py` (~400 строк, 3.1–3.4), затем `raw_type` и `async_handlers` (3.5, 3.6), `stub_missing_methods` (3.3).
 
 **Затем централизация (схлопнуть фасад):**
@@ -236,3 +279,5 @@ if ctx.response_many:
 ## Планка одобрения
 
 Не одобрено. Блокеры: баги корректности раздела 1 (отгружаются в каждый проект), ~500 строк мёртвого кода (3.1), и систематический «канонический фасад», сохраняющий побочную сложность там, где виден ход на её удаление.
+
+**Обновление (ветка `vladmesh/audit_fixes`):** два из трёх блокеров сняты. Баги корректности раздела 1 исправлены и покрыты тестами; мёртвый код раздела 3 удалён. Оставшийся блокер — «канонический фасад» раздела 2, отложен до отдельного захода.

@@ -216,6 +216,43 @@ operations:
         assert '"error": str(e)' in content
         assert "raise" in content  # Re-raises after publishing error
 
+    def test_supports_stateless_handler_without_session(self, temp_repo: Path) -> None:
+        """A subscribe handler runs without a DB session when get_session is omitted."""
+        models_yaml = """
+models:
+  Ping:
+    fields:
+      id:
+        type: int
+"""
+        (temp_repo / "shared" / "spec" / "models.yaml").write_text(models_yaml)
+
+        domain_yaml = """
+domain: pings
+operations:
+  on_ping:
+    input: Ping
+    events:
+      subscribe: ping
+"""
+        (temp_repo / "services" / "worker" / "spec" / "pings.yaml").write_text(domain_yaml)
+
+        specs = load_specs(temp_repo)
+        generator = EventAdapterGenerator(specs, temp_repo)
+        generated = generator.generate()
+
+        assert len(generated) == 1
+        content = generated[0].read_text()
+
+        # get_session is optional with a None default
+        assert (
+            "get_session: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None"
+            in content
+        )
+        # Stateless path: no session opened, handler invoked without one
+        assert "if get_session is None:" in content
+        assert "on_ping(None, payload=event)" in content
+
     def test_includes_session_commit_and_rollback(self, temp_repo: Path) -> None:
         """Generated handler includes explicit session.commit() and session.rollback()."""
         models_yaml = """

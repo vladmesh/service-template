@@ -7,7 +7,7 @@ from framework.openapi import generator
 
 def test_generate_openapi(fake_repo) -> None:
     """Test OpenAPI generation from specs."""
-    root, _, _ = fake_repo
+    root, _ = fake_repo
 
     # Create specs
     spec_dir = root / "shared" / "spec"
@@ -59,3 +59,105 @@ operations:
     assert content["openapi"] == "3.1.0"
     assert "/users/{id}" in content["paths"]
     assert "User" in content["components"]["schemas"]
+
+    # int path param -> integer schema
+    param = content["paths"]["/users/{id}"]["get"]["parameters"][0]
+    assert param["schema"] == {"type": "integer"}
+
+    # No-default fields are all required
+    assert content["components"]["schemas"]["User"]["required"] == ["id", "name"]
+
+    # Single-model response is a bare $ref (not wrapped in an array)
+    resp_schema = content["paths"]["/users/{id}"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert resp_schema == {"$ref": "#/components/schemas/User"}
+
+
+def _write_models(root) -> None:
+    spec_dir = root / "shared" / "spec"
+    spec_dir.mkdir(parents=True)
+    (spec_dir / "models.yaml").write_text(
+        """
+models:
+  User:
+    fields:
+      id: int
+      name: string
+""",
+        encoding="utf-8",
+    )
+
+
+def _generate(root):
+    output_path = root / "services" / "backend" / "docs" / "openapi.json"
+    generator.generate_openapi(root, output_path, service_name="backend")
+    return json.loads(output_path.read_text())
+
+
+def test_openapi_list_response_is_array(fake_repo) -> None:
+    """A list[...] output must produce an array schema, not a single $ref."""
+    root, _ = fake_repo
+    _write_models(root)
+
+    service_spec_dir = root / "services" / "backend" / "spec"
+    service_spec_dir.mkdir(parents=True)
+    (service_spec_dir / "users.yaml").write_text(
+        """
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
+  list:
+    output: list[User]
+    rest:
+      method: GET
+      path: ""
+""",
+        encoding="utf-8",
+    )
+
+    content = _generate(root)
+    resp_schema = content["paths"]["/users"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert resp_schema == {
+        "type": "array",
+        "items": {"$ref": "#/components/schemas/User"},
+    }
+
+
+def test_openapi_uuid_path_param(fake_repo) -> None:
+    """A uuid path param must map to a primitive schema, not a dangling $ref."""
+    root, _ = fake_repo
+    _write_models(root)
+
+    service_spec_dir = root / "services" / "backend" / "spec"
+    service_spec_dir.mkdir(parents=True)
+    (service_spec_dir / "users.yaml").write_text(
+        """
+domain: users
+config:
+  rest:
+    prefix: "/users"
+    tags: ["users"]
+
+operations:
+  get:
+    output: User
+    params:
+      - name: id
+        type: uuid
+    rest:
+      method: GET
+      path: "/{id}"
+""",
+        encoding="utf-8",
+    )
+
+    content = _generate(root)
+    param = content["paths"]["/users/{id}"]["get"]["parameters"][0]
+    assert param["schema"] == {"type": "string", "format": "uuid"}

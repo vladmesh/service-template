@@ -9,7 +9,7 @@ from framework import generate
 
 def test_generate_all_creates_files(fake_repo) -> None:
     """Test that generate_all creates all expected files."""
-    root, _, _ = fake_repo
+    root, _ = fake_repo
 
     # Copy templates to fake repo
     real_templates = Path("framework/templates").absolute()

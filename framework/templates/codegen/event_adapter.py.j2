@@ -35,16 +35,19 @@ if TYPE_CHECKING:
 
 def create_event_adapter(
     broker: RedisBroker,
-    get_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
+    *,
+    get_session: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
 {% for domain in domains %}
     get_{{ domain.name }}_controller: Callable[[], {{ domain.protocol_name }}],
 {% endfor %}
 ) -> None:
     """Register event handlers with the broker.
-    
+
     Args:
         broker: FastStream Redis broker instance.
-        get_session: Factory that returns async context manager for DB session.
+        get_session: Factory returning an async context manager for a DB session.
+            Omit it for a stateless service: handlers are then invoked without a
+            session and nothing is committed.
 {% for domain in domains %}
         get_{{ domain.name }}_controller: Factory for {{ domain.name }} controller.
 {% endfor %}
@@ -56,8 +59,31 @@ def create_event_adapter(
     @broker.subscriber("{{ handler.subscribe_channel }}")
     async def handle_{{ handler.name }}(event: {{ handler.message_model }}) -> None:
         """Handle {{ handler.subscribe_channel }} events."""
+        controller = get_{{ domain.name }}_controller()
+        if get_session is None:
+            # Stateless service: no DB session to open or commit.
+{% if handler.publish_on_error_channel %}
+            try:
+{% if handler.publish_on_success_channel %}
+                result = await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
+                await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+{% else %}
+                await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
+{% endif %}
+            except Exception as e:
+                await broker.publish(
+                    {"error": str(e), "original_event": event.model_dump() if hasattr(event, "model_dump") else event},
+                    "{{ handler.publish_on_error_channel }}",
+                )
+                raise
+{% elif handler.publish_on_success_channel %}
+            result = await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
+            await broker.publish(result, "{{ handler.publish_on_success_channel }}")
+{% else %}
+            await controller.{{ handler.name }}(None, payload=event)  # type: ignore[arg-type]
+{% endif %}
+            return
         async with get_session() as session:
-            controller = get_{{ domain.name }}_controller()
             try:
 {% if handler.publish_on_success_channel %}
                 result = await controller.{{ handler.name }}(session, payload=event)

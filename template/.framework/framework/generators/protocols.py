@@ -86,7 +86,6 @@ class ProtocolsGenerator(BaseGenerator):
                 routers=domains_context,  # Template expects 'routers' key
                 imports=services_imports[service_name],
                 param_type_imports=sorted(services_param_type_imports[service_name]),
-                async_handlers=True,
             )
             self.write_file(output_file, content)
             self.format_file(output_file)

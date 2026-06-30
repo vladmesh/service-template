@@ -56,19 +56,21 @@ spec/notifications.yaml -> src/generated/ (protocols.py, event_adapter.py)
 
 ## Broker Pattern
 
-Этот сервис создаёт `RedisBroker` напрямую (не через `get_broker()`):
+Сервис использует канонический `get_broker()` из `shared.generated.events`, чтобы
+издатели и подписчики работали с одним wire-форматом (`BinaryMessageFormatV1`) и
+одним чтением `REDIS_URL`:
 
 ```python
-redis_url = os.getenv("REDIS_URL")
-if not redis_url:
-    raise RuntimeError("REDIS_URL is not set")
-broker = RedisBroker(redis_url)
+from shared.generated.events import get_broker
+
+broker = get_broker()
 create_event_adapter(broker=broker, ...)
 app = FastStream(broker)
 await app.run()
 ```
 
-Lifecycle (`connect`/`close`) управляется автоматически через `FastStream(broker).run()`.
+`get_broker()` ленивый: он читает `REDIS_URL` и падает с `RuntimeError`, если переменная
+не задана. Lifecycle (`connect`/`close`) управляется автоматически через `FastStream(broker).run()`.
 
 ## Environment Variables
 

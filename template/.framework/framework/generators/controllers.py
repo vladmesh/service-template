@@ -71,7 +71,6 @@ class ControllersGenerator(BaseGenerator):
             "handlers": handlers,
             "imports": imports,
             "param_type_imports": sorted(param_type_imports),
-            "async_handlers": True,  # Always async in new format
         }
 
         env = Environment(
