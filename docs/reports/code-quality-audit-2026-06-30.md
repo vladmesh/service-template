@@ -6,7 +6,7 @@
 
 ## Статус выполнения
 
-Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22) и 4.7 (атомарные записи файлов); 4.1, 4.2, 4.8 отложены по согласованию (требуют либо решения по дизайну, либо более широкой правки).
+Обновлено 2026-06-30. Разделы 1 (корректность) и 3 (мёртвый код) сделаны на ветке `vladmesh/audit_fixes` (PR #15). Находка 2.5 (модель→JSON-schema) сделана на ветке `vladmesh/audit-2.5-json-schema`. Находки 2.1 (один fold для dispatch по `TypeSpec`), 2.2 (`render_to_file` в `BaseGenerator`), 2.3 (типизированный контекст в шаблоны) и 2.4 (структурный `domain_key`) сделаны на ветке `vladmesh/audit-2.1-typespec-fold`. Дедупликация 2.6 (`unwrap_list`), 2.7 (`load_service_specs`) и 2.8 (единый `computed_return_type`) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Раздел 2 закрыт полностью. Из косметики раздела 4 сделаны быстрые механические находки 4.3, 4.4, 4.5, 4.6, 4.9 (PR #22), 4.7 (атомарные записи файлов), а также 4.1 (nullable → `anyOf` под OpenAPI 3.1) и 4.2 (TS enum → именованный type-алиас). Остаётся 4.8 (общий AST-walker, многофайловый рефакторинг).
 
 | Находка | Статус | Коммит |
 |---|---|---|
@@ -35,7 +35,9 @@
 | 4.6 `async_database_url` substring-эвристика | ✅ сделано | — |
 | 4.9 diff в check-framework-sync.sh + routers→domains | ✅ сделано | — |
 | 4.7 неатомарные записи файлов | ✅ сделано | — |
-| 4.1, 4.2, 4.8 косметика | ⏭ отложено | — |
+| 4.1 nullable → anyOf (OpenAPI 3.1) | ✅ сделано | — |
+| 4.2 TS enum → именованный type-алиас | ✅ сделано | — |
+| 4.8 общий AST-walker | ⏭ отложено | — |
 
 Проверка: `make test` (112), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. На сгенерированных проектах прогнаны юнит-тесты backend (13) и notifications_worker (4); mypy воркера чист при `warn_unused_ignores=True`.
 
@@ -220,14 +222,12 @@ if ctx.response_many:
 ## 4. Средние и мелкие находки
 
 ### 4.1 [MINOR] `nullable: true` это словарь OpenAPI 3.0, а вывод объявлен 3.1.0
-**Где:** `spec/types.py:162-165` (ветка Optional) и `spec/models.py:109-110`; всплывает под `openapi/generator.py:55` (`"openapi": "3.1.0"`)
-**Проблема:** `nullable` убран в JSON Schema 2020-12 / OpenAPI 3.1, где ожидается `anyOf`/`{"type": [..., "null"]}`. Валидаторы 3.1 сочтут `nullable` неизвестным ключом без эффекта.
-**Как чинить:** в каноническом `type_spec_to_json_schema` (ветка Optional) эмитить 3.1-стиль; обе точки потребления чинятся разом, т.к. идут через канонический конвертер.
+**Статус:** ✅ Сделано. Канонический `_JsonSchemaRenderer.optional_of` эмитит 3.1-форму `{"anyOf": [inner, {"type": "null"}]}` (как Pydantic v2 / FastAPI для `X | None`), `nullable` удалён. `FieldSpec.to_json_schema` тоже переведён на `anyOf`: ограничения (`ge`/`le`/`min_length`…) кладутся в типизированную ветку, аннотации (`default`/`readOnly`) — на верхний уровень рядом с `anyOf`. Обе точки потребления (`openapi.json`, `schemas.py` через `datamodel-code-generator`) идут через канонический конвертер. Проверен round-trip: `anyOf+null` → `str | None`, `anyOf[{integer,minimum:0},null]` → `conint(ge=0) | None`. Шаблонные seed'ы не используют field-level/type-level optional, поэтому остаются byte-identical; новые форматы покрыты юнит-тестами (`test_spec_types`, `test_spec_models`, `test_openapi`).
+**Было:** `spec/types.py` (ветка Optional) и `spec/models.py`; всплывает под `openapi/generator.py` (`"openapi": "3.1.0"`). `nullable` убран в JSON Schema 2020-12 / OpenAPI 3.1, где ожидается `anyOf`. Валидаторы 3.1 сочтут `nullable` неизвестным ключом без эффекта.
 
 ### 4.2 [MINOR] Frontend генерирует enum-декларации, которые никто не использует
-**Где:** `frontend/generator.py:78-83,100-103` против `:49-52`
-**Проблема:** `_generate_enum` эмитит `export enum ...`, но для enum-поля `type_spec_to_typescript` возвращает инлайн-union `"a" | "b"`. Интерфейсы на сгенерированные enum-ы не ссылаются — блок enum это мёртвый вывод.
-**Как чинить:** выбрать одно: либо ссылаться на именованный enum из свойства интерфейса, либо убрать `_generate_enum` и оставить инлайн-union.
+**Статус:** ✅ Сделано. `_generate_enum` теперь эмитит именованный `export type {Name} = "a" | "b";` (а не `export enum` — современный TS уходит от `enum`: рантайм-объект, трения с erasable-syntax / type-stripping). Интерфейсы ссылаются на этот алиас для enum-полей (ключ по имени базовой модели, чтобы варианты указывали на тот же алиас) вместо инлайн-дублирования юниона. Мёртвого вывода больше нет. Шаблон enum-полей не содержит, seed `types.ts` byte-identical; новый формат покрыт `test_frontend`.
+**Было:** `frontend/generator.py`. `_generate_enum` эмитил `export enum ...`, но для enum-поля `type_spec_to_typescript` возвращал инлайн-union `"a" | "b"`. Интерфейсы на сгенерированные enum-ы не ссылались — блок enum был мёртвым выводом.
 
 ### 4.3 [MINOR] `Settings._validate_required_env_vars` дублирует валидацию pydantic
 **Статус:** ✅ Сделано (PR #22). Метод и вызов удалены.
@@ -301,7 +301,7 @@ if ctx.response_many:
 9. ✅ OpenAPI переиспользует `ModelsSpec.to_json_schema`; `FieldSpec.is_required` как единый источник «обязательности» (2.5) — сделано (`f2ec7cf`).
 10. ✅ `unwrap_list` (2.6), единый `load_service_specs` (2.7), единый `computed_return_type` (2.8) — сделано.
 
-**Косметика по остаточному принципу:** ✅ частично (4.3, 4.4, 4.5, 4.6, 4.7, 4.9). Осталось 4.1, 4.2, 4.8.
+**Косметика по остаточному принципу:** ✅ почти вся (4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.9). Осталось 4.8.
 
 ## Планка одобрения
 
@@ -321,6 +321,8 @@ if ctx.response_many:
 
 **Обновление (2.6–2.8):** раздел 2 закрыт. 2.6 (`unwrap_list` — единый владелец распаковки `list[X]`), 2.7 (канонический `load_service_specs` через `loader.load_yaml_file`; мёртвый `build_service_specs` удалён) и 2.8 (единый `computed_return_type` в протокол-шаблоне; осиротевшие `OperationContext.return_type`/`OperationSpec.return_type` удалены) сделаны на ветке `vladmesh/audit-2.6-2.8-dedup`. Вывод генераторов байт-в-байт прежний (регенерация seed'ов old vs new даёт идентичное дерево, кроме не относящегося к правкам env-дрейфа `datamodel-code-generator` в `schemas.py`). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync` зелёные; `make test-copier` (86) зелёный. Остаётся только косметика 4.1–4.9.
 
-**Обновление (косметика 4.3, 4.4, 4.5, 4.6, 4.9):** на ветке `vladmesh/audit-4-cosmetics` (PR #22) разобраны быстрые, механические находки раздела 4: удалена дублирующая ручная валидация env-переменных и хрупкая substring-эвристика в `settings.py` (4.3, 4.6), `http_client` больше не использует `os.getenv` с дефолтом (4.4), контроллер уведомлений переведён на `structlog` (4.5, со смок-тестом на `capture_logs()` вместо `caplog`), `check-framework-sync.sh` печатает diff при рассинхроне, а `routers` в генераторе/шаблоне протоколов переименован в `domains` (4.9). Регенерация seed `protocols.py` byte-identical. Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные; сгенерированный проект (backend+notifications) — реальные unit-тесты backend и notifications_worker в отдельном venv (17) зелёные. Остаются 4.1, 4.2, 4.8 — требуют либо решения по дизайну (4.2), либо более широкой правки с обновлением тестов (4.1), либо многофайлового рефакторинга (4.8).
+**Обновление (косметика 4.3, 4.4, 4.5, 4.6, 4.9):** на ветке `vladmesh/audit-4-cosmetics` (PR #22) разобраны быстрые, механические находки раздела 4: удалена дублирующая ручная валидация env-переменных и хрупкая substring-эвристика в `settings.py` (4.3, 4.6), `http_client` больше не использует `os.getenv` с дефолтом (4.4), контроллер уведомлений переведён на `structlog` (4.5, со смок-тестом на `capture_logs()` вместо `caplog`), `check-framework-sync.sh` печатает diff при рассинхроне, а `routers` в генераторе/шаблоне протоколов переименован в `domains` (4.9). Регенерация seed `protocols.py` byte-identical. Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные; сгенерированный проект (backend+notifications) — реальные unit-тесты backend и notifications_worker в отдельном venv (17) зелёные. Остаётся 4.8 — многофайловый рефакторинг (общий хелпер `parse_python`).
 
 **Обновление (4.7):** разобрана находка про неатомарные записи файлов. Введён `framework/lib/fs.py::atomic_write_text` (temp-file + `os.replace`); на него переведены `BaseGenerator.write_file`, `generate_openapi`, `generate_typescript`. `SchemasGenerator.generate` теперь гонит datamodel-codegen через scratch-файл и делает regex-чистку в памяти до единственной записи в целевой путь — вместо «codegen-запись → regex поверх финального файла → перезапись». Регенерация seed'ов `openapi.json`/`types.ts` byte-identical; для `schemas.py` побайтовое сравнение вывода старого и нового кода в одном окружении тоже совпадает (расхождение с закоммиченным seed — независимый env-дрейф `datamodel-code-generator`, не связанный с этой правкой). Проверка: `make test` (122), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные.
+
+**Обновление (4.1 + 4.2):** разобраны находки про вывод типов под современную планку. 4.1: канонический `type_spec_to_json_schema` и `FieldSpec.to_json_schema` эмитят nullable в 3.1-форме `anyOf` + `{"type": "null"}` вместо снятого `nullable`; ограничения уходят в типизированную ветку, аннотации остаются на верхнем уровне. Round-trip через `datamodel-code-generator` проверен: `str | None`, `conint(ge=0) | None`. 4.2: `TypeScriptGenerator` генерит именованный `export type X = union` и ссылается на него из интерфейсов вместо мёртвого `export enum` + инлайн-дублирования. Шаблонные seed'ы (`openapi.json`, `types.ts`) byte-identical, т.к. шаблон не использует field/type-level optional и enum-поля; новые форматы покрыты юнит-тестами. Проверка: `make test` (124), `make lint`, `make lint-template`, `make check-sync`, `make test-copier` (86) зелёные.

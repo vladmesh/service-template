@@ -71,17 +71,25 @@ class TestFieldSpec:
         assert field.optional is True
 
     def test_optional_field_to_json_schema(self) -> None:
-        """Optional field adds nullable: true to JSON schema."""
+        """Optional field gets a null branch via anyOf (OpenAPI 3.1 form)."""
         field = FieldSpec.from_yaml({"type": "int", "optional": True})
         schema = field.to_json_schema()
-        assert schema["type"] == "integer"
-        assert schema["nullable"] is True
+        assert "nullable" not in schema
+        assert schema["anyOf"] == [{"type": "integer"}, {"type": "null"}]
+
+    def test_optional_field_constraints_on_typed_branch(self) -> None:
+        """Constraints attach to the typed branch, not beside anyOf."""
+        field = FieldSpec.from_yaml({"type": "int", "optional": True, "ge": 0})
+        schema = field.to_json_schema()
+        assert schema["anyOf"] == [{"type": "integer", "minimum": 0}, {"type": "null"}]
+        assert "minimum" not in schema
 
     def test_non_optional_field_no_nullable(self) -> None:
-        """Non-optional field does not have nullable in schema."""
+        """Non-optional field is neither nullable nor wrapped in anyOf."""
         field = FieldSpec.from_yaml({"type": "int"})
         schema = field.to_json_schema()
         assert "nullable" not in schema
+        assert "anyOf" not in schema
 
 
 class TestVariantSpec:
@@ -284,22 +292,23 @@ class TestModelsSpec:
             }
         )
         schema = spec.to_json_schema()
+        null_branch = {"type": "null"}
 
         # Base model: telegram_id is nullable and NOT required
         base = schema["definitions"]["Subscription"]
-        assert base["properties"]["telegram_id"]["nullable"] is True
+        assert null_branch in base["properties"]["telegram_id"]["anyOf"]
         assert "telegram_id" not in base["required"]
 
         # Read variant: telegram_id is STILL nullable and NOT required
         read = schema["definitions"]["SubscriptionRead"]
-        assert read["properties"]["telegram_id"]["nullable"] is True
+        assert null_branch in read["properties"]["telegram_id"]["anyOf"]
         assert "telegram_id" not in read["required"]
         # user_id should still be required
         assert "user_id" in read["required"]
 
         # Create variant: telegram_id is nullable but not required
         create = schema["definitions"]["SubscriptionCreate"]
-        assert create["properties"]["telegram_id"]["nullable"] is True
+        assert null_branch in create["properties"]["telegram_id"]["anyOf"]
         assert "telegram_id" not in create["required"]
 
     def test_optional_field_with_non_none_default_not_nullable(self) -> None:
@@ -335,10 +344,12 @@ class TestModelsSpec:
         # is_active: optional + default=false → NOT nullable, has default
         base = schema["definitions"]["Item"]
         assert "nullable" not in base["properties"]["is_active"]
+        assert "anyOf" not in base["properties"]["is_active"]
         assert base["properties"]["is_active"]["default"] is False
 
         # description: optional + default="" → NOT nullable, has default
         assert "nullable" not in base["properties"]["description"]
+        assert "anyOf" not in base["properties"]["description"]
         assert base["properties"]["description"]["default"] == ""
 
         # Both fields should NOT be required (they have defaults)

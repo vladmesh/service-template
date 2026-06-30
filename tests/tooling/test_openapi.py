@@ -221,7 +221,9 @@ operations:
     # Base: required keeps mandatory fields, drops field-level optional and defaulted ones
     base = schemas["User"]
     assert base["required"] == ["id", "name"]
-    assert base["properties"]["nickname"]["nullable"] is True
+    # nickname is nullable via the OpenAPI 3.1 anyOf form (no 3.0 `nullable` key)
+    assert "nullable" not in base["properties"]["nickname"]
+    assert {"type": "null"} in base["properties"]["nickname"]["anyOf"]
 
     # Update variant: name is variant-level optional -> not required
     assert "name" not in schemas["UserUpdate"]["required"]
