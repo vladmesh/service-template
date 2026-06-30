@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 
 from faststream import FastStream
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from services.notifications_worker.src.controllers.notifications import NotificationsController
@@ -17,30 +14,16 @@ configure_logging(service_name="notifications_worker")
 logger = structlog.stdlib.get_logger()
 
 
-@asynccontextmanager
-async def get_session() -> AsyncIterator[AsyncSession]:
-    """Dummy session factory since this worker relies on FastStream mainly."""
-
-    class MockSession:
-        async def commit(self) -> None:
-            pass
-
-        async def rollback(self) -> None:
-            pass
-
-    yield MockSession()  # type: ignore
-
-
 async def main() -> None:
     """Run the notifications worker."""
     # Reuse the canonical broker so publishers and subscribers share one
     # wire format (BinaryMessageFormatV1) and one REDIS_URL read.
     broker = get_broker()
 
-    # Register unified handlers
+    # Stateless worker: no DB session, so create_event_adapter is called
+    # without get_session and handlers run without a session/commit.
     create_event_adapter(
         broker=broker,
-        get_session=get_session,
         get_notifications_controller=lambda: NotificationsController(),
     )
 
