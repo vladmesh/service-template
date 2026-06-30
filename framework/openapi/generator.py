@@ -195,7 +195,11 @@ class OpenAPIGenerator:
         # Response
         status = str(ctx.status_code)
         if ctx.output_model:
-            response_schema = {"$ref": f"#/components/schemas/{ctx.output_model}"}
+            response_schema: dict[str, Any] = {
+                "$ref": f"#/components/schemas/{ctx.output_model}"
+            }
+            if ctx.response_many:
+                response_schema = {"type": "array", "items": response_schema}
             openapi_op["responses"][status] = {
                 "description": "Successful response",
                 "content": {
