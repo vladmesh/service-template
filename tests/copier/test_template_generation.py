@@ -512,6 +512,7 @@ class TestIntegration:
         makefile = (project_backend_tg_bot / "Makefile").read_text()
 
         assert "COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME=test_project-dev-smoke" in makefile
+        assert "@set -e;" in makefile
         assert (
             "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down "
             "--volumes --remove-orphans"
@@ -520,6 +521,39 @@ class TestIntegration:
             "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm "
             '--build --no-deps "$$svc"'
         ) in makefile
+
+    def test_dev_smoke_fails_when_any_service_fails(
+        self, project_fullstack: Path, tmp_path: Path
+    ):
+        """dev-smoke should fail fast when a non-final service check fails."""
+        fake_compose = tmp_path / "fake-compose"
+        calls_log = tmp_path / "compose-calls.log"
+        fake_compose.write_text(
+            f"""#!/bin/sh
+printf '%s\\n' "$*" >> {calls_log}
+case " $* " in
+  *" down "*) exit 0 ;;
+  *" run "*" backend "*) exit 23 ;;
+  *) exit 0 ;;
+esac
+"""
+        )
+        fake_compose.chmod(0o755)
+
+        result = subprocess.run(  # noqa: S603
+            ["make", "dev-smoke"],
+            cwd=project_fullstack,
+            env={**os.environ, "DOCKER_COMPOSE": str(fake_compose)},
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert "Error 23" in result.stderr
+        calls = calls_log.read_text()
+        assert "run --rm --build --no-deps backend" in calls
+        assert "run --rm --build --no-deps tg_bot" not in calls
+        assert "down --volumes --remove-orphans" in calls
 
     def test_architecture_md_conditional_content(self, project_backend: Path):
         """ARCHITECTURE.md should have conditional content based on modules."""

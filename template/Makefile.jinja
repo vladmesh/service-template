@@ -131,7 +131,8 @@ dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)
 
 dev-smoke:
-	@services="{% if 'backend' in modules %}backend {% endif %}{% if 'tg_bot' in modules %}tg_bot {% endif %}{% if 'notifications' in modules %}notifications_worker{% endif %}"; \
+	@set -e; \
+	services="{% if 'backend' in modules %}backend {% endif %}{% if 'tg_bot' in modules %}tg_bot {% endif %}{% if 'notifications' in modules %}notifications_worker{% endif %}"; \
 	if [ -z "$$services" ]; then \
 		echo "No Python services selected, skipping"; \
 		exit 0; \
