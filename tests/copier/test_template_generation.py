@@ -307,6 +307,25 @@ class TestComposeServices:
         assert "redis" not in compose_dev.get("services", {})
         assert "tg_bot" not in compose_dev.get("services", {})
 
+    def test_dev_compose_uses_image_venvs(self, project_fullstack: Path):
+        """compose.dev.yml should not run Python from host-created venvs."""
+        import yaml
+
+        compose_dev = yaml.safe_load((project_fullstack / "infra" / "compose.dev.yml").read_text())
+        service_paths = {
+            "backend": "/app/services/backend/.venv",
+            "tg_bot": "/app/services/tg_bot/.venv",
+            "notifications_worker": "/app/services/notifications_worker/.venv",
+        }
+
+        for service_name, venv_path in service_paths.items():
+            service = compose_dev["services"][service_name]
+            path = service["environment"]["PATH"]
+            volumes = service["volumes"]
+            assert path.startswith(f"{venv_path}/bin:"), f"{service_name} PATH is {path}"
+            assert f"/workspace/services/{service_name}/.venv/bin" not in path
+            assert venv_path in volumes
+
     def test_base_compose_no_required_var_syntax(self, project_backend: Path):
         """x-backend-env must not use ${VAR:?} — breaks env_file-based workflows.
 
@@ -465,6 +484,7 @@ class TestIntegration:
         """Makefile should have expected targets."""
         makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
+        assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
@@ -535,6 +555,11 @@ class TestWorkflowGeneration:
         assert "id: tg-bot" in ci_yml
         assert "id: frontend" not in ci_yml
         assert "id: notifications-worker" not in ci_yml
+
+    def test_workflow_runs_dev_smoke(self, project_backend_tg_bot: Path):
+        """CI should exercise dev compose, not only integration compose."""
+        ci_yml = (project_backend_tg_bot / ".github" / "workflows" / "ci.yml").read_text()
+        assert "run: make dev-smoke" in ci_yml
 
     def test_workflow_valid_yaml(self, project_fullstack: Path):
         """Generated workflows should be valid YAML."""

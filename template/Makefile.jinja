@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests dev-start dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
+.PHONY: setup lint format typecheck tests dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
 
 -include .env
 export
@@ -128,6 +128,19 @@ log:
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)
+
+dev-smoke:
+	@services="{% if 'backend' in modules %}backend {% endif %}{% if 'tg_bot' in modules %}tg_bot {% endif %}{% if 'notifications' in modules %}notifications_worker{% endif %}"; \
+	if [ -z "$$services" ]; then \
+		echo "No Python services selected, skipping"; \
+		exit 0; \
+	fi; \
+	cleanup() { $(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT; \
+	for svc in $$services; do \
+		echo ">> Smoke testing $$svc in dev compose"; \
+		$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build --no-deps "$$svc" python -c 'import sys; print(sys.executable); assert sys.executable.startswith("/app/services/")'; \
+	done
 
 dev-stop:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans
