@@ -283,6 +283,24 @@ class TestComposeServices:
         )
         assert "tg_bot" in compose_dev["services"]
         assert "redis" in compose_dev["services"]
+        assert "profiles" not in compose_dev["services"]["tg_bot"]
+        allow_placeholder = compose_dev["services"]["tg_bot"]["environment"][
+            "TG_BOT_ALLOW_PLACEHOLDER_TOKEN"
+        ]
+        expected_enabled = str(True).lower()
+        assert (
+            allow_placeholder == expected_enabled
+        )
+
+    def test_services_yml_does_not_profile_tg_bot(self, project_backend_tg_bot: Path):
+        """tg_bot should start with the default dev compose stack."""
+        import yaml
+
+        content = yaml.safe_load((project_backend_tg_bot / "services.yml").read_text())
+        tg_bot = next((s for s in content["services"] if s["name"] == "tg_bot"), None)
+
+        assert tg_bot is not None
+        assert "profiles" not in tg_bot
 
     def test_dev_compose_uses_configurable_db_and_redis_host_ports(
         self, project_backend_tg_bot: Path
@@ -306,6 +324,25 @@ class TestComposeServices:
         compose_dev = yaml.safe_load((project_backend / "infra" / "compose.dev.yml").read_text())
         assert "redis" not in compose_dev.get("services", {})
         assert "tg_bot" not in compose_dev.get("services", {})
+
+    def test_dev_compose_uses_image_venvs(self, project_fullstack: Path):
+        """compose.dev.yml should not run Python from host-created venvs."""
+        import yaml
+
+        compose_dev = yaml.safe_load((project_fullstack / "infra" / "compose.dev.yml").read_text())
+        service_paths = {
+            "backend": "/app/services/backend/.venv",
+            "tg_bot": "/app/services/tg_bot/.venv",
+            "notifications_worker": "/app/services/notifications_worker/.venv",
+        }
+
+        for service_name, venv_path in service_paths.items():
+            service = compose_dev["services"][service_name]
+            path = service["environment"]["PATH"]
+            volumes = service["volumes"]
+            assert path.startswith(f"{venv_path}/bin:"), f"{service_name} PATH is {path}"
+            assert f"/workspace/services/{service_name}/.venv/bin" not in path
+            assert venv_path in volumes
 
     def test_base_compose_no_required_var_syntax(self, project_backend: Path):
         """x-backend-env must not use ${VAR:?} — breaks env_file-based workflows.
@@ -465,9 +502,58 @@ class TestIntegration:
         """Makefile should have expected targets."""
         makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
+        assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
+
+    def test_dev_smoke_uses_isolated_compose_project(self, project_backend_tg_bot: Path):
+        """dev-smoke cleanup must not stop or remove ordinary dev compose resources."""
+        makefile = (project_backend_tg_bot / "Makefile").read_text()
+
+        assert "COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME=test_project-dev-smoke" in makefile
+        assert "@set -e;" in makefile
+        assert (
+            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down "
+            "--volumes --remove-orphans"
+        ) in makefile
+        assert (
+            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm "
+            '--build --no-deps "$$svc"'
+        ) in makefile
+
+    def test_dev_smoke_fails_when_any_service_fails(
+        self, project_fullstack: Path, tmp_path: Path
+    ):
+        """dev-smoke should fail fast when a non-final service check fails."""
+        fake_compose = tmp_path / "fake-compose"
+        calls_log = tmp_path / "compose-calls.log"
+        fake_compose.write_text(
+            f"""#!/bin/sh
+printf '%s\\n' "$*" >> {calls_log}
+case " $* " in
+  *" down "*) exit 0 ;;
+  *" run "*" backend "*) exit 23 ;;
+  *) exit 0 ;;
+esac
+"""
+        )
+        fake_compose.chmod(0o755)
+
+        result = subprocess.run(  # noqa: S603
+            ["make", "dev-smoke"],
+            cwd=project_fullstack,
+            env={**os.environ, "DOCKER_COMPOSE": str(fake_compose)},
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert "Error 23" in result.stderr
+        calls = calls_log.read_text()
+        assert "run --rm --build --no-deps backend" in calls
+        assert "run --rm --build --no-deps tg_bot" not in calls
+        assert "down --volumes --remove-orphans" in calls
 
     def test_architecture_md_conditional_content(self, project_backend: Path):
         """ARCHITECTURE.md should have conditional content based on modules."""
@@ -535,6 +621,11 @@ class TestWorkflowGeneration:
         assert "id: tg-bot" in ci_yml
         assert "id: frontend" not in ci_yml
         assert "id: notifications-worker" not in ci_yml
+
+    def test_workflow_runs_dev_smoke(self, project_backend_tg_bot: Path):
+        """CI should exercise dev compose, not only integration compose."""
+        ci_yml = (project_backend_tg_bot / ".github" / "workflows" / "ci.yml").read_text()
+        assert "run: make dev-smoke" in ci_yml
 
     def test_workflow_valid_yaml(self, project_fullstack: Path):
         """Generated workflows should be valid YAML."""

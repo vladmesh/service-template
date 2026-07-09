@@ -50,6 +50,9 @@ jobs:
 
       - name: Run tests
         run: make tests
+
+      - name: Smoke dev compose
+        run: make dev-smoke
 {% if 'backend' in modules %}
       - name: Run integration tests
         run: make test-integration
