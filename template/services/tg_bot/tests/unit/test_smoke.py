@@ -17,3 +17,11 @@ def test_middleware_importable():
     from services.tg_bot.src.middleware import install_update_logging
 
     assert install_update_logging is not None
+
+
+def test_placeholder_token_detected(monkeypatch):
+    from services.tg_bot.src.main import PLACEHOLDER_TELEGRAM_BOT_TOKEN, _uses_placeholder_token
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", PLACEHOLDER_TELEGRAM_BOT_TOKEN)
+
+    assert _uses_placeholder_token()

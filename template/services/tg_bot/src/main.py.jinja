@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 {% endif -%}
 import os
+import time
 from typing import Final
 
 {% if 'backend' in modules -%}
@@ -35,6 +36,7 @@ LOGGER = structlog.stdlib.get_logger()
 DEFAULT_GREETING: Final[str] = (
     "Привет! Мы Service Template и этот бот помогает подключиться к нашему сервису."
 )
+PLACEHOLDER_TELEGRAM_BOT_TOKEN: Final[str] = "your-telegram-bot-token"
 {% if 'backend' in modules %}
 WELCOME_BACK_GREETING: Final[str] = "Хай, добро пожаловать назад!"
 REGISTRATION_ERROR: Final[str] = (
@@ -65,6 +67,10 @@ def _get_token() -> str:
             "or docker-compose overlay before running the bot."
         )
     return token
+
+
+def _uses_placeholder_token() -> bool:
+    return os.getenv("TELEGRAM_BOT_TOKEN") == PLACEHOLDER_TELEGRAM_BOT_TOKEN
 {% if 'backend' in modules %}
 
 async def _sync_user_with_backend(telegram_id: int) -> bool | None:
@@ -190,6 +196,14 @@ def build_application() -> Application:
 
 def main() -> None:
     """Run the bot until the process receives a termination signal."""
+
+    if _uses_placeholder_token():
+        LOGGER.warning(
+            "TELEGRAM_BOT_TOKEN is still the placeholder value; "
+            "tg_bot stays idle until a real token is configured."
+        )
+        while True:
+            time.sleep(3600)
 
     application = build_application()
     LOGGER.info("Starting telegram bot polling loop")
