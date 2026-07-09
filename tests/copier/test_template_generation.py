@@ -283,6 +283,7 @@ class TestComposeServices:
         )
         assert "tg_bot" in compose_dev["services"]
         assert "redis" in compose_dev["services"]
+        assert "profiles" not in compose_dev["services"]["tg_bot"]
 
     def test_dev_compose_uses_configurable_db_and_redis_host_ports(
         self, project_backend_tg_bot: Path
