@@ -205,6 +205,16 @@ class TestEnvExample:
         assert "REDIS" in env_content
         assert "TELEGRAM" in env_content
 
+    def test_dev_service_host_ports_are_documented(self, project_backend_tg_bot: Path):
+        """Host port overrides should be documented alongside service env vars."""
+        env_content = (project_backend_tg_bot / ".env.example").read_text()
+        readme = (project_backend_tg_bot / "README.md").read_text()
+
+        assert "POSTGRES_HOST_PORT=5432" in env_content
+        assert "REDIS_HOST_PORT=6379" in env_content
+        assert "POSTGRES_HOST_PORT" in readme
+        assert "REDIS_HOST_PORT" in readme
+
     def test_standalone_env_has_redis_telegram_no_postgres(self, project_standalone: Path):
         """Standalone tg_bot should have redis and telegram but no postgres."""
         env_content = (project_standalone / ".env.example").read_text()
@@ -273,6 +283,21 @@ class TestComposeServices:
         )
         assert "tg_bot" in compose_dev["services"]
         assert "redis" in compose_dev["services"]
+
+    def test_dev_compose_uses_configurable_db_and_redis_host_ports(
+        self, project_backend_tg_bot: Path
+    ):
+        """compose.dev.yml should allow multiple generated projects on one host."""
+        import yaml
+
+        compose_dev_path = project_backend_tg_bot / "infra" / "compose.dev.yml"
+        compose_text = compose_dev_path.read_text()
+        compose_dev = yaml.safe_load(compose_text)
+
+        assert '"${POSTGRES_HOST_PORT:-5432}:5432"' in compose_text
+        assert '"${REDIS_HOST_PORT:-6379}:6379"' in compose_text
+        assert compose_dev["services"]["db"]["ports"] == ["${POSTGRES_HOST_PORT:-5432}:5432"]
+        assert compose_dev["services"]["redis"]["ports"] == ["${REDIS_HOST_PORT:-6379}:6379"]
 
     def test_dev_compose_no_redis_backend_only(self, project_backend: Path):
         """compose.dev.yml should not include redis for backend-only."""

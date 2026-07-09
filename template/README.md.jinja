@@ -15,6 +15,25 @@
    # Edit .env with your settings
    ```
 
+{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules or 'frontend' in modules -%}
+### Development Ports
+
+Host ports are configured in `.env`:
+{% if 'backend' in modules -%}
+- `BACKEND_PORT` maps the backend HTTP service to container port `8000`.
+- `POSTGRES_HOST_PORT` maps PostgreSQL to container port `5432`.
+{% endif -%}
+{% if 'tg_bot' in modules or 'notifications' in modules -%}
+- `REDIS_HOST_PORT` maps Redis to container port `6379`.
+{% endif -%}
+{% if 'frontend' in modules -%}
+- `FRONTEND_PORT` maps the frontend to container port `3000`.
+{% endif %}
+
+Set different host ports when running multiple generated projects on one machine.
+
+{% endif -%}
+
 3. **Start development**
    ```bash
    make dev-start
