@@ -37,6 +37,7 @@ DEFAULT_GREETING: Final[str] = (
     "Привет! Мы Service Template и этот бот помогает подключиться к нашему сервису."
 )
 PLACEHOLDER_TELEGRAM_BOT_TOKEN: Final[str] = "your-telegram-bot-token"  # noqa: S105
+ALLOW_PLACEHOLDER_TOKEN_ENV: Final[str] = "TG_BOT_ALLOW_PLACEHOLDER_TOKEN"  # noqa: S105
 {% if 'backend' in modules %}
 WELCOME_BACK_GREETING: Final[str] = "Хай, добро пожаловать назад!"
 REGISTRATION_ERROR: Final[str] = (
@@ -71,6 +72,10 @@ def _get_token() -> str:
 
 def _uses_placeholder_token() -> bool:
     return os.getenv("TELEGRAM_BOT_TOKEN") == PLACEHOLDER_TELEGRAM_BOT_TOKEN
+
+
+def _allows_placeholder_token() -> bool:
+    return os.getenv(ALLOW_PLACEHOLDER_TOKEN_ENV) == "true"
 {% if 'backend' in modules %}
 
 async def _sync_user_with_backend(telegram_id: int) -> bool | None:
@@ -198,6 +203,11 @@ def main() -> None:
     """Run the bot until the process receives a termination signal."""
 
     if _uses_placeholder_token():
+        if not _allows_placeholder_token():
+            raise RuntimeError(
+                "TELEGRAM_BOT_TOKEN is still the placeholder value; set a real token "
+                f"or enable {ALLOW_PLACEHOLDER_TOKEN_ENV}=true only in dev compose."
+            )
         LOGGER.warning(
             "TELEGRAM_BOT_TOKEN is still the placeholder value; "
             "tg_bot stays idle until a real token is configured."

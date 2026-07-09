@@ -36,6 +36,7 @@ services:
     environment:
       PYTHONPATH: /workspace
       PATH: /app/services/tg_bot/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+      TG_BOT_ALLOW_PLACEHOLDER_TOKEN: "true"
 {%- endif %}
 {%- if 'notifications' in modules %}
   notifications_worker:

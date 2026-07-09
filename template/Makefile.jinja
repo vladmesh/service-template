@@ -9,6 +9,7 @@ COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
 COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
+COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME={{ project_slug }}-dev-smoke
 
 VENV := .venv/bin
 PYTHON := $(VENV)/python
@@ -135,11 +136,11 @@ dev-smoke:
 		echo "No Python services selected, skipping"; \
 		exit 0; \
 	fi; \
-	cleanup() { $(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
 	trap cleanup EXIT; \
 	for svc in $$services; do \
 		echo ">> Smoke testing $$svc in dev compose"; \
-		$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build --no-deps "$$svc" python -c 'import sys; print(sys.executable); assert sys.executable.startswith("/app/services/")'; \
+		$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build --no-deps "$$svc" python -c 'import sys; print(sys.executable); assert sys.executable.startswith("/app/services/")'; \
 	done
 
 dev-stop:

@@ -284,6 +284,23 @@ class TestComposeServices:
         assert "tg_bot" in compose_dev["services"]
         assert "redis" in compose_dev["services"]
         assert "profiles" not in compose_dev["services"]["tg_bot"]
+        allow_placeholder = compose_dev["services"]["tg_bot"]["environment"][
+            "TG_BOT_ALLOW_PLACEHOLDER_TOKEN"
+        ]
+        expected_enabled = str(True).lower()
+        assert (
+            allow_placeholder == expected_enabled
+        )
+
+    def test_services_yml_does_not_profile_tg_bot(self, project_backend_tg_bot: Path):
+        """tg_bot should start with the default dev compose stack."""
+        import yaml
+
+        content = yaml.safe_load((project_backend_tg_bot / "services.yml").read_text())
+        tg_bot = next((s for s in content["services"] if s["name"] == "tg_bot"), None)
+
+        assert tg_bot is not None
+        assert "profiles" not in tg_bot
 
     def test_dev_compose_uses_configurable_db_and_redis_host_ports(
         self, project_backend_tg_bot: Path
@@ -489,6 +506,20 @@ class TestIntegration:
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
+
+    def test_dev_smoke_uses_isolated_compose_project(self, project_backend_tg_bot: Path):
+        """dev-smoke cleanup must not stop or remove ordinary dev compose resources."""
+        makefile = (project_backend_tg_bot / "Makefile").read_text()
+
+        assert "COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME=test_project-dev-smoke" in makefile
+        assert (
+            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down "
+            "--volumes --remove-orphans"
+        ) in makefile
+        assert (
+            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm "
+            '--build --no-deps "$$svc"'
+        ) in makefile
 
     def test_architecture_md_conditional_content(self, project_backend: Path):
         """ARCHITECTURE.md should have conditional content based on modules."""

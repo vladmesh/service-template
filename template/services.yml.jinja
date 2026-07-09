@@ -19,10 +19,6 @@ services:
       backend: service_started
 {%- endif %}
       redis: service_healthy
-{%- if 'backend' in modules %}
-    profiles:
-      - tg
-{%- endif %}
 {%- endif %}
 {%- if 'frontend' in modules %}
   - name: frontend
