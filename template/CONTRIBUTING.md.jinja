@@ -4,7 +4,7 @@ We adhere to a strict set of rules to maintain quality and consistency. These ru
 
 ## 1. The Golden Rule: Use the Makefile
 Never run tools directly. Always use the `make` target.
-- `make lint`: Runs all linters (ruff, xenon{% if 'backend' in modules %}, spec validation, spec compliance{% endif %}).
+- `make lint`: Runs ruff and xenon{% if 'backend' in modules %}, then spec validation and spec compliance{% endif %}.
 - `make format`: Runs auto-formatters.
 - `make tests`: Runs the test suite.
 {%- if 'backend' in modules %}
@@ -24,6 +24,9 @@ We use `ruff` for linting and formatting, and `mypy` for static typing.
 - **Imports:**
     - Absolute imports are preferred.
     - Sort imports (handled by `ruff`).
+- **Complexity:**
+    - `make lint` runs xenon with `--max-absolute B --max-modules A --max-average A`.
+    - Split branches or loops before a function reaches rank C.
 
 ## 3. Workflow for Agents & Humans
 
@@ -78,6 +81,6 @@ Avoid these common mistakes:
 {%- if 'backend' in modules %}
 - **Dockerfile Copies:** COPY sources in Dockerfiles should stay within the service directory or use `shared/`.
 {%- endif %}
-{%- if 'tg_bot' in modules or 'notifications' in modules %}
+{%- if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
 - **Missing Broker Connection:** Публикация событий до вызова `get_broker().connect()` приводит к `AssertionError`. Lifecycle управляется автоматически: в FastAPI — через `lifespan`, в tg_bot — через `post_init`/`post_shutdown`. Не вызывайте `connect()` вручную в обработчиках.
 {%- endif %}

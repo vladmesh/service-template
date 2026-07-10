@@ -922,6 +922,34 @@ esac
         assert "Common Pitfalls" in contributing
         assert "Missing Broker Connection" in contributing
 
+    def test_standalone_tg_bot_docs_do_not_reference_generated_events(
+        self, project_standalone: Path
+    ):
+        """Standalone tg_bot docs should not point agents to excluded generated modules."""
+        root_agents = (project_standalone / "AGENTS.md").read_text()
+        service_agents = (project_standalone / "services" / "tg_bot" / "AGENTS.md").read_text()
+        contributing = (project_standalone / "CONTRIBUTING.md").read_text()
+
+        assert "Standalone Telegram Bot" in root_agents
+        assert "shared.generated" not in root_agents
+        assert "broker event publishing is not available" in service_agents
+        assert "shared.generated" not in service_agents
+        assert "`REDIS_URL` | Yes" not in service_agents
+        assert "Missing Broker Connection" not in contributing
+
+    def test_backend_tg_bot_docs_keep_event_publishing(self, project_backend_tg_bot: Path):
+        """backend+tg_bot docs should keep broker event instructions."""
+        root_agents = (project_backend_tg_bot / "AGENTS.md").read_text()
+        service_agents = (project_backend_tg_bot / "services" / "tg_bot" / "AGENTS.md").read_text()
+        contributing = (project_backend_tg_bot / "CONTRIBUTING.md").read_text()
+
+        assert "Брокер событий" in root_agents
+        assert "from shared.generated.events import publish_command_received" in root_agents
+        assert "Бот публикует события напрямую в Redis Streams" in service_agents
+        assert "from shared.generated.schemas import CommandReceived" in service_agents
+        assert "`REDIS_URL` | Yes" in service_agents
+        assert "--max-absolute B --max-modules A --max-average A" in contributing
+
 
 class TestWorkflowGeneration:
     """Tests for GitHub Actions workflow generation."""

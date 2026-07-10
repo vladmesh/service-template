@@ -97,6 +97,10 @@ ports in `.env` when the local-port layer is enabled:
 - `BACKEND_PORT` for the backend HTTP service.
 - `FRONTEND_PORT` for the frontend.
 
+Use `make ps` and `make log <service>` to inspect the selected Compose project.
+Plain `docker compose ps` does not load the generated `.env`; either export the
+same values in your shell or pass the compose files and project name explicitly.
+
 `make dev-clean` runs `docker compose down --volumes --remove-orphans` with the
 local compose layers, so it removes only resources under the selected Compose
 project name.
