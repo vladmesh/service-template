@@ -21,7 +21,12 @@ if HAS_REDIS:
     @pytest.fixture(scope="session")
     def test_redis_url() -> str:
         """Get test Redis URL from environment."""
-        return os.getenv("TEST_REDIS_URL", "redis://localhost:6379/15")
+        redis_url = os.getenv("TEST_REDIS_URL")
+        if redis_url:
+            return redis_url
+        redis_host = os.getenv("TEST_REDIS_HOST", "localhost")
+        redis_port = os.getenv("TEST_REDIS_PORT", "6379")
+        return f"redis://{redis_host}:{redis_port}/15"
 
     @pytest.fixture
     def redis_client(test_redis_url: str) -> Generator[Redis, None, None]:

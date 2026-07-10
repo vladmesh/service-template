@@ -18,7 +18,7 @@
 {% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules or 'frontend' in modules -%}
 ### Development Ports
 
-Host ports are configured in `.env`:
+`make dev-start` includes `infra/compose.local.yml`, which publishes host ports from `.env`:
 {% if 'backend' in modules -%}
 - `BACKEND_PORT` maps the backend HTTP service to container port `8000`.
 - `POSTGRES_HOST_PORT` maps PostgreSQL to container port `5432`.
@@ -31,6 +31,8 @@ Host ports are configured in `.env`:
 {% endif %}
 
 Set different host ports when running multiple generated projects on one machine.
+Use `infra/compose.base.yml` plus `infra/compose.dev.yml` without the local layer when services
+should stay reachable only on the Compose network.
 
 {% endif -%}
 

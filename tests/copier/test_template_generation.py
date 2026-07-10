@@ -124,6 +124,7 @@ class TestStandaloneGeneration:
         services = compose.get("services", {})
         assert "tg_bot" in services
         assert "redis" in services
+        assert services["tg_bot"]["depends_on"]["redis"]["condition"] == "service_healthy"
 
     def test_services_yml_has_tg_bot(self, project_standalone: Path):
         """services.yml should contain tg_bot with a polling Python runtime type."""
@@ -175,6 +176,17 @@ class TestBackendWithTgBotGeneration:
         assert tg_bot is not None, "tg_bot service not found"
         assert "depends_on" in tg_bot
         assert tg_bot["depends_on"].get("redis") == "service_healthy"
+
+    def test_compose_tg_bot_waits_for_redis(self, project_backend_tg_bot: Path):
+        """tg_bot should wait for Redis health in real compose output."""
+        import yaml
+
+        compose = yaml.safe_load(
+            (project_backend_tg_bot / "infra" / "compose.base.yml").read_text()
+        )
+        depends_on = compose["services"]["tg_bot"]["depends_on"]
+        assert depends_on["redis"]["condition"] == "service_healthy"
+        assert depends_on["backend"]["condition"] == "service_started"
 
 
 class TestFullStackGeneration:
@@ -305,9 +317,7 @@ class TestComposeServices:
             "TG_BOT_ALLOW_PLACEHOLDER_TOKEN"
         ]
         expected_enabled = str(True).lower()
-        assert (
-            allow_placeholder == expected_enabled
-        )
+        assert allow_placeholder == expected_enabled
 
     def test_services_yml_does_not_profile_tg_bot(self, project_backend_tg_bot: Path):
         """tg_bot should start with the default dev compose stack."""
@@ -319,20 +329,39 @@ class TestComposeServices:
         assert tg_bot is not None
         assert "profiles" not in tg_bot
 
-    def test_dev_compose_uses_configurable_db_and_redis_host_ports(
-        self, project_backend_tg_bot: Path
-    ):
-        """compose.dev.yml should allow multiple generated projects on one host."""
+    def test_base_and_dev_compose_do_not_publish_ports(self, project_backend_tg_bot: Path):
+        """base+dev is safe for sibling workers that share one Docker host."""
         import yaml
 
-        compose_dev_path = project_backend_tg_bot / "infra" / "compose.dev.yml"
-        compose_text = compose_dev_path.read_text()
-        compose_dev = yaml.safe_load(compose_text)
+        for filename in ("compose.base.yml", "compose.dev.yml"):
+            compose = yaml.safe_load((project_backend_tg_bot / "infra" / filename).read_text())
+            for service_name, service in compose.get("services", {}).items():
+                assert "ports" not in service, f"{filename}:{service_name} publishes ports"
 
+    def test_compose_uses_only_implicit_default_network(self, project_fullstack: Path):
+        """Generated compose files must not declare custom networks."""
+        import yaml
+
+        for filename in ("compose.base.yml", "compose.dev.yml", "compose.local.yml"):
+            compose = yaml.safe_load((project_fullstack / "infra" / filename).read_text())
+            assert "networks" not in compose, f"{filename} declares custom networks"
+
+    def test_local_compose_uses_configurable_host_ports(self, project_fullstack: Path):
+        """compose.local.yml should keep host port UX configurable."""
+        import yaml
+
+        compose_local_path = project_fullstack / "infra" / "compose.local.yml"
+        compose_text = compose_local_path.read_text()
+        compose_local = yaml.safe_load(compose_text)
+
+        assert '"${BACKEND_PORT:-8000}:8000"' in compose_text
         assert '"${POSTGRES_HOST_PORT:-5432}:5432"' in compose_text
         assert '"${REDIS_HOST_PORT:-6379}:6379"' in compose_text
-        assert compose_dev["services"]["db"]["ports"] == ["${POSTGRES_HOST_PORT:-5432}:5432"]
-        assert compose_dev["services"]["redis"]["ports"] == ["${REDIS_HOST_PORT:-6379}:6379"]
+        assert '"${FRONTEND_PORT:-3000}:3000"' in compose_text
+        assert compose_local["services"]["backend"]["ports"] == ["${BACKEND_PORT:-8000}:8000"]
+        assert compose_local["services"]["db"]["ports"] == ["${POSTGRES_HOST_PORT:-5432}:5432"]
+        assert compose_local["services"]["redis"]["ports"] == ["${REDIS_HOST_PORT:-6379}:6379"]
+        assert compose_local["services"]["frontend"]["ports"] == ["${FRONTEND_PORT:-3000}:3000"]
 
     def test_dev_compose_no_redis_backend_only(self, project_backend: Path):
         """compose.dev.yml should not include redis for backend-only."""
@@ -465,6 +494,28 @@ class TestIntegrationCompose:
             f"Expected service_healthy, got: {deps['backend']['condition']}"
         )
 
+    def test_database_urls_use_postgres_host_and_port_env(self, project_backend: Path):
+        """Integration compose should allow external database host overrides."""
+        import yaml
+
+        compose_text = (project_backend / "infra" / "compose.tests.integration.yml").read_text()
+        compose = yaml.safe_load(compose_text)
+
+        assert "@db:5432" not in compose_text
+        for service_name in ("backend", "integration-tests"):
+            env = compose["services"][service_name]["environment"]
+            assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in env["DATABASE_URL"]
+            assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in env["ASYNC_DATABASE_URL"]
+
+    def test_redis_fixture_url_is_parameterized(self, project_backend_tg_bot: Path):
+        """Redis tests should keep defaults while allowing env overrides."""
+        conftest = (project_backend_tg_bot / "tests" / "conftest.py").read_text()
+
+        assert 'os.getenv("TEST_REDIS_URL")' in conftest
+        assert 'os.getenv("TEST_REDIS_HOST", "localhost")' in conftest
+        assert 'os.getenv("TEST_REDIS_PORT", "6379")' in conftest
+        assert 'os.getenv("TEST_REDIS_URL", "redis://localhost:6379/15")' not in conftest
+
 
 class TestIntegration:
     """Integration tests - validate generated project structure."""
@@ -519,6 +570,7 @@ class TestIntegration:
         """Makefile should have expected targets."""
         makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
+        assert "infra-start:" in makefile
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
@@ -531,6 +583,7 @@ class TestIntegration:
         makefile = (project_backend / "Makefile").read_text()
 
         assert "SKIP_INFRA_START" in makefile
+        assert "COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml" in makefile
         assert "BACKEND_ALEMBIC := PYTHONPATH=. services/backend/.venv/bin/alembic" in makefile
         assert (
             "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend "
@@ -538,6 +591,22 @@ class TestIntegration:
         ) in makefile
         assert "$(ALEMBIC) upgrade head" in makefile
         assert '$(ALEMBIC) revision --autogenerate -m "$(name)"' in makefile
+
+    def test_dev_start_uses_local_compose_layer(self, project_backend_tg_bot: Path):
+        """Human dev-start should still publish ports through compose.local.yml."""
+        makefile = (project_backend_tg_bot / "Makefile").read_text()
+
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)" in makefile
+        assert "INFRA_SERVICES := db redis" in makefile
+
+    def test_infra_start_uses_only_available_infra_services(self, project_standalone: Path):
+        """Standalone event projects should not try to start a missing db service."""
+        makefile = (project_standalone / "Makefile").read_text()
+
+        assert "INFRA_SERVICES := redis" in makefile
+        assert "up -d --wait $(INFRA_SERVICES)" in makefile
 
     def test_makemigrations_upgrades_before_autogenerate(self, project_backend: Path):
         """makemigrations should bring a clean database to head before autogenerate."""
@@ -614,9 +683,7 @@ class TestIntegration:
             '--build --no-deps "$$svc"'
         ) in makefile
 
-    def test_dev_smoke_fails_when_any_service_fails(
-        self, project_fullstack: Path, tmp_path: Path
-    ):
+    def test_dev_smoke_fails_when_any_service_fails(self, project_fullstack: Path, tmp_path: Path):
         """dev-smoke should fail fast when a non-final service check fails."""
         fake_compose = tmp_path / "fake-compose"
         calls_log = tmp_path / "compose-calls.log"
