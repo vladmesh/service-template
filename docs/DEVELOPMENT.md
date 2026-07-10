@@ -120,8 +120,9 @@ Modules are pre-built services that ship with generated projects.
 1. Create service in `template/services/new_module/`
 2. Add entry in `template/services.yml.jinja`
 3. Add Copier question in `copier.yml` (if selectable)
-4. Add tests in `tests/copier/`
-5. Update `template/AGENTS.md.jinja` with module documentation
+4. Add conditional `_exclude` entries in `copier.yml` so unselected modules are never copied
+5. Add tests in `tests/copier/`
+6. Update `template/AGENTS.md.jinja` with module documentation
 
 ## Release Process
 

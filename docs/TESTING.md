@@ -209,7 +209,7 @@ pytest tests/copier/ -v -x --pdb
 copier copy . /tmp/test-project \
   --data project_name=test \
   --data modules=backend,tg_bot \
-  --trust --defaults
+  --defaults
 
 # Inspect
 cd /tmp/test-project

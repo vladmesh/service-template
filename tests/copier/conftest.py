@@ -25,8 +25,10 @@ def copier_available():
         pytest.skip(f"copier not found at {VENV_COPIER} (run 'make setup')")
 
 
-def run_copier(dest: Path, modules: str) -> Path:
-    """Run copier copy and return the output directory."""
+def run_copier_command(
+    dest: Path, modules: str, *, trust: bool = False
+) -> tuple[Path, subprocess.CompletedProcess[str]]:
+    """Run copier copy and return the output directory plus process result."""
     output_dir = dest / "output"
     output_dir.mkdir(exist_ok=True)
 
@@ -35,14 +37,21 @@ def run_copier(dest: Path, modules: str) -> Path:
         "copy",
         str(REPO_ROOT),
         str(output_dir),
-        "--trust",
         "--defaults",
         "--vcs-ref=HEAD",
         *(f"--data={k}={v}" for k, v in BASE_DATA.items()),
         f"--data=modules={modules}",
     ]
+    if trust:
+        cmd.insert(4, "--trust")
 
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))  # noqa: S603
+    return output_dir, result
+
+
+def run_copier(dest: Path, modules: str, *, trust: bool = False) -> Path:
+    """Run copier copy and return the output directory."""
+    output_dir, result = run_copier_command(dest, modules, trust=trust)
     if result.returncode != 0:
         pytest.fail(f"Copier failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
 

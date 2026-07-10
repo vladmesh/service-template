@@ -14,7 +14,14 @@ import tomllib
 
 import pytest
 
-from tests.copier.conftest import BASE_DATA, VENV_RUFF, check_no_jinja_artifacts, run_copier
+from tests.copier.conftest import (
+    BASE_DATA,
+    VENV_COPIER,
+    VENV_RUFF,
+    check_no_jinja_artifacts,
+    run_copier,
+    run_copier_command,
+)
 
 
 def env_keys(path: Path) -> set[str]:
@@ -341,6 +348,74 @@ class TestEnvExample:
 
 class TestModuleExclusion:
     """Test that unselected modules are properly excluded."""
+
+    def test_copy_without_trust_excludes_unselected_modules_before_copy(self, tmp_path: Path):
+        """Standalone tg_bot generation should not copy unselected module paths."""
+        output, result = run_copier_command(tmp_path, "tg_bot")
+        assert result.returncode == 0, (
+            f"Copier failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+        log_output = f"{result.stdout}\n{result.stderr}".replace("\\", "/")
+        unselected_paths = (
+            "services/backend",
+            "services/frontend",
+            "services/notifications_worker",
+        )
+
+        for path in unselected_paths:
+            assert not (output / path).exists()
+            assert path not in log_output
+
+    def test_copy_with_trust_still_succeeds(self, tmp_path: Path):
+        """Existing callers may keep passing --trust."""
+        output = run_copier(tmp_path, "tg_bot", trust=True)
+        assert (output / "services" / "tg_bot").exists()
+
+    def test_backend_generation_keeps_backend_specs(self, tmp_path: Path):
+        """Backend projects should keep shared and service specs."""
+        output = run_copier(tmp_path, "backend")
+        assert (output / "shared" / "spec").exists()
+        assert (output / "services" / "backend" / "spec").exists()
+
+    def test_copier_update_on_fresh_project(self, tmp_path: Path):
+        """Fresh generated projects should update without post-task side effects."""
+        output = run_copier(tmp_path, "tg_bot")
+
+        subprocess.run(["git", "init"], cwd=output, check=True, capture_output=True, text=True)  # noqa: S603
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=output,
+            check=True,
+            capture_output=True,
+            text=True,
+        )  # noqa: S603
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=output,
+            check=True,
+            capture_output=True,
+            text=True,
+        )  # noqa: S603
+        subprocess.run(["git", "add", "."], cwd=output, check=True, capture_output=True, text=True)  # noqa: S603
+        subprocess.run(
+            ["git", "commit", "-m", "Initial generated project"],
+            cwd=output,
+            check=True,
+            capture_output=True,
+            text=True,
+        )  # noqa: S603
+
+        update_result = subprocess.run(  # noqa: S603
+            [str(VENV_COPIER), "update", "--defaults", "--vcs-ref=HEAD"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert update_result.returncode == 0, (
+            f"Copier update failed:\nstdout: {update_result.stdout}\nstderr: {update_result.stderr}"
+        )
 
     def test_notifications_excluded_when_not_selected(self, tmp_path: Path):
         """notifications_worker should not exist when not in modules."""

@@ -77,13 +77,13 @@ Use `{% if 'module' in modules %}` for conditional content:
 
 ### Service Directories
 
-Services are included by default and removed via `_tasks` in `copier.yml`:
+Services are excluded before copy via conditional `_exclude` patterns in `copier.yml`:
 
 ```yaml
-_tasks:
-  - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
-  - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
-  - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
+_exclude:
+  - "{% if 'tg_bot' not in modules %}services/tg_bot{% endif %}"
+  - "{% if 'notifications' not in modules %}services/notifications_worker{% endif %}"
+  - "{% if 'frontend' not in modules %}services/frontend{% endif %}"
 ```
 
 ## Update Behavior
@@ -116,7 +116,7 @@ Defined in `_exclude`:
 1. **Add service directory** in `services/<module_name>/`
 
 2. **Update `copier.yml`**:
-   - Add to `_tasks` for cleanup when not selected
+   - Add to `_exclude` for pre-copy exclusion when not selected
    - Update `modules` help text
 
 3. **Update Jinja templates**:
@@ -206,7 +206,7 @@ When adding services with dependencies:
 copier copy . /tmp/test-project \
   --data project_name=test \
   --data modules=backend,tg_bot \
-  --trust --defaults
+  --defaults
 
 # Inspect results
 ls -la /tmp/test-project/

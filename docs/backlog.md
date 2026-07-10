@@ -11,7 +11,7 @@
 
 Команда `make add-module name=tg_bot` — добавить предопределённый модуль (tg_bot/notifications/frontend)
 в уже сгенерированный проект. Сейчас `copier update` обновляет инфру, но не добавляет модули,
-исключённые при генерации (их директории удаляются `_tasks` в `copier.yml`). Обходной путь —
+исключённые при генерации (их директории отфильтрованы `_exclude` в `copier.yml`). Обходной путь —
 регенерить проект целиком, теряя правки. Нужно: валидировать модуль, тянуть его из template-репо,
 обновить `services.yml` + `.copier-answers.yml`, прогнать `make setup`. Вопросы: version mismatch
 проект/шаблон, авто-регенерация compose.
@@ -139,7 +139,7 @@ TypeScript через `fold_type_spec()`). Осталось: вынести та
 - `make init` → покрыто `make setup`.
 - `ruff check --fix` в post-gen → `make setup`.
 - `ruff format --extend-exclude` → `ruff.toml`.
-- Copier `_tasks` генерация schemas → `make setup`.
+- Copier post-generation schemas → `make setup`.
 - FutureWarning от datamodel-code-generator → `formatters=[...]`.
 - E2E issues iterations 4-5 (`5c9128f`).
 - `.dockerignore` (root + template).
