@@ -17,6 +17,23 @@ import pytest
 from tests.copier.conftest import BASE_DATA, VENV_RUFF, check_no_jinja_artifacts, run_copier
 
 
+def env_keys(path: Path) -> set[str]:
+    """Return active and documented env keys from a generated dotenv file."""
+    keys = set()
+    for line in path.read_text().splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            stripped = stripped.removeprefix("#").strip()
+        if not stripped or "=" not in stripped:
+            continue
+        key = stripped.split("=", 1)[0].strip()
+        if re.fullmatch(r"[A-Z][A-Z0-9_]*", key):
+            keys.add(key)
+    return keys
+
+
 class TestBackendOnlyGeneration:
     """Test generation with only backend module."""
 
@@ -72,8 +89,7 @@ class TestBackendOnlyGeneration:
         assert "backend" in content.lower()
         assert "Use `make ps` to see the current project's Compose stack status." in content
         assert (
-            "Backend-only projects do not run Redis, so `REDIS_HOST_PORT` has no effect"
-            in content
+            "Backend-only projects do not run Redis, so `REDIS_HOST_PORT` has no effect" in content
         )
         assert "use `users` as the reference entity" in content
 
@@ -90,6 +106,9 @@ class TestBackendOnlyGeneration:
         assert "do not append `sslmode=require`" in infra_readme
         assert "shell values for the full URLs do not replace those service" in infra_readme
         assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
+        assert "## Parallel run isolation" in infra_readme
+        assert "COMPOSE_PROJECT_NAME=my-project-dev make dev-start" in infra_readme
+        assert "`--project-name` option explicitly" in infra_readme
         assert "`infra/README.md`" in agents
 
     def test_infra_contract_matches_compose_env_precedence(self, project_fullstack: Path):
@@ -271,10 +290,24 @@ class TestFullStackGeneration:
 class TestEnvExample:
     """Test .env.example generation."""
 
+    @pytest.mark.parametrize(
+        "fixture_name",
+        ["project_backend", "project_standalone", "project_backend_tg_bot", "project_fullstack"],
+    )
+    def test_env_and_example_have_same_keys(
+        self, request: pytest.FixtureRequest, fixture_name: str
+    ):
+        """Generated .env and .env.example should document the same variables."""
+        project = request.getfixturevalue(fixture_name)
+
+        assert env_keys(project / ".env") == env_keys(project / ".env.example")
+
     def test_backend_only_env(self, project_backend: Path):
         """Backend-only should have postgres but not redis or telegram."""
         env_content = (project_backend / ".env.example").read_text()
         assert "POSTGRES" in env_content
+        assert "BACKEND_PORT=8000" in env_content
+        assert "# COMPOSE_PROJECT_NAME=test_project-dev" in env_content
         # Backend-only does NOT include redis (no tg_bot/notifications)
         assert "REDIS" not in env_content
         assert "TELEGRAM" not in env_content
@@ -293,8 +326,10 @@ class TestEnvExample:
 
         assert "POSTGRES_HOST_PORT=5432" in env_content
         assert "REDIS_HOST_PORT=6379" in env_content
+        assert "BACKEND_PORT=8000" in env_content
         assert "POSTGRES_HOST_PORT" in readme
         assert "REDIS_HOST_PORT" in readme
+        assert "make dev-clean" in readme
 
     def test_standalone_env_has_redis_telegram_no_postgres(self, project_standalone: Path):
         """Standalone tg_bot should have redis and telegram but no postgres."""
@@ -627,6 +662,8 @@ class TestIntegration:
         assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
+        assert "dev-clean:" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
 
@@ -652,6 +689,7 @@ class TestIntegration:
 
         assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)" in makefile
         assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
         assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)" in makefile
         assert "INFRA_SERVICES := db redis" in makefile
 

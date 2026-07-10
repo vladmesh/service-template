@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests infra-start ps dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
+.PHONY: setup lint format typecheck tests infra-start ps dev-start dev-smoke dev-stop dev-clean prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
 
 -include .env
 export
@@ -177,6 +177,9 @@ dev-smoke:
 
 dev-stop:
 	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans
+
+dev-clean:
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans
 
 prod-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROD) up -d --remove-orphans
