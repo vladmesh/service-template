@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests infra-start dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
+.PHONY: setup lint format typecheck tests infra-start ps dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
 
 -include .env
 export
@@ -154,6 +154,9 @@ infra-start:
 	else \
 		$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES); \
 	fi
+
+ps:
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)
