@@ -85,9 +85,34 @@ class TestBackendOnlyGeneration:
         assert "Compose service names are part of the project API" in infra_readme
         assert "Do not declare custom networks" in infra_readme
         assert "-f infra/compose.base.yml -f infra/compose.dev.yml" in infra_readme
-        assert "Environment priority is:" in infra_readme
-        assert "`DATABASE_URL` overrides the sync SQLAlchemy URL" in infra_readme
+        assert "Environment priority depends on where the value is consumed" in infra_readme
+        assert "shell values for the full URLs do not replace those service" in infra_readme
+        assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
         assert "`infra/README.md`" in agents
+
+    def test_infra_contract_matches_compose_env_precedence(self, project_fullstack: Path):
+        """Documented env handles should match generated compose semantics."""
+        import yaml
+
+        infra_readme = (project_fullstack / "infra" / "README.md").read_text()
+        compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
+
+        backend_env = compose["services"]["backend"]["environment"]
+        assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["DATABASE_URL"]
+        assert "${DATABASE_URL:-" not in backend_env["DATABASE_URL"]
+        assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["ASYNC_DATABASE_URL"]
+        assert "${ASYNC_DATABASE_URL:-" not in backend_env["ASYNC_DATABASE_URL"]
+
+        tg_bot = compose["services"]["tg_bot"]
+        notifications_worker = compose["services"]["notifications_worker"]
+        assert tg_bot["env_file"] == ["../.env"]
+        assert notifications_worker["env_file"] == ["../.env"]
+        assert "REDIS_URL" not in tg_bot.get("environment", {})
+        assert "REDIS_URL" not in notifications_worker.get("environment", {})
+
+        assert "full URLs do not replace those service" in infra_readme
+        assert "`REDIS_URL=... docker" in infra_readme
+        assert "does not override the container value" in infra_readme
 
     def test_product_test_scaffolding(self, project_backend: Path):
         """Product should have test scaffolding."""
