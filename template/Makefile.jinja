@@ -103,7 +103,7 @@ tests:
 {% if 'backend' in modules %}
 migrate:
 	@$(MAKE) dev-start svc=db
-	PYTHONPATH=. services/backend/.venv/bin/alembic -c services/backend/migrations/alembic.ini upgrade head
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend alembic -c services/backend/migrations/alembic.ini upgrade head
 
 makemigrations:
 	@if [ -z "$(name)" ]; then \
@@ -111,7 +111,7 @@ makemigrations:
 		exit 1; \
 	fi
 	@$(MAKE) dev-start svc=db
-	PYTHONPATH=. services/backend/.venv/bin/alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend alembic -c services/backend/migrations/alembic.ini revision --autogenerate -m "$(name)"
 
 test-integration:
 	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests

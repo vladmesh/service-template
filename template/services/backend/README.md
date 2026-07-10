@@ -4,9 +4,19 @@ FastAPI application with SQLAlchemy, Alembic, and REST endpoints.
 
 ## Database migrations
 
-Run `services/backend/scripts/migrate.sh` to apply the latest Alembic migrations. The backend
-container entrypoint should execute this script before launching the API server so that the
-database schema stays in sync with the application code.
+Use the root Makefile for migrations:
+
+```bash
+make makemigrations name="describe_change"
+make migrate
+```
+
+Both targets start the dev PostgreSQL container and run Alembic inside a one-off backend
+container. Docker must be available. The generated revision is written to
+`services/backend/migrations/versions/` through the dev bind mount.
+
+The backend container entrypoint runs `services/backend/scripts/migrate.sh` before launching
+the API server, so `make dev-start` also applies the latest migrations.
 
 ## Using Generated Models and Routers
 

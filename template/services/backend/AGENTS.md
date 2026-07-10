@@ -164,8 +164,12 @@ api_router.include_router(todos_router)
 ## Database & Migrations
 
 - Миграции в `services/backend/migrations/versions/`.
-- Применить миграции: `make migrate` (или `services/backend/scripts/migrate.sh`).
+- Применить миграции: `make migrate` или `make dev-start`.
 - Создать новую миграцию: `make makemigrations name="describe_change"`.
+- `make migrate` и `make makemigrations` запускают Alembic в одноразовом `backend`-контейнере
+  через dev compose overlay. Docker должен быть доступен; target сам поднимает и ждёт `db`.
+  Не запускайте host-side `services/backend/.venv/bin/alembic` для автогенерации, потому что
+  `POSTGRES_HOST=db` резолвится только внутри docker-сети.
 - Workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
 
 ## Event Publishing
@@ -197,7 +201,7 @@ await publish_user_registered(event)
 | `make validate-specs` | Проверить YAML спеки |
 | `make lint-specs` | Проверить соответствие спекам |
 | `make lint-controllers` | Проверить синхронизацию контроллеров с протоколами |
-| `make migrate` | Применить миграции (`alembic upgrade head`) |
-| `make makemigrations name="..."` | Создать Alembic миграцию |
+| `make migrate` | Применить миграции в backend-контейнере (`alembic upgrade head`) |
+| `make makemigrations name="..."` | Создать Alembic миграцию в backend-контейнере |
 | `make openapi` | Экспорт OpenAPI JSON |
 | `make tests backend` | Запустить тесты backend |
