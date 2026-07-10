@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
+.PHONY: setup lint format typecheck tests ps dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
 
 -include .env
 export
@@ -145,6 +145,9 @@ log:
 	fi; \
 	echo ">> Showing logs for $$service"; \
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$service
+
+ps:
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)

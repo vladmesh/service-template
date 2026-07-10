@@ -70,6 +70,12 @@ class TestBackendOnlyGeneration:
         content = (project_backend / "README.md").read_text()
         assert BASE_DATA["project_name"] in content
         assert "backend" in content.lower()
+        assert "Use `make ps` to see the current project's Compose stack status." in content
+        assert (
+            "Backend-only projects do not run Redis, so `REDIS_HOST_PORT` has no effect"
+            in content
+        )
+        assert "use `users` as the reference entity" in content
 
     def test_product_test_scaffolding(self, project_backend: Path):
         """Product should have test scaffolding."""
@@ -519,6 +525,8 @@ class TestIntegration:
         """Makefile should have expected targets."""
         makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
+        assert "ps:" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "lint:" in makefile
