@@ -6,6 +6,8 @@ x-backend-env: &backend-env
 {% endif -%}
 name: {{ project_slug }}
 
+# Do not declare custom networks here. Codegen sibling workers replace the
+# implicit default network with their pre-created dev network.
 services:
 {%- if 'backend' in modules %}
   backend:
@@ -30,8 +32,6 @@ services:
       timeout: 3s
       retries: 10
       start_period: 15s
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
 {%- endif %}
 {%- if 'tg_bot' in modules %}
   tg_bot:
@@ -85,8 +85,6 @@ services:
     build:
       context: ../services/frontend
       dockerfile: Dockerfile
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
 {%- endif %}
 {%- if 'tg_bot' in modules or 'notifications' in modules %}
 

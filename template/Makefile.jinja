@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck tests dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
+.PHONY: setup lint format typecheck tests infra-start dev-start dev-smoke dev-stop prod-start prod-stop {% if 'backend' in modules %}migrate makemigrations generate-from-spec validate-specs lint-controllers openapi typescript test-integration{% endif %} log tooling-tests check-deps
 
 -include .env
 export
@@ -6,10 +6,12 @@ export
 DOCKER_COMPOSE ?= docker compose
 COMPOSE_BASE := -f infra/compose.base.yml
 COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
+COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml
 COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME={{ project_slug }}-dev-smoke
+INFRA_SERVICES :={% if 'backend' in modules %} db{% endif %}{% if 'tg_bot' in modules or 'notifications' in modules %} redis{% endif %}
 
 VENV := .venv/bin
 PYTHON := $(VENV)/python
@@ -146,8 +148,15 @@ log:
 	echo ">> Showing logs for $$service"; \
 	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$service
 
+infra-start:
+	@if [ -z "$(strip $(INFRA_SERVICES))" ]; then \
+		echo "No infrastructure services selected, skipping"; \
+	else \
+		$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES); \
+	fi
+
 dev-start:
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)
 
 dev-smoke:
 	@set -e; \
@@ -164,7 +173,7 @@ dev-smoke:
 	done
 
 dev-stop:
-	$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans
 
 prod-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROD) up -d --remove-orphans
