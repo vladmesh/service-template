@@ -4,8 +4,9 @@
 
 - Весь код и зависимости находятся в `services/tg_bot`. Держите `Dockerfile`, `src/` и `tests/` в этом каталоге.
 - Запуск и тесты выполняются через `make` + Docker (`make dev-start`, `make tests tg_bot`). Не устанавливайте deps на хост.
-- Скрипт запуска — `services/tg_bot/src/main.py`. Dockerfile использует uv и базовый образ `python:3.11-slim`.
+- Скрипт запуска — `services/tg_bot/src/main.py`. Dockerfile использует uv и базовый образ `python:{{ python_version }}-slim`.
 
+{%- if 'backend' in modules %}
 ## Event Publishing
 
 Бот публикует события напрямую в Redis Streams (не через REST API backend'а):
@@ -29,6 +30,14 @@ async def post_shutdown(application: Application) -> None:
 event = CommandReceived(command=cmd, args=args, user_id=telegram_id, timestamp=datetime.now(UTC))
 await publish_command_received(event)
 ```
+{%- else %}
+## Event Publishing
+
+Standalone bot projects do not include generated event or schema modules, so
+broker event publishing is not available in this module set. Keep command
+handlers local to the bot unless you add the backend module and regenerate the
+project.
+{%- endif %}
 
 ## Import Rules
 
@@ -38,22 +47,31 @@ await publish_command_received(event)
 
 ```python
 # Внутри services/tg_bot/src/ — relative imports (предпочтительно)
-from .handlers import handle_start, handle_message
-from .config import get_settings
+from .main import build_application, handle_start
+from .middleware import install_update_logging
 
 # Absolute imports (тоже работают, но менее предпочтительны)
-from services.tg_bot.src.handlers import handle_start
+from services.tg_bot.src.main import handle_start
 
+{%- if 'backend' in modules %}
 # Shared-пакет — всегда absolute import
 from shared.generated.schemas import CommandReceived
 from shared.generated.events import get_broker, publish_command_received
+{%- else %}
+# Shared-пакет доступен только для общей инфраструктуры, например logging.
+from shared.logging import configure_logging
+{%- endif %}
 ```
+
+Если вы выносите команды или настройки в новые файлы, сначала создайте эти модули
+в `services/tg_bot/src/`, например `handlers.py` или `config.py`, и только потом
+импортируйте из них.
 
 **Запрещено:**
 ```python
 # НЕ ДЕЛАЙТЕ ТАК:
-from src.handlers import ...                        # src — не пакет верхнего уровня
-import handlers                                     # bare import, не работает как пакет
+from src.main import ...                        # src — не пакет верхнего уровня
+import main                                     # bare import, не работает как пакет
 ```
 
 ## Environment Variables
@@ -61,8 +79,8 @@ import handlers                                     # bare import, не рабо
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Bot token from @BotFather |
-| `REDIS_URL` | Yes | Redis connection string (e.g., `redis://redis:6379`) |
 {%- if 'backend' in modules %}
+| `REDIS_URL` | Yes | Redis connection string (e.g., `redis://redis:6379`) |
 | `BACKEND_API_URL` | Yes | Backend URL for user sync (e.g., `http://backend:8000`) |
 {%- endif %}
 
@@ -74,7 +92,7 @@ import handlers                                     # bare import, не рабо
 2. **Command Events** — Direct publish to Redis Streams (события команд)
 {%- else %}
 
-1. **Command Events** — Direct publish to Redis Streams (события команд)
+1. **Local Commands** — Handlers reply directly from the bot process.
 {%- endif %}
 
 ## Dependencies
@@ -82,5 +100,7 @@ import handlers                                     # bare import, не рабо
 - `python-telegram-bot` — Telegram Bot API
 {%- if 'backend' in modules %}
 - `httpx` — HTTP client for backend communication
-{%- endif %}
 - `shared` — Generated events and schemas from `shared/`
+{%- else %}
+- `shared` — Shared logging helpers from `shared/`
+{%- endif %}

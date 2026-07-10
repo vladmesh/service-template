@@ -16,7 +16,7 @@
 | Команда | Назначение |
 |---------|-----------|
 | `make setup` | Bootstrap: venvs, codegen, git hooks (один раз) |
-| `make lint` | Все линтеры (ruff, xenon, spec validation, compliance) |
+| `make lint` | Полный lint gate: ruff format/check, xenon, spec checks, controller sync, deptry |
 | `make format` | Авто-форматирование (ruff) |
 | `make typecheck` | mypy по сервисам |
 | `make tests` | Все тесты |
@@ -36,6 +36,12 @@
 {%- endif %}
 
 Правила Docker Compose окружения, service DNS, healthchecks и переменных БД/Redis описаны в `infra/README.md`.
+
+`make lint` always runs the same gate sequence: `ruff format --check`,
+`ruff check`, xenon with `--max-absolute B --max-modules A --max-average A`,
+spec validation, spec compliance, controller sync, then `make check-deps`.
+`check-deps` runs deptry for each service that has it installed in its service
+venv.
 
 ## Environment Variables — строгое правило
 
@@ -58,7 +64,7 @@ if not value:
 - `services/*/src/generated/` — перегенерируется по спекам сервиса
 {%- endif %}
 - `.framework/` — внутренности фреймворка
-{%- if 'tg_bot' in modules or 'notifications' in modules %}
+{%- if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
 
 ## Брокер событий — паттерн get_broker()
 
@@ -89,6 +95,13 @@ await publish_command_received(event)  # broker должен быть подкл
 {%- if 'notifications' in modules %}
 **FastStream workers** (`python-faststream`) создают `RedisBroker` напрямую в `main()` и передают в `create_event_adapter()`. Lifecycle управляется через `FastStream(broker).run()`.
 {%- endif %}
+{%- elif 'tg_bot' in modules %}
+
+## Standalone Telegram Bot
+
+При выборе только `tg_bot` Copier не генерирует event/schema-модули. Бот
+работает локально: регистрируйте handlers в `services/tg_bot/src/main.py` и
+используйте `services/tg_bot/AGENTS.md` как сервисную инструкцию.
 {%- endif %}
 
 ## Документация сервисов
