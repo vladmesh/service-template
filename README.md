@@ -74,6 +74,9 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed framework developmen
 
 ### For Framework Users (Template Users)
 - Generated projects include `README.md`, `AGENTS.md`, and `CONTRIBUTING.md` with usage instructions
+- The infrastructure and worker-mode contract is readable before generation at
+  [template/infra/README.md](template/infra/README.md). The root
+  [infra/README.md](infra/README.md) points to that canonical copy.
 
 ### For Framework Developers
 - **[docs/MANIFESTO.md](docs/MANIFESTO.md)**: The core philosophy

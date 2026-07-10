@@ -37,15 +37,38 @@ container. This lets the worker reach `db:5432`, `redis:6379`, and
 Worker mode uses the base and dev layers only:
 
 ```bash
-docker compose -f infra/compose.base.yml -f infra/compose.dev.yml up -d --wait db redis
+make worker-start
 ```
 
-Pass only services that exist in the selected module set. Backend projects have
+That target uses `-f infra/compose.base.yml -f infra/compose.dev.yml` and does
+not include `infra/compose.local.yml`.
+
+This starts every service in the selected module set without the local-port
+layer. Pass `svc=...` to start only selected services. Backend projects have
 both `db` and `redis`; bot-only or notifications-only projects have `redis` but
 no `db`.
 
+For a backend plus notifications project, a full worker-mode smoke run is:
+
+```bash
+make worker-start
+make smoke-probe
+make worker-stop
+```
+
+`make smoke-probe` defaults to `http://backend:8000/health` when the backend
+module is present. To probe another in-network URL, pass both the Python service
+used as a one-off runner and the URL:
+
+```bash
+make smoke-probe SMOKE_RUNNER=backend SMOKE_URL=http://backend:8000/health
+```
+
 Worker mode must not depend on published host ports. The dev layer keeps
 services reachable on the Compose network, and the local-port layer is omitted.
+`make migrate` and `make makemigrations name="..."` use this worker-mode layer
+for their Docker path. Use `SKIP_INFRA_START=1` only when the database is
+already reachable from the host process.
 
 Local developer mode adds published ports:
 
@@ -102,8 +125,9 @@ Use `make ps` and `make log <service>` to inspect the selected Compose project.
 Plain `docker compose ps` does not load the generated `.env`; either export the
 same values in your shell or pass the compose files and project name explicitly.
 
-`make dev-clean` runs `docker compose down --volumes --remove-orphans` with the
-local compose layers, so it removes only resources under the selected Compose
+`make worker-clean` runs `docker compose down --volumes --remove-orphans` with
+the base and dev layers only. `make dev-clean` does the same with the local
+compose layer included. Both remove only resources under the selected Compose
 project name.
 
 External sibling-container orchestrators should keep passing Compose's
