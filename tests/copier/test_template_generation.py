@@ -77,6 +77,18 @@ class TestBackendOnlyGeneration:
         )
         assert "use `users` as the reference entity" in content
 
+    def test_infra_contract_documented(self, project_backend: Path):
+        """Generated project should document the compose infra contract."""
+        infra_readme = (project_backend / "infra" / "README.md").read_text()
+        agents = (project_backend / "AGENTS.md").read_text()
+
+        assert "Compose service names are part of the project API" in infra_readme
+        assert "Do not declare custom networks" in infra_readme
+        assert "-f infra/compose.base.yml -f infra/compose.dev.yml" in infra_readme
+        assert "Environment priority is:" in infra_readme
+        assert "`DATABASE_URL` overrides the sync SQLAlchemy URL" in infra_readme
+        assert "`infra/README.md`" in agents
+
     def test_product_test_scaffolding(self, project_backend: Path):
         """Product should have test scaffolding."""
         tests_dir = project_backend / "tests"
