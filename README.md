@@ -9,17 +9,22 @@ A rigid, spec-first, modular framework for building AI-Agent-ready microservices
 ### Create a New Project
 
 ```bash
-# Install copier
-pip install copier
-
 # Generate a new project
-copier copy gh:vladmesh/service-template my-project
+uvx copier copy gh:vladmesh/service-template my-project \
+  --data project_name=my-project \
+  --defaults \
+  --vcs-ref=HEAD
 
 # Or with specific modules (e.g. standalone bot)
-copier copy gh:vladmesh/service-template my-project \
+uvx copier copy gh:vladmesh/service-template my-project \
   --data project_name=my-project \
-  --data modules=tg_bot
+  --data modules=tg_bot \
+  --defaults \
+  --vcs-ref=HEAD
 ```
+
+Copier uses the latest git tag for git sources by default. `--vcs-ref=HEAD` generates from the
+current default branch; replace it with another branch/ref when needed.
 
 ### Available Modules
 
@@ -43,7 +48,7 @@ make dev-start
 Pull latest infrastructure updates while preserving your code:
 
 ```bash
-copier update --vcs-ref=HEAD
+uvx copier update --vcs-ref=HEAD
 ```
 
 ## Development Workflow (in Generated Projects)

@@ -9,7 +9,7 @@ This document describes how to develop and contribute to the Service Template Fr
 - Docker & Docker Compose
 - Python 3.12+
 - Git
-- Copier (`pip install copier`)
+- uv
 
 ## Repository Structure
 
@@ -55,13 +55,20 @@ make format
 make test-template
 
 # Manual test: generate a project
-copier copy . /tmp/test-project --force
+uvx copier copy . /tmp/test-project \
+  --data project_name=test-project \
+  --defaults \
+  --vcs-ref=HEAD \
+  --force
 
 # Verify generated project
 cd /tmp/test-project
 make lint
 make test
 ```
+
+Copier uses the latest git tag for git sources by default. `--vcs-ref=HEAD` keeps local
+framework smoke tests on the checked-out template state.
 
 ## Key Components
 
