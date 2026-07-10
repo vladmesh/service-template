@@ -10,7 +10,7 @@ from typing import Any
 from faststream.redis import RedisBroker
 from faststream.redis.parser import BinaryMessageFormatV1
 
-from shared.generated.schemas import CommandReceived, UserRegisteredEvent
+from shared.generated.schemas import CommandReceived, UserRead
 
 _broker: RedisBroker | None = None
 
@@ -25,15 +25,18 @@ def get_broker() -> RedisBroker:
         _broker = RedisBroker(redis_url, message_format=BinaryMessageFormatV1)
     return _broker
 
+
 _pub_user_registered: Any = None
 
 
-async def publish_user_registered(message: UserRegisteredEvent) -> Any:
-    """Publish UserRegisteredEvent to channel 'user_registered'."""
+async def publish_user_registered(message: UserRead) -> Any:
+    """Publish UserRead to channel 'user_registered'."""
     global _pub_user_registered
     if _pub_user_registered is None:
         _pub_user_registered = get_broker().publisher("user_registered")
     return await _pub_user_registered.publish(message)
+
+
 _pub_command_received: Any = None
 
 

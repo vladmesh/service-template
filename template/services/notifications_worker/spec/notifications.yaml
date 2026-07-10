@@ -2,6 +2,6 @@ domain: notifications
 
 operations:
   on_user_registered:
-    input: UserRegisteredEvent
+    input: UserRead
     events:
       subscribe: user_registered

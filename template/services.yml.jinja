@@ -7,6 +7,8 @@ services:
       FastAPI backend that exposes REST endpoints, owns the database, and powers the rest of the
       system.
     dev_template: true
+    depends_on:
+      redis: service_healthy
 {%- endif %}
 {%- if 'tg_bot' in modules %}
   - name: tg_bot

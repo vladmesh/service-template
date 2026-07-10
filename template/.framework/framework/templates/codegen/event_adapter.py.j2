@@ -93,7 +93,7 @@ def create_event_adapter(
                 await controller.{{ handler.name }}(session, payload=event)
                 await session.commit()
 {% endif %}
-            except Exception as e:
+            except Exception{% if handler.publish_on_error_channel %} as e{% endif %}:
                 await session.rollback()
 {% if handler.publish_on_error_channel %}
                 await broker.publish(
@@ -105,4 +105,3 @@ def create_event_adapter(
 {% endif %}
 {% endfor %}
 {% endfor %}
-

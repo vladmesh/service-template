@@ -13,7 +13,8 @@ Compose service names are part of the project API. Other containers resolve
 services by these DNS names on the default Compose network:
 
 - `db` is PostgreSQL on port `5432` when the `backend` module is enabled.
-- `redis` is Redis on port `6379` when `tg_bot` or `notifications` is enabled.
+- `redis` is Redis on port `6379` when `backend`, `tg_bot`, or `notifications`
+  is enabled.
 - `backend` is the FastAPI service on port `8000` when the `backend` module is
   enabled.
 - `tg_bot`, `notifications_worker`, and `frontend` are the optional application
@@ -39,9 +40,9 @@ Worker mode uses the base and dev layers only:
 docker compose -f infra/compose.base.yml -f infra/compose.dev.yml up -d --wait db redis
 ```
 
-Pass only services that exist in the selected module set. Backend-only projects
-have `db` but no `redis`; bot-only or notifications-only projects have `redis`
-but no `db`.
+Pass only services that exist in the selected module set. Backend projects have
+both `db` and `redis`; bot-only or notifications-only projects have `redis` but
+no `db`.
 
 Worker mode must not depend on published host ports. The dev layer keeps
 services reachable on the Compose network, and the local-port layer is omitted.

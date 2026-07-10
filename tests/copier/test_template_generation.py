@@ -81,8 +81,7 @@ class TestBackendOnlyGeneration:
         assert "services" in content
         assert "backend" in content["services"]
         assert "db" in content["services"]
-        # Redis should not be included for backend-only
-        assert "redis" not in content["services"]
+        assert "redis" in content["services"]
 
     def test_no_jinja_artifacts(self, project_backend: Path):
         """No Jinja template artifacts should remain."""
@@ -95,9 +94,7 @@ class TestBackendOnlyGeneration:
         assert BASE_DATA["project_name"] in content
         assert "backend" in content.lower()
         assert "Use `make ps` to see the current project's Compose stack status." in content
-        assert (
-            "Backend-only projects do not run Redis, so `REDIS_HOST_PORT` has no effect" in content
-        )
+        assert "`REDIS_HOST_PORT` maps Redis to container port `6379`" in content
         assert "use `users` as the reference entity" in content
 
     def test_infra_contract_documented(self, project_backend: Path):
@@ -325,13 +322,12 @@ class TestEnvExample:
         assert env_keys(project / ".env") == env_keys(project / ".env.example")
 
     def test_backend_only_env(self, project_backend: Path):
-        """Backend-only should have postgres but not redis or telegram."""
+        """Backend-only should have postgres and redis but not telegram."""
         env_content = (project_backend / ".env.example").read_text()
         assert "POSTGRES" in env_content
         assert "BACKEND_PORT=8000" in env_content
         assert "# COMPOSE_PROJECT_NAME=test_project-dev" in env_content
-        # Backend-only does NOT include redis (no tg_bot/notifications)
-        assert "REDIS" not in env_content
+        assert "REDIS" in env_content
         assert "TELEGRAM" not in env_content
 
     def test_with_tg_bot_env(self, project_backend_tg_bot: Path):
@@ -454,12 +450,12 @@ class TestModuleExclusion:
 class TestComposeServices:
     """Test Docker Compose service generation."""
 
-    def test_redis_only_with_event_modules(self, project_backend: Path):
-        """Redis should not be included for backend-only."""
+    def test_redis_with_backend(self, project_backend: Path):
+        """Redis should be included with backend because REST endpoints publish events."""
         import yaml
 
         compose = yaml.safe_load((project_backend / "infra" / "compose.base.yml").read_text())
-        assert "redis" not in compose.get("services", {})
+        assert "redis" in compose.get("services", {})
 
     def test_redis_with_notifications(self, tmp_path: Path):
         """Redis should be included with notifications module."""
@@ -540,12 +536,12 @@ class TestComposeServices:
         assert compose_local["services"]["redis"]["ports"] == ["${REDIS_HOST_PORT:-6379}:6379"]
         assert compose_local["services"]["frontend"]["ports"] == ["${FRONTEND_PORT:-3000}:3000"]
 
-    def test_dev_compose_no_redis_backend_only(self, project_backend: Path):
-        """compose.dev.yml should not include redis for backend-only."""
+    def test_dev_compose_has_redis_backend_only(self, project_backend: Path):
+        """compose.dev.yml should include redis for backend event publishing."""
         import yaml
 
         compose_dev = yaml.safe_load((project_backend / "infra" / "compose.dev.yml").read_text())
-        assert "redis" not in compose_dev.get("services", {})
+        assert "redis" in compose_dev.get("services", {})
         assert "tg_bot" not in compose_dev.get("services", {})
 
     def test_dev_compose_uses_image_venvs(self, project_fullstack: Path):
@@ -910,11 +906,11 @@ esac
         assert "python-faststream" not in arch
 
     def test_contributing_md_conditional_content(self, project_backend: Path):
-        """CONTRIBUTING.md should have common pitfalls but not broker pitfall for backend-only."""
+        """CONTRIBUTING.md should include broker lifecycle guidance for backend."""
         contributing = (project_backend / "CONTRIBUTING.md").read_text()
         assert "Common Pitfalls" in contributing
         assert "Stale Shared Code" in contributing
-        assert "Missing Broker Connection" not in contributing
+        assert "Missing Broker Connection" in contributing
 
     def test_contributing_md_with_tg_bot(self, project_backend_tg_bot: Path):
         """CONTRIBUTING.md should include broker pitfall when event modules selected."""
@@ -1262,15 +1258,12 @@ class TestDockerReadiness:
             "losing .venv/bin. Use 'bash -c' instead."
         )
 
-    def test_backend_only_lifespan_no_broker(self, project_backend: Path):
-        """Backend-only lifespan should NOT import get_broker (no REDIS_URL)."""
+    def test_backend_lifespan_has_broker(self, project_backend: Path):
+        """Backend lifespan should connect the broker for REST event publishing."""
         lifespan = project_backend / "services" / "backend" / "src" / "app" / "lifespan.py"
         assert lifespan.exists(), "lifespan.py not found"
         content = lifespan.read_text()
-        assert "get_broker" not in content, (
-            "Backend-only lifespan.py imports get_broker which requires REDIS_URL, "
-            "but backend-only has no Redis."
-        )
+        assert "get_broker" in content
 
     def test_fullstack_lifespan_has_broker(self, project_fullstack: Path):
         """Fullstack lifespan should import get_broker for event-driven modules."""

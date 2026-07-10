@@ -60,7 +60,7 @@ services:
       file: compose.base.yml
       service: db
 {%- endif %}
-{%- if 'tg_bot' in modules or 'notifications' in modules %}
+{%- if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %}
 
   redis:
     extends:

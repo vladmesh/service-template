@@ -11,6 +11,8 @@ graph TD
     Models[shared/spec/models.yaml] -->|generate| Schemas[shared/generated/schemas.py]
     Events[shared/spec/events.yaml] -->|generate| EventsPy[shared/generated/events.py]
     Domain[services/*/spec/*.yaml] -->|generate| Protocols[src/generated/protocols.py]
+    Domain -->|generate| Routers[src/generated/routers/*.py]
+    Domain -->|generate| Registry[src/generated/registry.py]
     Domain -->|generate| EventAdapters[src/generated/event_adapter.py]
 ```
 
@@ -20,7 +22,7 @@ graph TD
 |------|----------|-----------|
 | Models | `shared/spec/models.yaml` | Pydantic schemas |
 | Events | `shared/spec/events.yaml` | FastStream pub/sub |
-| Domain | `services/<service>/spec/<domain>.yaml` | Protocols, controllers, event adapters |
+| Domain | `services/<service>/spec/<domain>.yaml` | Protocols, controller stubs, REST routers, router registry, event adapters |
 
 **Note**: Specs act as contracts between services. For standalone modules (e.g. `tg_bot` without `backend`), specs are optional and their validation is gracefully skipped.
 
@@ -117,6 +119,24 @@ operations:
       publish_on_error: import.failed    # Error handling channel
 ```
 
+### Generated REST Router
+
+For services with `rest:` operations, the framework generates
+`src/generated/routers/<domain>.py` and `src/generated/registry.py`. The router
+declares FastAPI endpoints from the spec and delegates business logic to the
+manual controller.
+
+For operations with `events.publish_on_success`, the generated REST endpoint
+commits the database session after the controller succeeds, then publishes the
+controller result to the configured Redis channel:
+
+```python
+result = await controller.create_user(session=session, payload=payload)
+await session.commit()
+await broker.publish(result, "user_registered")
+return result
+```
+
 ### Generated Event Adapter
 
 For services with `events.subscribe` operations, the framework generates `event_adapter.py`:
@@ -176,23 +196,14 @@ This is the **wiring layer** where generated routers are composed with dependenc
 ```python
 # services/backend/src/app/api/router.py
 from services.backend.src.generated.registry import create_api_router
-from services.backend.src.controllers.users import UsersController
-
-def get_users_controller() -> UsersController:
-    return UsersController()
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
-domain_router = create_api_router(
-    get_db=get_async_db,
-    get_broker=get_broker,
-    get_users_controller=get_users_controller,
-)
-api_router.include_router(domain_router)
+api_router.include_router(create_api_router())
 ```
 
 **Why manual:**
-- Controller instantiation may need custom dependency injection
+- Non-domain endpoints such as health checks remain hand-wired
 - Flexibility for middleware, exception handlers, CORS configuration
 - Single place to understand "how everything connects"
 

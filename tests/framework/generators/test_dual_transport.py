@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 from framework.generators.routers import RoutersGenerator
-
 from framework.spec.operations import DomainSpec
 
 
@@ -21,6 +20,7 @@ class TestDualTransport:
         }
 
         domain = DomainSpec.from_yaml("users", domain_data)
+        domain.service_name = "backend"
 
         specs = MagicMock()
         specs.domains = {"backend/users": domain}
@@ -29,8 +29,8 @@ class TestDualTransport:
         generator = RoutersGenerator(specs, tmp_path)
         generated_files = generator.generate()
 
-        assert len(generated_files) == 1
-        router_file = generated_files[0]
+        assert len(generated_files) == 3
+        router_file = next(path for path in generated_files if path.name == "users.py")
         content = router_file.read_text()
 
         # 3. Verify content
@@ -60,6 +60,7 @@ class TestDualTransport:
         }
 
         domain = DomainSpec.from_yaml("users", domain_data)
+        domain.service_name = "backend"
 
         specs = MagicMock()
         specs.domains = {"backend/users": domain}
@@ -68,7 +69,7 @@ class TestDualTransport:
         generator = RoutersGenerator(specs, tmp_path)
         generated_files = generator.generate()
 
-        router_file = generated_files[0]
+        router_file = next(path for path in generated_files if path.name == "users.py")
         content = router_file.read_text()
 
         # 3. Verify absence of event logic

@@ -22,15 +22,6 @@ models:
         optional: [telegram_id, is_admin]
       Read: {}
 
-  UserRegisteredEvent:
-    fields:
-      user_id:
-        type: int
-      email:
-        type: string
-      timestamp:
-        type: datetime
-
   CommandReceived:
     fields:
       command:

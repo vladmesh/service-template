@@ -1,6 +1,6 @@
 events:
   user_registered:
-    message: UserRegisteredEvent
+    message: UserRead
     publish: true
     subscribe: false
 

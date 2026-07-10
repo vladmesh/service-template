@@ -2,6 +2,7 @@
 x-backend-env: &backend-env
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-service}
   ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-service}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
 
 {% endif -%}
 name: {{ project_slug }}
@@ -25,6 +26,8 @@ services:
     command: ["services/backend/scripts/start.sh"]
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -88,7 +91,7 @@ services:
       context: ../services/frontend
       dockerfile: Dockerfile
 {%- endif %}
-{%- if 'tg_bot' in modules or 'notifications' in modules %}
+{%- if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %}
 
   redis:
     image: redis:7-alpine

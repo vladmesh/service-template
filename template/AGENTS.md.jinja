@@ -64,7 +64,7 @@ if not value:
 - `services/*/src/generated/` — перегенерируется по спекам сервиса
 {%- endif %}
 - `.framework/` — внутренности фреймворка
-{%- if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
+{%- if 'backend' in modules %}
 
 ## Брокер событий — паттерн get_broker()
 

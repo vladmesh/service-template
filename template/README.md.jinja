@@ -22,11 +22,8 @@
 {% if 'backend' in modules -%}
 - `BACKEND_PORT` maps the backend HTTP service to container port `8000`.
 - `POSTGRES_HOST_PORT` maps PostgreSQL to container port `5432`.
-{% if 'tg_bot' not in modules and 'notifications' not in modules -%}
-- Backend-only projects do not run Redis, so `REDIS_HOST_PORT` has no effect unless `tg_bot` or `notifications` is selected.
 {% endif -%}
-{% endif -%}
-{% if 'tg_bot' in modules or 'notifications' in modules -%}
+{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules -%}
 - `REDIS_HOST_PORT` maps Redis to container port `6379`.
 {% endif -%}
 {% if 'frontend' in modules -%}
@@ -75,8 +72,8 @@ This project includes the following modules:
 
 {% if 'backend' in modules -%}
 - **Add/modify models:** Edit `shared/spec/models.yaml` → `make generate-from-spec`
-- **Add endpoints:** Edit `services/backend/spec/routers/*.yaml` → `make generate-from-spec`
-- **Add CRUD by analogy:** use `users` as the reference entity for spec, repository, controller, router and tests.
+- **Add endpoints:** Edit `services/backend/spec/*.yaml` → `make generate-from-spec`
+- **Add CRUD by analogy:** use `users` as the reference entity for spec, repository, controller and tests.
 - **Create database migrations:** add or change ORM models, then run
   `make makemigrations name="describe_change"`. The target starts the PostgreSQL dev container
   and runs Alembic inside a one-off backend container. It upgrades the database to the current
@@ -100,7 +97,7 @@ This project includes the following modules:
 - **FastAPI** + **Pydantic** (spec-first)
 - **PostgreSQL** + **SQLAlchemy** + **Alembic**
 {% endif -%}
-{% if 'tg_bot' in modules or 'notifications' in modules -%}
+{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules -%}
 - **Redis** + **FastStream** (async messaging)
 {% endif -%}
 {% if 'frontend' in modules -%}
