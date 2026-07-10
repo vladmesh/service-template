@@ -79,6 +79,32 @@ docker compose -f infra/compose.base.yml -f infra/compose.prod.yml up -d --remov
 Integration-test mode uses `infra/compose.tests.integration.yml` directly
 through `make test-integration`.
 
+## Parallel run isolation
+
+Set a unique Compose project name when running multiple generated projects on
+one Docker host:
+
+```bash
+COMPOSE_PROJECT_NAME=my-project-dev make dev-start
+```
+
+The generated `.env` and `.env.example` include a commented
+`COMPOSE_PROJECT_NAME` line for this. Pair it with distinct published host
+ports in `.env` when the local-port layer is enabled:
+
+- `POSTGRES_HOST_PORT` for PostgreSQL.
+- `REDIS_HOST_PORT` for Redis.
+- `BACKEND_PORT` for the backend HTTP service.
+- `FRONTEND_PORT` for the frontend.
+
+`make dev-clean` runs `docker compose down --volumes --remove-orphans` with the
+local compose layers, so it removes only resources under the selected Compose
+project name.
+
+External sibling-container orchestrators should keep passing Compose's
+`--project-name` option explicitly when they need deterministic project names.
+That mode still uses the base and dev layers without published host ports.
+
 ## Healthchecks
 
 Infrastructure services must have healthchecks. External orchestrators and the
