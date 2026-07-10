@@ -45,6 +45,7 @@ class TestDualTransport:
 
         # Check publishing logic
         assert 'await broker.publish(result, "user.created")' in content
+        assert "await session.commit()" not in content
 
     def test_router_skips_broker_if_no_events(self, tmp_path):
         # 1. Setup specs with only REST

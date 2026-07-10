@@ -124,6 +124,9 @@ class OperationSpec(BaseModel):
         if self.events and self.events.subscribe and not self.input_model:
             msg = f"Operation '{self.name}' with events.subscribe must have 'input' model"
             raise ValueError(msg)
+        if self.events and self.events.publish_on_success and not self.output_model:
+            msg = f"Operation '{self.name}' with events.publish_on_success must have 'output' model"
+            raise ValueError(msg)
         return self
 
     @property

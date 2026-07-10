@@ -89,7 +89,6 @@ def create_router(
 {% endif %}
         )
 {% if handler.publish_channel %}
-        await session.commit()
         await broker.publish(result, "{{ handler.publish_channel }}")
 {% endif %}
 {% if handler.output_model %}

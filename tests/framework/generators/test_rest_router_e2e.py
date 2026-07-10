@@ -196,7 +196,7 @@ operations:
         )
 
         assert response.model_dump() == {"id": 1, "name": "router"}
-        assert session.commits == 1
+        assert session.commits == 0
         assert [event.model_dump() for event in received] == [{"id": 1, "name": "router"}]
     finally:
         sys.path.remove(str(root / "shared"))

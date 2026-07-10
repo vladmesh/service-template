@@ -126,13 +126,14 @@ For services with `rest:` operations, the framework generates
 declares FastAPI endpoints from the spec and delegates business logic to the
 manual controller.
 
-For operations with `events.publish_on_success`, the generated REST endpoint
-commits the database session after the controller succeeds, then publishes the
-controller result to the configured Redis channel:
+For operations with `events.publish_on_success`, the operation must declare an
+`output` model. The generated REST endpoint publishes the controller result to
+the configured Redis channel after the controller succeeds. The database
+dependency still owns commit and rollback, so a publish error raises before
+`get_async_db()` commits the transaction:
 
 ```python
 result = await controller.create_user(session=session, payload=payload)
-await session.commit()
 await broker.publish(result, "user_registered")
 return result
 ```
