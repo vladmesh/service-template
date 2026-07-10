@@ -124,6 +124,7 @@ class TestStandaloneGeneration:
         services = compose.get("services", {})
         assert "tg_bot" in services
         assert "redis" in services
+        assert services["tg_bot"]["depends_on"]["redis"]["condition"] == "service_healthy"
 
     def test_services_yml_has_tg_bot(self, project_standalone: Path):
         """services.yml should contain tg_bot with a polling Python runtime type."""
@@ -175,6 +176,17 @@ class TestBackendWithTgBotGeneration:
         assert tg_bot is not None, "tg_bot service not found"
         assert "depends_on" in tg_bot
         assert tg_bot["depends_on"].get("redis") == "service_healthy"
+
+    def test_compose_tg_bot_waits_for_redis(self, project_backend_tg_bot: Path):
+        """tg_bot should wait for Redis health in real compose output."""
+        import yaml
+
+        compose = yaml.safe_load(
+            (project_backend_tg_bot / "infra" / "compose.base.yml").read_text()
+        )
+        depends_on = compose["services"]["tg_bot"]["depends_on"]
+        assert depends_on["redis"]["condition"] == "service_healthy"
+        assert depends_on["backend"]["condition"] == "service_started"
 
 
 class TestFullStackGeneration:
