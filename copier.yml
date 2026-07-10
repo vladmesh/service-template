@@ -29,7 +29,22 @@ _exclude:
   # Always exclude test_service (it's for template development only)
   - services/test_service
   - services/test_service/**
-
+  # Exclude modules that were not selected before Copier starts copying files.
+  - "{% if 'tg_bot' not in modules %}services/tg_bot{% endif %}"
+  - "{% if 'tg_bot' not in modules %}services/tg_bot/**{% endif %}"
+  - "{% if 'notifications' not in modules %}services/notifications_worker{% endif %}"
+  - "{% if 'notifications' not in modules %}services/notifications_worker/**{% endif %}"
+  - "{% if 'backend' not in modules %}services/backend{% endif %}"
+  - "{% if 'backend' not in modules %}services/backend/**{% endif %}"
+  - "{% if 'frontend' not in modules %}services/frontend{% endif %}"
+  - "{% if 'frontend' not in modules %}services/frontend/**{% endif %}"
+  - "{% if 'backend' not in modules %}shared/spec{% endif %}"
+  - "{% if 'backend' not in modules %}shared/spec/**{% endif %}"
+  - "{% if 'backend' not in modules %}shared/shared/generated{% endif %}"
+  - "{% if 'backend' not in modules %}shared/shared/generated/**{% endif %}"
+  - "{% if 'backend' not in modules %}shared/shared/http_client.py{% endif %}"
+  - "{% if 'backend' not in modules %}services/*/spec{% endif %}"
+  - "{% if 'backend' not in modules %}services/*/spec/**{% endif %}"
 
 # Files to skip if they already exist (preserve user modifications on update)
 _skip_if_exists:
@@ -111,21 +126,3 @@ node_version:
   help: "Node.js version (for frontend)"
   default: "20"
   when: "{{ 'frontend' in modules }}"
-
-# ============================================================================
-# Tasks - Clean up unselected modules after copy
-# ============================================================================
-# NOTE: When running copier via Docker, pass -e HOST_UID=$(id -u) -e HOST_GID=$(id -g)
-# to fix file ownership. The last task will chown all files to the host user.
-# NOTE: No ruff/formatting here - templates should produce clean output by design,
-# and any formatting should be done in containers via `make format`.
-_tasks:
-  - "{% if 'tg_bot' not in modules %}rm -rf services/tg_bot{% endif %}"
-  - "{% if 'notifications' not in modules %}rm -rf services/notifications_worker{% endif %}"
-  - "{% if 'backend' not in modules %}rm -rf services/backend{% endif %}"
-  - "{% if 'frontend' not in modules %}rm -rf services/frontend{% endif %}"
-  - "{% if 'backend' not in modules %}rm -rf shared/spec shared/shared/generated shared/shared/http_client.py{% endif %}"
-  - "{% if 'backend' not in modules %}rm -rf services/*/spec{% endif %}"
-  # Fix file permissions if running as root in Docker
-  - "if [ -n \"$HOST_UID\" ] && [ -n \"$HOST_GID\" ]; then chown -R $HOST_UID:$HOST_GID .; fi"
-

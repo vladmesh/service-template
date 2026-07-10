@@ -20,7 +20,6 @@ Run `uvx copier` with the following flags to ensure non-interactive execution an
 uvx copier copy gh:vladmesh/service-template . \
   --data project_name="my-project" \
   --data modules="tg_bot" \
-  --trust \
   --defaults \
   --vcs-ref=HEAD \
   --overwrite
@@ -29,7 +28,6 @@ uvx copier copy gh:vladmesh/service-template . \
 Copier defaults to the latest git tag for git sources. `--vcs-ref=HEAD` keeps bootstrap output on the current template state instead of an older release tag.
 
 **Key Flags:**
-- `--trust`: Required to run template extensions/scripts.
 - `--defaults`: **CRITICAL**. Uses default values for non-specified answers, preventing interactive prompts that hang execution.
 - `--vcs-ref=HEAD`: Required because Copier otherwise uses the latest git tag for git sources.
 - `--overwrite`: Resolves conflicts automatically (essential if the directory is not empty).

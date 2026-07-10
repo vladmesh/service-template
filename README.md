@@ -43,7 +43,7 @@ make dev-start
 Pull latest infrastructure updates while preserving your code:
 
 ```bash
-copier update
+copier update --vcs-ref=HEAD
 ```
 
 ## Development Workflow (in Generated Projects)
