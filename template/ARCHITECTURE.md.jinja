@@ -15,8 +15,8 @@ graph TD
     Services -->|Implemented in| Docker[Docker Containers]
 ```
 
-1.  **Define:** You edit `shared/spec/models.yaml`{% if 'tg_bot' in modules or 'notifications' in modules %} or `shared/spec/events.yaml`{% endif %}.
-2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models, protocols, and event adapters.
+1.  **Define:** You edit `shared/spec/models.yaml`, `shared/spec/events.yaml`, or `services/<service>/spec/*.yaml`.
+2.  **Generate:** Run `make generate-from-spec`. This produces Pydantic models, protocols, REST routers, and event adapters.
 3.  **Implement:** Services import these generated assets. You only write the business logic to satisfy the interfaces.
 {%- endif %}
 
@@ -25,7 +25,7 @@ graph TD
 The project is a collection of modular services defined in `services.yml`.
 
 - **Definition:** A service is simply an entry in `services.yml` with a `name`, `type`, and `description`.
-- **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure ({% if 'backend' in modules %}DB{% if 'tg_bot' in modules or 'notifications' in modules %}, {% endif %}{% endif %}{% if 'tg_bot' in modules or 'notifications' in modules %}Queue{% endif %}).
+- **Isolation:** Each service is its own Docker container. They communicate only via defined APIs or shared infrastructure ({% if 'backend' in modules %}DB, Queue{% elif 'tg_bot' in modules or 'notifications' in modules %}Queue{% endif %}).
 
 ### Service Types
 
@@ -81,10 +81,10 @@ Services can specify `depends_on` in `services.yml` to document runtime dependen
 {% if 'backend' in modules -%}
 - **PostgreSQL:** Primary database for persistent storage.
 {% endif -%}
-{% if 'tg_bot' in modules or 'notifications' in modules -%}
+{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules -%}
 - **Redis:** Message broker for async event processing.
 {% endif -%}
-{% if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
+{% if 'backend' in modules %}
 ## Unified Handlers
 
 The framework supports **unified handlers** — operations that work over multiple transports.

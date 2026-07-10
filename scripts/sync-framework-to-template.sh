@@ -26,7 +26,10 @@ if [ -z "$DRY_RUN" ]; then
 fi
 
 # Use rsync to sync files (delete removes files not in source)
-rsync -av --delete $DRY_RUN "$SOURCE_DIR/" "$TARGET_DIR/"
+rsync -av --delete \
+    --exclude '__pycache__/' \
+    --exclude '*.pyc' \
+    $DRY_RUN "$SOURCE_DIR/" "$TARGET_DIR/"
 
 if [ -n "$DRY_RUN" ]; then
     echo ""

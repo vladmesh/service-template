@@ -97,6 +97,15 @@ class TestOperationSpecValidation:
         assert op.events is not None
         assert op.events.publish_on_success == "user.created"
 
+    def test_publish_on_success_requires_output_model(self) -> None:
+        """publish_on_success publishes the controller result, so output is required."""
+        with pytest.raises(ValueError, match="publish_on_success.*'output' model"):
+            OperationSpec(
+                name="create_user",
+                rest=RestConfig(method="POST"),
+                events=EventsConfig(publish_on_success="user.created"),
+            )
+
     def test_operation_must_have_transport(self) -> None:
         """Operation without transport fails."""
         with pytest.raises(ValueError, match="at least one transport"):

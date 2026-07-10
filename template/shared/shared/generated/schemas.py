@@ -49,15 +49,6 @@ class UserRead(BaseModel):
     updated_at: AwareDatetime
 
 
-class UserRegisteredEvent(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    user_id: int
-    email: str
-    timestamp: AwareDatetime
-
-
 class CommandReceived(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

@@ -28,12 +28,14 @@ async def test_handle_user_registered_logs_event() -> None:
     from services.notifications_worker.src.controllers.notifications import (
         NotificationsController,
     )
-    from shared.generated.schemas import UserRegisteredEvent
+    from shared.generated.schemas import UserRead
 
-    event = UserRegisteredEvent(
-        user_id=123,
-        email="test@example.com",
-        timestamp=datetime.now(UTC),
+    event = UserRead(
+        id=123,
+        telegram_id=456,
+        is_admin=False,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
     controller = NotificationsController()
@@ -45,8 +47,8 @@ async def test_handle_user_registered_logs_event() -> None:
 
     assert len(logs) == 1
     assert logs[0]["event"] == "Controller handled user registered"
-    assert logs[0]["user_id"] == event.user_id
-    assert logs[0]["email"] == event.email
+    assert logs[0]["user_id"] == event.id
+    assert logs[0]["telegram_id"] == event.telegram_id
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@
 """
 Protocols for service controllers.
 """
+
 from __future__ import annotations
 
 from typing import Protocol
@@ -19,42 +20,37 @@ from shared.generated.schemas import (
     UserUpdate,
 )
 
+
 class UsersControllerProtocol(Protocol):
     """Protocol for users controller."""
 
     async def list_users(
         self,
         session: AsyncSession,
-    ) -> list[UserRead]:
-        ...
+    ) -> list[UserRead]: ...
 
     # Dual transport: REST + Events
     async def create_user(
         self,
         session: AsyncSession,
         payload: UserCreate,
-    ) -> UserRead:
-        ...
+    ) -> UserRead: ...
 
     async def get_user(
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> UserRead:
-        ...
+    ) -> UserRead: ...
 
     async def update_user(
         self,
         session: AsyncSession,
         user_id: int,
         payload: UserUpdate,
-    ) -> UserRead:
-        ...
+    ) -> UserRead: ...
 
     async def delete_user(
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> None:
-        ...
-
+    ) -> None: ...

@@ -92,6 +92,7 @@ domain: notifications
 operations:
   send_notification:
     input: UserEvent
+    output: UserEvent
     events:
       subscribe: user.created
       publish_on_success: notification.sent

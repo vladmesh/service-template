@@ -8,6 +8,8 @@ from fastapi import status
 from httpx import AsyncClient
 import pytest
 
+import shared.generated.events as events_module
+
 
 async def _create_user(
     client: AsyncClient, telegram_id: int = 111, is_admin: bool = False
@@ -41,6 +43,17 @@ async def test_create_and_get_user(client: AsyncClient) -> None:
     fetched = await client.get(f"/users/{created['id']}")
     assert fetched.status_code == status.HTTP_200_OK
     assert fetched.json()["telegram_id"] == 123456789  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
+async def test_create_user_publishes_user_registered(client: AsyncClient) -> None:
+    await _create_user(client, telegram_id=123456789)
+
+    broker = events_module.get_broker()
+    broker.publish.assert_awaited_once()
+    event, channel = broker.publish.await_args.args
+    assert channel == "user_registered"
+    assert event.telegram_id == 123456789  # noqa: PLR2004
 
 
 @pytest.mark.asyncio

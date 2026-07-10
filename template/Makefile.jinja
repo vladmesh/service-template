@@ -11,7 +11,7 @@ COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
 COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
 COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME={{ project_slug }}-dev-smoke
-INFRA_SERVICES :={% if 'backend' in modules %} db{% endif %}{% if 'tg_bot' in modules or 'notifications' in modules %} redis{% endif %}
+INFRA_SERVICES :={% if 'backend' in modules %} db{% endif %}{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %} redis{% endif %}
 
 VENV := .venv/bin
 PYTHON := $(VENV)/python

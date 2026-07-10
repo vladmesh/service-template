@@ -84,6 +84,6 @@ Avoid these common mistakes:
 {%- if 'backend' in modules %}
 - **Dockerfile Copies:** COPY sources in Dockerfiles should stay within the service directory or use `shared/`.
 {%- endif %}
-{%- if 'backend' in modules and ('tg_bot' in modules or 'notifications' in modules) %}
+{%- if 'backend' in modules %}
 - **Missing Broker Connection:** Публикация событий до вызова `get_broker().connect()` приводит к `AssertionError`. Lifecycle управляется автоматически: в FastAPI — через `lifespan`, в tg_bot — через `post_init`/`post_shutdown`. Не вызывайте `connect()` вручную в обработчиках.
 {%- endif %}
