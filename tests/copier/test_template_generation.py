@@ -86,6 +86,8 @@ class TestBackendOnlyGeneration:
         assert "Do not declare custom networks" in infra_readme
         assert "-f infra/compose.base.yml -f infra/compose.dev.yml" in infra_readme
         assert "Environment priority depends on where the value is consumed" in infra_readme
+        assert "shell-prefix value before `make` does not override" in infra_readme
+        assert "do not append `sslmode=require`" in infra_readme
         assert "shell values for the full URLs do not replace those service" in infra_readme
         assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
         assert "`infra/README.md`" in agents
@@ -96,12 +98,19 @@ class TestBackendOnlyGeneration:
 
         infra_readme = (project_fullstack / "infra" / "README.md").read_text()
         compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
+        makefile = (project_fullstack / "Makefile").read_text()
+
+        assert "-include .env\nexport" in makefile
+        assert "POSTGRES_HOST=custom-db make" not in infra_readme
+        assert "make POSTGRES_HOST=custom-db POSTGRES_PORT=6543 migrate" in infra_readme
 
         backend_env = compose["services"]["backend"]["environment"]
         assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["DATABASE_URL"]
         assert "${DATABASE_URL:-" not in backend_env["DATABASE_URL"]
+        assert "sslmode=require" not in backend_env["DATABASE_URL"]
         assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["ASYNC_DATABASE_URL"]
         assert "${ASYNC_DATABASE_URL:-" not in backend_env["ASYNC_DATABASE_URL"]
+        assert "sslmode=require" not in backend_env["ASYNC_DATABASE_URL"]
 
         tg_bot = compose["services"]["tg_bot"]
         notifications_worker = compose["services"]["notifications_worker"]

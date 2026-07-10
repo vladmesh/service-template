@@ -103,14 +103,17 @@ Environment priority depends on where the value is consumed:
    or command environment first, then generated `.env`, then the default in the
    compose file.
 2. Container variables loaded with `env_file` come from generated `.env`.
-3. Local `make` and Python commands use process environment first, then values
-   exported from generated `.env`.
+3. Local `make` commands include and export generated `.env`. Make command-line
+   variables override it. A shell-prefix value before `make` does not override a
+   variable already assigned by `.env` unless you opt into GNU Make environment
+   precedence with `make -e`.
+4. Local Python commands use process environment first, then application
+   defaults.
 
 For local `make` targets, `.env` is included and exported by the generated
-Makefile. Passing a variable on the command line overrides it, for example:
+Makefile. Pass overrides as make variables:
 
 ```bash
-POSTGRES_HOST=custom-db make migrate
 make POSTGRES_HOST=custom-db POSTGRES_PORT=6543 migrate
 ```
 
@@ -119,8 +122,11 @@ local process commands:
 
 - `POSTGRES_HOST` and `POSTGRES_PORT` select the host and port used to build
   Compose database URLs. The generated `.env` uses `db` and `5432`.
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
-  `POSTGRES_REQUIRE_SSL` complete the generated URL.
+- `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` complete the Compose
+  database URLs.
+- `POSTGRES_REQUIRE_SSL` is read by backend settings when backend code builds a
+  URL from parts outside Compose. The Compose-built `DATABASE_URL` and
+  `ASYNC_DATABASE_URL` entries do not append `sslmode=require`.
 - `DATABASE_URL` overrides the sync SQLAlchemy URL when backend code runs
   outside Compose.
 - `ASYNC_DATABASE_URL` overrides the async SQLAlchemy URL when backend code runs
