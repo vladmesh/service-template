@@ -66,6 +66,11 @@ This project includes the following modules:
 {% if 'backend' in modules -%}
 - **Add/modify models:** Edit `shared/spec/models.yaml` → `make generate-from-spec`
 - **Add endpoints:** Edit `services/backend/spec/routers/*.yaml` → `make generate-from-spec`
+- **Create database migrations:** add or change ORM models, then run
+  `make makemigrations name="describe_change"`. The target starts the PostgreSQL dev container
+  and runs Alembic inside a one-off backend container, so Docker must be available and the
+  migration file is written to `services/backend/migrations/versions/`.
+- **Apply database migrations:** run `make migrate` or `make dev-start`.
 {% endif -%}
 - **Run linter:** `make lint`
 - **Run formatter:** `make format`
