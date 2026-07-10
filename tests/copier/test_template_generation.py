@@ -126,11 +126,14 @@ class TestStandaloneGeneration:
         assert "redis" in services
 
     def test_services_yml_has_tg_bot(self, project_standalone: Path):
-        """services.yml should contain tg_bot."""
-        content = (project_standalone / "services.yml").read_text()
-        assert "tg_bot" in content
-        assert "notifications_worker" not in content
-        assert "frontend" not in content
+        """services.yml should contain tg_bot with a polling Python runtime type."""
+        import yaml
+
+        content = yaml.safe_load((project_standalone / "services.yml").read_text())
+        services = {service["name"]: service for service in content["services"]}
+        assert services["tg_bot"]["type"] == "python"
+        assert "notifications_worker" not in services
+        assert "frontend" not in services
 
     def test_workflow_matrix_has_tg_bot(self, project_standalone: Path):
         """Workflow matrix should include tg-bot."""
@@ -156,9 +159,12 @@ class TestBackendWithTgBotGeneration:
 
     def test_services_yml_has_both(self, project_backend_tg_bot: Path):
         """services.yml should have both services."""
-        content = (project_backend_tg_bot / "services.yml").read_text()
-        assert "backend" in content
-        assert "tg_bot" in content
+        import yaml
+
+        content = yaml.safe_load((project_backend_tg_bot / "services.yml").read_text())
+        services = {service["name"]: service for service in content["services"]}
+        assert services["backend"]["type"] == "python-fastapi"
+        assert services["tg_bot"]["type"] == "python"
 
     def test_tg_bot_depends_on_redis(self, project_backend_tg_bot: Path):
         """tg_bot should depend on redis: service_healthy in services.yml."""
@@ -185,6 +191,17 @@ class TestFullStackGeneration:
         """No Jinja artifacts in full generation."""
         errors = check_no_jinja_artifacts(project_fullstack)
         assert not errors, f"Found Jinja artifacts: {errors}"
+
+    def test_services_yml_types(self, project_fullstack: Path):
+        """Full generation should keep polling bots and FastStream workers distinct."""
+        import yaml
+
+        content = yaml.safe_load((project_fullstack / "services.yml").read_text())
+        services = {service["name"]: service for service in content["services"]}
+        assert services["backend"]["type"] == "python-fastapi"
+        assert services["tg_bot"]["type"] == "python"
+        assert services["notifications_worker"]["type"] == "python-faststream"
+        assert services["frontend"]["type"] == "node"
 
 
 class TestEnvExample:
@@ -565,7 +582,8 @@ esac
         """ARCHITECTURE.md should mention Redis when event modules selected."""
         arch = (project_backend_tg_bot / "ARCHITECTURE.md").read_text()
         assert "Redis" in arch
-        assert "python-faststream" in arch
+        assert "python" in arch
+        assert "python-faststream" not in arch
 
     def test_contributing_md_conditional_content(self, project_backend: Path):
         """CONTRIBUTING.md should have common pitfalls but not broker pitfall for backend-only."""

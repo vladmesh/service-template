@@ -178,6 +178,7 @@ await publish_command_received(event)
 
 1. **Добавить в реестр:** Описать в `services.yml` с нужным типом:
    - `python-fastapi` — HTTP API с FastAPI/uvicorn (порт 8000)
+   - `python` — Generic Python service без framework-specific runtime
    - `python-faststream` — Event-driven worker с FastStream (без HTTP)
    - `node` — Node.js сервис (порт 4321)
    - `default` — Generic container placeholder

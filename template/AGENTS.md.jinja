@@ -84,7 +84,9 @@ event = CommandReceived(...)
 await publish_command_received(event)  # broker должен быть подключён
 ```
 
+{%- if 'notifications' in modules %}
 **FastStream workers** (`python-faststream`) создают `RedisBroker` напрямую в `main()` и передают в `create_event_adapter()`. Lifecycle управляется через `FastStream(broker).run()`.
+{%- endif %}
 {%- endif %}
 
 ## Документация сервисов

@@ -76,6 +76,7 @@ Never edit these directories manually — they are overwritten by codegen:
 
 | Type | Framework | Use |
 |------|-----------|-----|
+| `python` | Python | Generic Python service |
 | `python-fastapi` | FastAPI + uvicorn | HTTP API |
 | `python-faststream` | FastStream + Redis | Event-driven workers |
 | `node` | Node.js | Frontend |

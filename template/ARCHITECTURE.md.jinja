@@ -32,7 +32,10 @@ The project is a collection of modular services defined in `services.yml`.
 {% if 'backend' in modules -%}
 - `python-fastapi`: HTTP API service using FastAPI with uvicorn (exposes port 8000).
 {% endif -%}
-{% if 'tg_bot' in modules or 'notifications' in modules -%}
+{% if 'tg_bot' in modules -%}
+- `python`: Generic Python service without a framework-specific runtime.
+{% endif -%}
+{% if 'notifications' in modules -%}
 - `python-faststream`: Event-driven worker using FastStream (no HTTP, consumes from message broker).
 {% endif -%}
 {% if 'frontend' in modules -%}
@@ -58,7 +61,7 @@ Services can specify `depends_on` in `services.yml` to document runtime dependen
   - `backend/`: FastAPI REST API with PostgreSQL.
 {%- endif %}
 {%- if 'tg_bot' in modules %}
-  - `tg_bot/`: Telegram bot (FastStream worker).
+  - `tg_bot/`: Telegram bot using python-telegram-bot polling.
 {%- endif %}
 {%- if 'notifications' in modules %}
   - `notifications_worker/`: Notification service (email, telegram).
