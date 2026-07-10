@@ -47,11 +47,11 @@ project.
 
 ```python
 # Внутри services/tg_bot/src/ — relative imports (предпочтительно)
-from .handlers import handle_start, handle_message
-from .config import get_settings
+from .main import build_application, handle_start
+from .middleware import install_update_logging
 
 # Absolute imports (тоже работают, но менее предпочтительны)
-from services.tg_bot.src.handlers import handle_start
+from services.tg_bot.src.main import handle_start
 
 {%- if 'backend' in modules %}
 # Shared-пакет — всегда absolute import
@@ -63,11 +63,15 @@ from shared.logging import configure_logging
 {%- endif %}
 ```
 
+Если вы выносите команды или настройки в новые файлы, сначала создайте эти модули
+в `services/tg_bot/src/`, например `handlers.py` или `config.py`, и только потом
+импортируйте из них.
+
 **Запрещено:**
 ```python
 # НЕ ДЕЛАЙТЕ ТАК:
-from src.handlers import ...                        # src — не пакет верхнего уровня
-import handlers                                     # bare import, не работает как пакет
+from src.main import ...                        # src — не пакет верхнего уровня
+import main                                     # bare import, не работает как пакет
 ```
 
 ## Environment Variables

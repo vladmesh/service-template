@@ -934,6 +934,11 @@ esac
         assert "shared.generated" not in root_agents
         assert "broker event publishing is not available" in service_agents
         assert "shared.generated" not in service_agents
+        assert "from .handlers import" not in service_agents
+        assert "from .config import" not in service_agents
+        assert "from services.tg_bot.src.handlers import" not in service_agents
+        assert "from services.tg_bot.src.main import handle_start" in service_agents
+        assert "from .middleware import install_update_logging" in service_agents
         assert "`REDIS_URL` | Yes" not in service_agents
         assert "Missing Broker Connection" not in contributing
         assert "spec validation, spec compliance, controller sync" in contributing
