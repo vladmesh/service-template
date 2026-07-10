@@ -66,6 +66,13 @@ This project includes the following modules:
 {% if 'backend' in modules -%}
 - **Add/modify models:** Edit `shared/spec/models.yaml` → `make generate-from-spec`
 - **Add endpoints:** Edit `services/backend/spec/routers/*.yaml` → `make generate-from-spec`
+- **Create database migrations:** add or change ORM models, then run
+  `make makemigrations name="describe_change"`. The target starts the PostgreSQL dev container
+  and runs Alembic inside a one-off backend container. It upgrades the database to the current
+  head before autogeneration, and writes the revision to `services/backend/migrations/versions/`.
+  Without Docker, use `uv sync --project services/backend`, make sure PostgreSQL is already
+  reachable, then run `make SKIP_INFRA_START=1 makemigrations name="describe_change"`.
+- **Apply database migrations:** run `make migrate` or `make dev-start`.
 {% endif -%}
 - **Run linter:** `make lint`
 - **Run formatter:** `make format`

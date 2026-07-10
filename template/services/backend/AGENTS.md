@@ -164,9 +164,18 @@ api_router.include_router(todos_router)
 ## Database & Migrations
 
 - Миграции в `services/backend/migrations/versions/`.
-- Применить миграции: `make migrate` (или `services/backend/scripts/migrate.sh`).
+- Применить миграции: `make migrate` или `make dev-start`.
 - Создать новую миграцию: `make makemigrations name="describe_change"`.
-- Workflow: `make migrate` → `make makemigrations name="..."` → `make migrate`.
+- `make migrate` и `make makemigrations` запускают Alembic в одноразовом `backend`-контейнере
+  через dev compose overlay. Docker должен быть доступен; target сам поднимает и ждёт `db`.
+- `make makemigrations` внутри target сначала делает `alembic upgrade head`, потом
+  `revision --autogenerate`.
+- Без Docker: поднимите БД снаружи, выполните `uv sync --project services/backend`, затем запускайте
+  те же target'ы с `SKIP_INFRA_START=1` и доступным адресом БД:
+  `make SKIP_INFRA_START=1 POSTGRES_HOST=localhost POSTGRES_PORT=5432 makemigrations name="..."`.
+  Если из текущего окружения резолвится `db`, достаточно `make SKIP_INFRA_START=1 makemigrations name="..."`.
+  `DATABASE_URL=...` тоже можно передать make-переменной.
+- Workflow: `make makemigrations name="..."` → `make migrate`.
 
 ## Event Publishing
 
@@ -197,7 +206,7 @@ await publish_user_registered(event)
 | `make validate-specs` | Проверить YAML спеки |
 | `make lint-specs` | Проверить соответствие спекам |
 | `make lint-controllers` | Проверить синхронизацию контроллеров с протоколами |
-| `make migrate` | Применить миграции (`alembic upgrade head`) |
-| `make makemigrations name="..."` | Создать Alembic миграцию |
+| `make migrate` | Применить миграции через Docker или локальный Alembic при `SKIP_INFRA_START=1` |
+| `make makemigrations name="..."` | Создать Alembic миграцию через Docker или локальный Alembic при `SKIP_INFRA_START=1` |
 | `make openapi` | Экспорт OpenAPI JSON |
 | `make tests backend` | Запустить тесты backend |

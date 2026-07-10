@@ -10,6 +10,7 @@ from sqlalchemy import engine_from_config, pool
 
 from services.backend.src.app import models  # noqa: F401  # ensure models are imported
 from services.backend.src.core import Base, get_settings
+from services.backend.src.core.db import TzAwareDateTime
 
 config = context.config
 if config.config_file_name is not None:
@@ -24,9 +25,20 @@ config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 target_metadata = Base.metadata
 
 
+def render_item(type_: str, obj: object, autogen_context: object) -> str | bool:
+    if type_ == "type" and isinstance(obj, TzAwareDateTime):
+        return "sa.DateTime(timezone=True)"
+    return False
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        render_item=render_item,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -40,7 +52,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_item=render_item,
+        )
 
         with context.begin_transaction():
             context.run_migrations()
