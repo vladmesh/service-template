@@ -77,6 +77,52 @@ class TestBackendOnlyGeneration:
         )
         assert "use `users` as the reference entity" in content
 
+    def test_infra_contract_documented(self, project_backend: Path):
+        """Generated project should document the compose infra contract."""
+        infra_readme = (project_backend / "infra" / "README.md").read_text()
+        agents = (project_backend / "AGENTS.md").read_text()
+
+        assert "Compose service names are part of the project API" in infra_readme
+        assert "Do not declare custom networks" in infra_readme
+        assert "-f infra/compose.base.yml -f infra/compose.dev.yml" in infra_readme
+        assert "Environment priority depends on where the value is consumed" in infra_readme
+        assert "shell-prefix value before `make` does not override" in infra_readme
+        assert "do not append `sslmode=require`" in infra_readme
+        assert "shell values for the full URLs do not replace those service" in infra_readme
+        assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
+        assert "`infra/README.md`" in agents
+
+    def test_infra_contract_matches_compose_env_precedence(self, project_fullstack: Path):
+        """Documented env handles should match generated compose semantics."""
+        import yaml
+
+        infra_readme = (project_fullstack / "infra" / "README.md").read_text()
+        compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
+        makefile = (project_fullstack / "Makefile").read_text()
+
+        assert "-include .env\nexport" in makefile
+        assert "POSTGRES_HOST=custom-db make" not in infra_readme
+        assert "make POSTGRES_HOST=custom-db POSTGRES_PORT=6543 migrate" in infra_readme
+
+        backend_env = compose["services"]["backend"]["environment"]
+        assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["DATABASE_URL"]
+        assert "${DATABASE_URL:-" not in backend_env["DATABASE_URL"]
+        assert "sslmode=require" not in backend_env["DATABASE_URL"]
+        assert "${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}" in backend_env["ASYNC_DATABASE_URL"]
+        assert "${ASYNC_DATABASE_URL:-" not in backend_env["ASYNC_DATABASE_URL"]
+        assert "sslmode=require" not in backend_env["ASYNC_DATABASE_URL"]
+
+        tg_bot = compose["services"]["tg_bot"]
+        notifications_worker = compose["services"]["notifications_worker"]
+        assert tg_bot["env_file"] == ["../.env"]
+        assert notifications_worker["env_file"] == ["../.env"]
+        assert "REDIS_URL" not in tg_bot.get("environment", {})
+        assert "REDIS_URL" not in notifications_worker.get("environment", {})
+
+        assert "full URLs do not replace those service" in infra_readme
+        assert "`REDIS_URL=... docker" in infra_readme
+        assert "does not override the container value" in infra_readme
+
     def test_product_test_scaffolding(self, project_backend: Path):
         """Product should have test scaffolding."""
         tests_dir = project_backend / "tests"

@@ -35,6 +35,8 @@
 | `make test-integration` | Интеграционные тесты в Docker |
 {%- endif %}
 
+Правила Docker Compose окружения, service DNS, healthchecks и переменных БД/Redis описаны в `infra/README.md`.
+
 ## Environment Variables — строгое правило
 
 **НИКОГДА** не используйте значения по умолчанию в `os.getenv("VAR", "default")`.
