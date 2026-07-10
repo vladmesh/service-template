@@ -936,6 +936,9 @@ esac
         assert "shared.generated" not in service_agents
         assert "`REDIS_URL` | Yes" not in service_agents
         assert "Missing Broker Connection" not in contributing
+        assert "spec validation, spec compliance, controller sync" in contributing
+        assert "service dependency checks" in contributing
+        assert "deptry" in contributing
 
     def test_backend_tg_bot_docs_keep_event_publishing(self, project_backend_tg_bot: Path):
         """backend+tg_bot docs should keep broker event instructions."""
@@ -949,6 +952,9 @@ esac
         assert "from shared.generated.schemas import CommandReceived" in service_agents
         assert "`REDIS_URL` | Yes" in service_agents
         assert "--max-absolute B --max-modules A --max-average A" in contributing
+        assert "ruff format --check" in root_agents
+        assert "spec validation, spec compliance, controller sync" in root_agents
+        assert "`make check-deps`" in root_agents
 
 
 class TestWorkflowGeneration:

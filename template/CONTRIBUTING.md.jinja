@@ -4,7 +4,7 @@ We adhere to a strict set of rules to maintain quality and consistency. These ru
 
 ## 1. The Golden Rule: Use the Makefile
 Never run tools directly. Always use the `make` target.
-- `make lint`: Runs ruff and xenon{% if 'backend' in modules %}, then spec validation and spec compliance{% endif %}.
+- `make lint`: Runs ruff format/check, xenon, spec validation, spec compliance, controller sync, and service dependency checks.
 - `make format`: Runs auto-formatters.
 - `make tests`: Runs the test suite.
 {%- if 'backend' in modules %}
@@ -27,6 +27,9 @@ We use `ruff` for linting and formatting, and `mypy` for static typing.
 - **Complexity:**
     - `make lint` runs xenon with `--max-absolute B --max-modules A --max-average A`.
     - Split branches or loops before a function reaches rank C.
+- **Dependency checks:**
+    - `make lint` ends with `make check-deps`.
+    - `check-deps` runs deptry for each service that has it installed in its service venv.
 
 ## 3. Workflow for Agents & Humans
 

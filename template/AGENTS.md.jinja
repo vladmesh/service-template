@@ -16,7 +16,7 @@
 | Команда | Назначение |
 |---------|-----------|
 | `make setup` | Bootstrap: venvs, codegen, git hooks (один раз) |
-| `make lint` | Все линтеры (ruff, xenon{% if 'backend' in modules %}, spec validation, compliance{% endif %}) |
+| `make lint` | Полный lint gate: ruff format/check, xenon, spec checks, controller sync, deptry |
 | `make format` | Авто-форматирование (ruff) |
 | `make typecheck` | mypy по сервисам |
 | `make tests` | Все тесты |
@@ -36,6 +36,12 @@
 {%- endif %}
 
 Правила Docker Compose окружения, service DNS, healthchecks и переменных БД/Redis описаны в `infra/README.md`.
+
+`make lint` always runs the same gate sequence: `ruff format --check`,
+`ruff check`, xenon with `--max-absolute B --max-modules A --max-average A`,
+spec validation, spec compliance, controller sync, then `make check-deps`.
+`check-deps` runs deptry for each service that has it installed in its service
+venv.
 
 ## Environment Variables — строгое правило
 
