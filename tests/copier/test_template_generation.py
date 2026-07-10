@@ -293,6 +293,21 @@ class TestFullStackGeneration:
         assert services["notifications_worker"]["type"] == "python-faststream"
         assert services["frontend"]["type"] == "node"
 
+    def test_deptry_uses_dependency_groups_without_optional_group_overrides(
+        self, project_fullstack: Path
+    ):
+        """deptry should not look for dev deps in missing optional-dependencies groups."""
+        for service in ("backend", "tg_bot", "notifications_worker"):
+            pyproject = tomllib.loads(
+                (project_fullstack / "services" / service / "pyproject.toml").read_text()
+            )
+
+            assert pyproject["dependency-groups"]["dev"]
+            deptry_config = pyproject["tool"]["deptry"]
+            assert "pep621_dev_dependency_groups" not in deptry_config
+            assert "pep_621_dev_dependency_groups" not in deptry_config
+            assert "optional_dependencies_dev_groups" not in deptry_config
+
 
 class TestEnvExample:
     """Test .env.example generation."""
@@ -1529,7 +1544,41 @@ class TestSlowIntegration:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    @pytest.mark.parametrize("modules", ["backend", "tg_bot"])
+    def test_make_setup_warns_but_succeeds_with_lint_dirty_user_code(self, tmp_path: Path):
+        """setup should install envs; lint remains responsible for lint failures."""
+        output = run_copier(tmp_path, "tg_bot")
+        dirty_file = output / "services" / "tg_bot" / "src" / "user_code.py"
+        dirty_file.write_text('token = "secret-value"\n')
+
+        setup_result = subprocess.run(  # noqa: S603, S607
+            ["make", "setup"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        setup_output = setup_result.stdout + setup_result.stderr
+
+        assert setup_result.returncode == 0, (
+            "make setup should not fail on remaining lint issues:\n"
+            f"stdout: {setup_result.stdout}\nstderr: {setup_result.stderr}"
+        )
+        assert "Setup complete!" in setup_output
+        assert "Warning: lint auto-fix left issues" in setup_output
+        assert (output / ".venv" / "bin" / "python").exists()
+        assert (output / "services" / "tg_bot" / ".venv" / "bin" / "python").exists()
+
+        lint_result = subprocess.run(  # noqa: S603, S607
+            ["make", "lint"],
+            cwd=output,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert lint_result.returncode != 0, "make lint should report the dirty user file"
+        assert "S105" in (lint_result.stdout + lint_result.stderr)
+
+    @pytest.mark.parametrize("modules", ["backend", "tg_bot", "notifications", "frontend"])
     def test_make_lint_after_setup(self, tmp_path: Path, modules: str):
         """make lint should pass after make setup in generated project."""
         output = run_copier(tmp_path, modules)
@@ -1556,6 +1605,9 @@ class TestSlowIntegration:
             f"make lint failed for modules={modules}:\n"
             f"stdout: {lint_result.stdout}\nstderr: {lint_result.stderr}"
         )
+        combined_output = lint_result.stdout + lint_result.stderr
+        assert "Warning: Trying to extract the dependencies" not in combined_output
+        assert "optional dependency groups" not in combined_output
 
     def test_e2e_dual_transport_pipeline(self, tmp_path: Path):
         """E2E: setup → generate-from-spec → lint → tests with dual-transport ops."""

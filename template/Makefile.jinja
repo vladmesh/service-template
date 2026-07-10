@@ -54,7 +54,10 @@ setup:
 {%- endif %}
 	@echo ">> Formatting generated code"
 	$(VENV)/ruff format .
-	$(VENV)/ruff check --fix .
+	@$(VENV)/ruff check --fix . || { \
+		echo ">> Warning: lint auto-fix left issues in the generated project."; \
+		echo ">> Setup continues; run 'make lint' to see and fix them."; \
+	}
 	@git config core.hooksPath .githooks 2>/dev/null || true
 	@echo ">> Setup complete!"
 
