@@ -214,7 +214,7 @@ project/
 
 Ключевые изменения, которые затрагивают интеграцию:
 
-1. **Pipeline после copier copy:** `copier copy --trust` → `make setup` (обязательно!) → проект готов к `make lint/test/etc`
+1. **Pipeline после copier copy:** `copier copy` → `make setup` (обязательно!) → проект готов к `make lint/test/etc`
 2. **Нет sync_services:** compose-файлы не перегенерируются. Добавление сервисов требует ручной правки compose или отдельного механизма.
 3. **Нет RoutersGenerator:** агент пишет routers вручную. Protocols и controllers генерируются как стабы.
 4. **Нет ClientsGenerator:** `ServiceClient` в shared — базовый класс. Конкретные клиенты наследуются и пишутся вручную.

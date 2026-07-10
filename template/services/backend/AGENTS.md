@@ -53,6 +53,17 @@ Backend использует spec-first подход: модели и прото
 
 **Правило:** Никогда не создавайте `BaseModel` вручную — схемы генерируются из `models.yaml`. Роутеры (`APIRouter`) пишутся вручную (см. раздел «Роутеры» ниже).
 
+**Чеклист для новой CRUD-сущности:**
+1. Добавьте модели в `shared/spec/models.yaml`: `EntityCreate`, `EntityUpdate`, `EntityRead`.
+2. Добавьте domain spec в `services/backend/spec/<domain>.yaml` с list/get/create/update/delete.
+3. Запустите `make generate-from-spec` и проверьте протоколы в `src/generated/protocols.py`.
+4. Добавьте ORM-модель в `src/app/models/` и экспортируйте её из пакета models.
+5. Добавьте repository в `src/app/repositories/` и экспортируйте его из пакета repositories.
+6. Реализуйте controller в `src/controllers/<domain>.py`.
+7. Добавьте router в `src/app/api/routers/<domain>.py` и подключите его в `src/app/api/router.py`.
+8. Добавьте unit/API-тесты для happy path и основных ошибок.
+9. Запустите `make makemigrations name="add_<domain>"` после изменения ORM-моделей.
+
 ## Directory Structure
 
 ```
@@ -104,6 +115,24 @@ operations:
     rest:
       method: PATCH
       path: "/{todo_id}"
+
+  get_todo:
+    output: TodoRead
+    params:
+      - name: todo_id
+        type: int
+    rest:
+      method: GET
+      path: "/{todo_id}"
+
+  delete_todo:
+    output: TodoRead
+    params:
+      - name: todo_id
+        type: int
+    rest:
+      method: DELETE
+      path: "/{todo_id}"
 ```
 
 **Пример роутера** (`src/app/api/routers/todos.py`):
@@ -152,6 +181,24 @@ async def update_todo(
     controller: TodosControllerProtocol = Depends(get_controller),  # noqa: B008
 ) -> TodoRead:
     return await controller.update_todo(session=session, todo_id=todo_id, payload=payload)
+
+
+@router.get("/{todo_id}", response_model=TodoRead)
+async def get_todo(
+    todo_id: int = Path(...),  # noqa: B008
+    session: AsyncSession = Depends(get_async_db),  # noqa: B008
+    controller: TodosControllerProtocol = Depends(get_controller),  # noqa: B008
+) -> TodoRead:
+    return await controller.get_todo(session=session, todo_id=todo_id)
+
+
+@router.delete("/{todo_id}", response_model=TodoRead)
+async def delete_todo(
+    todo_id: int = Path(...),  # noqa: B008
+    session: AsyncSession = Depends(get_async_db),  # noqa: B008
+    controller: TodosControllerProtocol = Depends(get_controller),  # noqa: B008
+) -> TodoRead:
+    return await controller.delete_todo(session=session, todo_id=todo_id)
 ```
 
 **Подключение в `src/app/api/router.py`:**
