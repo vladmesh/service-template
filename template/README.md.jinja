@@ -8,6 +8,9 @@
    ```bash
    make setup
    ```
+   Fresh generated projects are not importable until this completes because
+   `make setup` creates the generated modules under `shared/shared/generated/`
+   and `services/*/src/generated/`.
 
 2. **Configure environment**
    ```bash
@@ -33,6 +36,8 @@
 Set different host ports when running multiple generated projects on one machine.
 Use `infra/compose.base.yml` plus `infra/compose.dev.yml` without the local layer when services
 should stay reachable only on the Compose network.
+Use `make worker-start`, `make smoke-probe`, and `make worker-stop` for that
+port-less worker flow.
 
 {% endif -%}
 
@@ -76,7 +81,7 @@ This project includes the following modules:
 - **Add CRUD by analogy:** use `users` as the reference entity for spec, repository, controller and tests.
 - **Create database migrations:** add or change ORM models, then run
   `make makemigrations name="describe_change"`. The target starts the PostgreSQL dev container
-  and runs Alembic inside a one-off backend container. It upgrades the database to the current
+  through the worker compose layer and runs Alembic inside a one-off backend container. It upgrades the database to the current
   head before autogeneration, and writes the revision to `services/backend/migrations/versions/`.
   Without Docker, use `uv sync --project services/backend`, make sure PostgreSQL is already
   reachable, then run `make SKIP_INFRA_START=1 makemigrations name="describe_change"`.

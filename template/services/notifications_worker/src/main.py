@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import asyncio
 
-from faststream import FastStream
-import structlog
+try:
+    from faststream import FastStream
+    import structlog
 
-from services.notifications_worker.src.controllers.notifications import NotificationsController
-from services.notifications_worker.src.generated.event_adapter import create_event_adapter
-from shared.generated.events import get_broker
-from shared.logging import configure_logging
+    from services.notifications_worker.src.controllers.notifications import NotificationsController
+    from services.notifications_worker.src.generated.event_adapter import create_event_adapter
+    from shared.generated.events import get_broker
+    from shared.logging import configure_logging
+except ModuleNotFoundError as exc:
+    missing_name = exc.name or ""
+    setup_modules = ("faststream", "structlog", "shared.logging")
+    generated_modules = ("services.notifications_worker.src.generated", "shared.generated")
+    if missing_name in setup_modules or missing_name.startswith(generated_modules):
+        raise RuntimeError(
+            "Project dependencies or generated modules are missing; run `make setup` from "
+            "the project root before importing or starting notifications_worker."
+        ) from exc
+    raise
 
 configure_logging(service_name="notifications_worker")
 logger = structlog.stdlib.get_logger()

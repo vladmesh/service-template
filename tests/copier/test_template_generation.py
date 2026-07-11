@@ -41,6 +41,14 @@ def env_keys(path: Path) -> set[str]:
     return keys
 
 
+def test_root_infra_readme_points_to_template_contract() -> None:
+    """Worker-mode contract should be discoverable before running copier."""
+    root_readme = Path("infra/README.md").read_text()
+
+    assert "template/infra/README.md" in root_readme
+    assert "worker-mode\ncontract" in root_readme
+
+
 class TestBackendOnlyGeneration:
     """Test generation with only backend module."""
 
@@ -304,6 +312,22 @@ class TestFullStackGeneration:
             assert "pep621_dev_dependency_groups" not in deptry_config
             assert "pep_621_dev_dependency_groups" not in deptry_config
             assert "optional_dependencies_dev_groups" not in deptry_config
+
+    def test_notifications_import_before_setup_has_clear_error(self, project_fullstack: Path):
+        """Fresh projects should point to setup instead of leaking an import path."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import services.notifications_worker.src.main",
+            ],
+            cwd=project_fullstack,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert "run `make setup` from the project root" in result.stderr
 
 
 class TestEnvExample:
@@ -743,6 +767,9 @@ class TestIntegration:
         """Makefile should have expected targets."""
         makefile = (project_backend / "Makefile").read_text()
         assert "dev-start:" in makefile
+        assert "worker-start:" in makefile
+        assert "worker-stop:" in makefile
+        assert "smoke-probe:" in makefile
         assert "infra-start:" in makefile
         assert "ps:" in makefile
         assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
@@ -766,8 +793,24 @@ class TestIntegration:
             "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend "
             "alembic -c $(ALEMBIC_CONFIG)"
         ) in makefile
+        assert "$(MAKE) worker-start svc=db" in makefile
+        assert "$(MAKE) dev-start svc=db" not in makefile
         assert "$(ALEMBIC) upgrade head" in makefile
         assert '$(ALEMBIC) revision --autogenerate -m "$(name)"' in makefile
+
+    def test_worker_targets_use_dev_compose_without_local_ports(self, project_backend: Path):
+        """Worker mode should use base+dev compose and omit the local port layer."""
+        makefile = (project_backend / "Makefile").read_text()
+
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans" in makefile
+        assert "SMOKE_URL ?= http://backend:8000/health" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c"
+            in makefile
+        )
+        assert "urllib.request.urlopen" in makefile
 
     def test_dev_start_uses_local_compose_layer(self, project_backend_tg_bot: Path):
         """Human dev-start should still publish ports through compose.local.yml."""
@@ -804,6 +847,7 @@ class TestIntegration:
         )
         assert upgrade in output
         assert revision in output
+        assert "-f infra/compose.local.yml" not in output
         assert output.index(upgrade) < output.index(revision)
 
     def test_migration_targets_can_skip_docker_infra(self, tmp_path: Path, project_backend: Path):
