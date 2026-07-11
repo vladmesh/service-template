@@ -53,6 +53,7 @@ For a backend plus notifications project, a full worker-mode smoke run is:
 ```bash
 make worker-start
 make smoke-probe
+make worker-call url=http://backend:8000/users method=POST body='{"telegram_id":123}'
 make worker-stop
 ```
 
@@ -62,6 +63,12 @@ used as a one-off runner and the URL:
 
 ```bash
 make smoke-probe SMOKE_RUNNER=backend SMOKE_URL=http://backend:8000/health
+```
+
+Use `make worker-call` for non-GET requests:
+
+```bash
+make worker-call SMOKE_RUNNER=backend url=http://backend:8000/users method=POST body='{"telegram_id":123}'
 ```
 
 Worker mode must not depend on published host ports. The dev layer keeps
@@ -97,7 +104,10 @@ the host. Configure those ports in `.env`:
 Production mode uses:
 
 ```bash
-docker compose -f infra/compose.base.yml -f infra/compose.prod.yml up -d --remove-orphans
+docker compose \
+  -f infra/compose.base.yml \
+  -f infra/compose.prod.yml \
+  up -d --remove-orphans
 ```
 
 Integration-test mode uses `infra/compose.tests.integration.yml` directly
@@ -122,8 +132,20 @@ ports in `.env` when the local-port layer is enabled:
 - `FRONTEND_PORT` for the frontend.
 
 Use `make ps` and `make log <service>` to inspect the selected Compose project.
-Plain `docker compose ps` does not load the generated `.env`; either export the
-same values in your shell or pass the compose files and project name explicitly.
+For local work, prefer the Makefile targets. They include and export the
+generated `.env` before invoking Compose.
+
+When running Compose by hand from the project root, include `--env-file .env`
+or export the same variables in your shell. Without that, the top-level Compose
+`name:` falls back to the generated project slug.
+
+```bash
+docker compose --env-file .env \
+  -f infra/compose.base.yml \
+  -f infra/compose.dev.yml \
+  run --rm --no-deps backend \
+  python -c 'import urllib.request; urllib.request.urlopen("http://backend:8000/health")'
+```
 
 `make worker-clean` runs `docker compose down --volumes --remove-orphans` with
 the base and dev layers only. `make dev-clean` does the same with the local

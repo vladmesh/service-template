@@ -49,6 +49,20 @@ def test_root_infra_readme_points_to_template_contract() -> None:
     assert "worker-mode\ncontract" in root_readme
 
 
+def test_template_ci_validates_compose_with_env_file() -> None:
+    """Template CI should validate root compose calls with explicit env file."""
+    workflow = Path(".github/workflows/test-template.yml").read_text()
+
+    assert "--defaults --trust --vcs-ref=HEAD" in workflow
+    assert (
+        "docker compose --env-file .env -f infra/compose.base.yml config"
+    ) in workflow
+    assert (
+        "docker compose --env-file .env "
+        "-f infra/compose.base.yml -f infra/compose.dev.yml config"
+    ) in workflow
+
+
 class TestBackendOnlyGeneration:
     """Test generation with only backend module."""
 
@@ -104,6 +118,7 @@ class TestBackendOnlyGeneration:
         assert "Use `make ps` to see the current project's Compose stack status." in content
         assert "`REDIS_HOST_PORT` maps Redis to container port `6379`" in content
         assert "use `users` as the reference entity" in content
+        assert "make worker-call url=http://backend:8000/users method=POST" in content
 
     def test_infra_contract_documented(self, project_backend: Path):
         """Generated project should document the compose infra contract."""
@@ -120,6 +135,8 @@ class TestBackendOnlyGeneration:
         assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
         assert "## Parallel run isolation" in infra_readme
         assert "COMPOSE_PROJECT_NAME=my-project-dev make dev-start" in infra_readme
+        assert "make worker-call SMOKE_RUNNER=backend url=http://backend:8000/users" in infra_readme
+        assert "docker compose --env-file .env" in infra_readme
         assert "`--project-name` option explicitly" in infra_readme
         assert "`infra/README.md`" in agents
 
@@ -535,6 +552,28 @@ class TestComposeServices:
             for service_name, service in compose.get("services", {}).items():
                 assert "ports" not in service, f"{filename}:{service_name} publishes ports"
 
+    def test_base_compose_sets_project_name_default(self, project_fullstack: Path):
+        """Base compose should use COMPOSE_PROJECT_NAME or deterministic slug."""
+        import yaml
+
+        compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
+
+        assert compose["name"] == "${COMPOSE_PROJECT_NAME:-test_project}"
+
+    def test_compose_extends_paths_match_infra_directory(self, project_fullstack: Path):
+        """Compose overrides should keep the root compose contract from main."""
+        import yaml
+
+        for filename in (
+            "compose.dev.yml",
+            "compose.prod.yml",
+            "compose.tests.integration.yml",
+        ):
+            compose = yaml.safe_load((project_fullstack / "infra" / filename).read_text())
+            for service in compose.get("services", {}).values():
+                if "extends" in service:
+                    assert service["extends"]["file"] == "compose.base.yml"
+
     def test_compose_uses_only_implicit_default_network(self, project_fullstack: Path):
         """Generated compose files must not declare custom networks."""
         import yaml
@@ -725,12 +764,108 @@ class TestIntegration:
         output = run_copier(tmp_path, "backend")
         shutil.copy(output / ".env.example", output / ".env")
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
             capture_output=True,
             text=True,
             cwd=output,
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_docker_compose_worker_config_valid(self, tmp_path: Path):
+        """worker compose should resolve from the generated project root."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend,notifications")
+        shutil.copy(output / ".env.example", output / ".env")
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "-f",
+                "infra/compose.dev.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+        )
+        assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_docker_compose_project_name_default_and_env_override(self, tmp_path: Path):
+        """Compose should use the slug by default and COMPOSE_PROJECT_NAME when set."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        import yaml
+
+        output = run_copier(tmp_path, "backend")
+        env = {key: value for key, value in os.environ.items() if key != "COMPOSE_PROJECT_NAME"}
+        base_cmd = [
+            "docker",
+            "compose",
+            "--env-file",
+            ".env",
+            "-f",
+            "infra/compose.base.yml",
+            "config",
+        ]
+
+        shutil.copy(output / ".env.example", output / ".env")
+        default_result = subprocess.run(  # noqa: S603, S607
+            base_cmd,
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert default_result.returncode == 0, default_result.stderr
+        assert yaml.safe_load(default_result.stdout)["name"] == "test_project"
+
+        (output / ".env").write_text(
+            (output / ".env.example").read_text() + "\nCOMPOSE_PROJECT_NAME=custom_project\n"
+        )
+        custom_result = subprocess.run(  # noqa: S603, S607
+            base_cmd,
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert custom_result.returncode == 0, custom_result.stderr
+        assert yaml.safe_load(custom_result.stdout)["name"] == "custom_project"
+
+        explicit_result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--project-name",
+                "external_project",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert explicit_result.returncode == 0, explicit_result.stderr
+        assert yaml.safe_load(explicit_result.stdout)["name"] == "external_project"
 
     def test_docker_compose_config_full_stack(self, tmp_path: Path):
         """docker compose config should pass for full stack."""
@@ -740,7 +875,15 @@ class TestIntegration:
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
         shutil.copy(output / ".env.example", output / ".env")
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
             capture_output=True,
             text=True,
             cwd=output,
@@ -769,6 +912,7 @@ class TestIntegration:
         assert "dev-start:" in makefile
         assert "worker-start:" in makefile
         assert "worker-stop:" in makefile
+        assert "worker-call:" in makefile
         assert "smoke-probe:" in makefile
         assert "infra-start:" in makefile
         assert "ps:" in makefile
@@ -776,7 +920,9 @@ class TestIntegration:
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "dev-clean:" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
+        ) in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
 
@@ -802,24 +948,81 @@ class TestIntegration:
         """Worker mode should use base+dev compose and omit the local port layer."""
         makefile = (project_backend / "Makefile").read_text()
 
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
+        )
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans"
+        ) in makefile
         assert "SMOKE_URL ?= http://backend:8000/health" in makefile
         assert (
             "$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c"
+        ) in makefile
+        assert (
+            "worker-call:\n\t@if [ -z \"$(SMOKE_RUNNER)\" ] || [ -z \"$(url)\" ]; then"
             in makefile
         )
+        assert "method ?= POST" in makefile
+        assert "urllib.request.Request(url, data=data, method=method.upper())" in makefile
         assert "urllib.request.urlopen" in makefile
+        assert '"$$url" "$$method" "$$body"' in makefile
+
+    def test_worker_call_preserves_json_body_quoting(
+        self, tmp_path: Path, project_backend: Path
+    ):
+        """worker-call should pass JSON bodies to the runner without shell stripping."""
+        capture = tmp_path / "argv.txt"
+        fake_compose = tmp_path / "docker-compose"
+        fake_compose.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib\n"
+            "import sys\n"
+            f"pathlib.Path({str(capture)!r}).write_text(repr(sys.argv[1:]))\n"
+        )
+        fake_compose.chmod(0o755)
+
+        result = subprocess.run(
+            [
+                "make",
+                "worker-call",
+                f"DOCKER_COMPOSE={fake_compose}",
+                "SMOKE_RUNNER=backend",
+                "url=http://backend:8000/users",
+                "method=POST",
+                'body={"name":"Ada"}',
+            ],
+            cwd=project_backend,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        argv = ast.literal_eval(capture.read_text())
+        assert argv[-3:] == [
+            "http://backend:8000/users",
+            "POST",
+            '{"name":"Ada"}',
+        ]
 
     def test_dev_start_uses_local_compose_layer(self, project_backend_tg_bot: Path):
         """Human dev-start should still publish ports through compose.local.yml."""
         makefile = (project_backend_tg_bot / "Makefile").read_text()
 
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
+        )
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)"
+        ) in makefile
         assert "INFRA_SERVICES := db redis" in makefile
 
     def test_infra_start_uses_only_available_infra_services(self, project_standalone: Path):
@@ -1184,7 +1387,10 @@ class TestCIWorkflowSimulation:
                 if not isinstance(service_config, dict):
                     continue
                 for env_file in service_config.get("env_file", []):
-                    env_path = (compose_path.parent / env_file).resolve()
+                    if env_file.startswith("${PWD}/"):
+                        env_path = project_dir / env_file.removeprefix("${PWD}/")
+                    else:
+                        env_path = (compose_path.parent / env_file).resolve()
                     if not env_path.exists():
                         errors.append(
                             f"{compose_path.name}:{service_name} expects env_file "

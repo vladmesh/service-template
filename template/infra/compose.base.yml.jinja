@@ -5,7 +5,7 @@ x-backend-env: &backend-env
   REDIS_URL: ${REDIS_URL:-redis://redis:6379}
 
 {% endif -%}
-name: {{ project_slug }}
+name: ${COMPOSE_PROJECT_NAME:-{{ project_slug }}}
 
 # Do not declare custom networks here. Codegen sibling workers replace the
 # implicit default network with their pre-created dev network.

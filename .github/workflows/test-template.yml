@@ -49,7 +49,7 @@ jobs:
           copier copy . /tmp/test-project \
             --data project_name=test-project \
             --data "modules=${{ matrix.modules }}" \
-            --defaults --trust
+            --defaults --trust --vcs-ref=HEAD
 
       - name: Verify no Jinja artifacts
         run: |
@@ -110,7 +110,7 @@ jobs:
           cd /tmp/test-project
           # Create .env from .env.example for compose validation
           cp .env.example .env
-          # Use --env-file to explicitly load .env (compose doesn't auto-load from parent dir)
+          # Use --env-file to explicitly load .env when running from the project root.
           docker compose --env-file .env -f infra/compose.base.yml config > /dev/null
           docker compose --env-file .env -f infra/compose.base.yml -f infra/compose.dev.yml config > /dev/null
           echo "Docker Compose files are valid"
