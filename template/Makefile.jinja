@@ -189,7 +189,7 @@ worker-call:
 		echo "Usage: make worker-call SMOKE_RUNNER=<python_service> url=http://service:port/path [method=POST] [body='{}']"; \
 		exit 1; \
 	fi
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url, method, body = sys.argv[1:4]; data = body.encode() if body else None; request = urllib.request.Request(url, data=data, method=method.upper()); request.add_header("Content-Type", "application/json"); response = urllib.request.urlopen(request, timeout=10); print(f"{method.upper()} {url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$(url)" "$(method)" "$(body)"
+	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url, method, body = sys.argv[1:4]; data = body.encode() if body else None; request = urllib.request.Request(url, data=data, method=method.upper()); request.add_header("Content-Type", "application/json"); response = urllib.request.urlopen(request, timeout=10); print(f"{method.upper()} {url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$$url" "$$method" "$$body"
 
 dev-start:
 	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) up -d --build --wait $(svc)

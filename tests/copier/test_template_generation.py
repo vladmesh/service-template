@@ -834,6 +834,44 @@ class TestIntegration:
         assert "method ?= POST" in makefile
         assert "urllib.request.Request(url, data=data, method=method.upper())" in makefile
         assert "urllib.request.urlopen" in makefile
+        assert '"$$url" "$$method" "$$body"' in makefile
+
+    def test_worker_call_preserves_json_body_quoting(
+        self, tmp_path: Path, project_backend: Path
+    ):
+        """worker-call should pass JSON bodies to the runner without shell stripping."""
+        capture = tmp_path / "argv.txt"
+        fake_compose = tmp_path / "docker-compose"
+        fake_compose.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib\n"
+            "import sys\n"
+            f"pathlib.Path({str(capture)!r}).write_text(repr(sys.argv[1:]))\n"
+        )
+        fake_compose.chmod(0o755)
+
+        result = subprocess.run(
+            [
+                "make",
+                "worker-call",
+                f"DOCKER_COMPOSE={fake_compose}",
+                "SMOKE_RUNNER=backend",
+                "url=http://backend:8000/users",
+                "method=POST",
+                'body={"name":"Ada"}',
+            ],
+            cwd=project_backend,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        argv = ast.literal_eval(capture.read_text())
+        assert argv[-3:] == [
+            "http://backend:8000/users",
+            "POST",
+            '{"name":"Ada"}',
+        ]
 
     def test_dev_start_uses_local_compose_layer(self, project_backend_tg_bot: Path):
         """Human dev-start should still publish ports through compose.local.yml."""
