@@ -49,6 +49,21 @@ def test_root_infra_readme_points_to_template_contract() -> None:
     assert "worker-mode\ncontract" in root_readme
 
 
+def test_template_ci_validates_compose_with_project_directory() -> None:
+    """Template CI should use the same compose contract as generated Makefile."""
+    workflow = Path(".github/workflows/test-template.yml").read_text()
+
+    assert "--defaults --trust --vcs-ref=HEAD" in workflow
+    assert (
+        "docker compose --project-directory . --env-file .env "
+        "-f infra/compose.base.yml config"
+    ) in workflow
+    assert (
+        "docker compose --project-directory . --env-file .env "
+        "-f infra/compose.base.yml -f infra/compose.dev.yml config"
+    ) in workflow
+
+
 class TestBackendOnlyGeneration:
     """Test generation with only backend module."""
 
