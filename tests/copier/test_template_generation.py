@@ -1931,19 +1931,21 @@ class TestSlowIntegration:
         compose_file = None
         for name in ("compose.base.yml", "docker-compose.yml", "compose.yml"):
             if (infra / name).exists():
-                compose_file = name
+                compose_file = f"infra/{name}"
                 break
         if compose_file is None:
             pytest.skip("No compose file found in infra/")
 
-        compose_cmd = ["docker", "compose", "-f", compose_file]
+        compose_cmd = ["docker", "compose", "--project-directory", ".", "-f", compose_file]
+        compose_env = {**os.environ, "PWD": str(output)}
 
         # Build the specific service image
         result = subprocess.run(  # noqa: S603
             [*compose_cmd, "build", service],
-            cwd=infra,
+            cwd=output,
             capture_output=True,
             text=True,
+            env=compose_env,
             timeout=600,
         )
         assert result.returncode == 0, (
@@ -1972,9 +1974,10 @@ class TestSlowIntegration:
                 "-c",
                 f"import {module_path}; print('OK')",
             ],
-            cwd=infra,
+            cwd=output,
             capture_output=True,
             text=True,
+            env=compose_env,
             timeout=60,
         )
         assert result.returncode == 0, (
