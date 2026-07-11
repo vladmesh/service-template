@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-11
+
+Release of the dogfood sprint: two smoke runs, a 3x2 task/head matrix and a control
+run, each followed by a fix wave (#27-#42). Full reports live in the operator's
+control-panel repo (docs/dogfood/).
+
+### Added
+- REST router generator: a domain spec with a `rest:` section now produces a FastAPI
+  router and registry wiring; `events.publish_on_success` publishes on the REST path
+  (the `users` vertical does this for `user_registered`) (#40)
+- Worker-mode make targets for external orchestrators and port-less runs:
+  `worker-start`, `worker-stop`, `worker-clean`, `smoke-probe`, `worker-call` (#41, #42)
+- Top-level Compose `name: ${COMPOSE_PROJECT_NAME:-<slug>}` — manual `docker compose`
+  gets a deterministic project name; explicit `--project-name` still wins (#42)
+- `compose.local.yml` layer: host port publishing split from the dev layer; worker mode
+  runs base+dev with no published ports (#33)
+- `make dev-clean` (full teardown incl. volumes) and `make ps` (#32, #35)
+- `BACKEND_PORT` in generated `.env`, parameterized datastore host ports
+  (`POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`) for parallel runs (#27, #35)
+- Placeholder-token idle mode for standalone `tg_bot` — the container stays up and
+  logs a warning until a real token is configured (#32)
+- `infra/README.md` contract for external orchestrators: service DNS names, network
+  rules, compose modes (#34)
+
+### Changed
+- Module selection moved from post-generation `rm -rf` tasks to templated copier
+  `_exclude`: unselected modules are never rendered, generation is quiet, and
+  `copier copy` no longer requires `--trust` (#36)
+- `make makemigrations` works from the host and in worker mode: db comes up without
+  published ports, `upgrade head` runs before autogenerate, `SKIP_INFRA_START=1`
+  supports pre-provisioned databases (#30, #41)
+- `make setup` no longer fails the whole bootstrap on user-code lint errors; deptry
+  config aligned with `[dependency-groups]` across modules (#38)
+- Dev compose runs services on image venvs instead of broken host-venv mounts (#28)
+- Standalone `tg_bot` registered with its real service type instead of
+  `python-faststream` (#31)
+
+### Fixed
+- Docs brought in line with reality: bootstrap via `uvx copier` with `--vcs-ref=HEAD`
+  and no `--trust` (#29, #37), standalone-aware `tg_bot` AGENTS.md and base image
+  version (#39), ARCHITECTURE.md matches the generated router registry (#40),
+  lint gates (xenon thresholds) and `make setup`-first workflow documented (#39)
+
 ## [0.2.0] - 2026-03-01
 
 ### Added
