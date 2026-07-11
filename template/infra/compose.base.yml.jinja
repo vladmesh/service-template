@@ -15,12 +15,12 @@ services:
     image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: ${BACKEND_INSTALL_DEV_DEPS:-false}
     env_file:
-      - ../.env
+      - ${PWD}/.env
     environment:
       <<: *backend-env
     command: ["services/backend/scripts/start.sh"]
@@ -41,10 +41,10 @@ services:
     image: ${TG_BOT_IMAGE:-{{ project_slug }}-tg:latest}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: services/tg_bot/Dockerfile
     env_file:
-      - ../.env
+      - ${PWD}/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -58,10 +58,10 @@ services:
     image: ${NOTIFICATIONS_WORKER_IMAGE:-{{ project_slug }}-notifications:latest}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: services/notifications_worker/Dockerfile
     env_file:
-      - ../.env
+      - ${PWD}/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -88,7 +88,7 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE:-{{ project_slug }}-frontend:latest}
     build:
-      context: ../services/frontend
+      context: ${PWD}/services/frontend
       dockerfile: Dockerfile
 {%- endif %}
 {%- if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %}

@@ -18,7 +18,9 @@ If you only need the bot (or want to force a rebuild), target the service
 explicitly:
 
 ```bash
-docker compose -f infra/compose.base.yml -f infra/compose.dev.yml \
+docker compose --project-directory . \
+  -f infra/compose.base.yml \
+  -f infra/compose.dev.yml \
   up --build tg_bot
 ```
 

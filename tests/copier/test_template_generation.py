@@ -148,8 +148,8 @@ class TestBackendOnlyGeneration:
 
         tg_bot = compose["services"]["tg_bot"]
         notifications_worker = compose["services"]["notifications_worker"]
-        assert tg_bot["env_file"] == ["../.env"]
-        assert notifications_worker["env_file"] == ["../.env"]
+        assert tg_bot["env_file"] == ["${PWD}/.env"]
+        assert notifications_worker["env_file"] == ["${PWD}/.env"]
         assert "REDIS_URL" not in tg_bot.get("environment", {})
         assert "REDIS_URL" not in notifications_worker.get("environment", {})
 
@@ -538,6 +538,20 @@ class TestComposeServices:
             for service_name, service in compose.get("services", {}).items():
                 assert "ports" not in service, f"{filename}:{service_name} publishes ports"
 
+    def test_compose_extends_paths_match_project_directory(self, project_fullstack: Path):
+        """Compose overrides should resolve extends when project-directory is root."""
+        import yaml
+
+        for filename in (
+            "compose.dev.yml",
+            "compose.prod.yml",
+            "compose.tests.integration.yml",
+        ):
+            compose = yaml.safe_load((project_fullstack / "infra" / filename).read_text())
+            for service in compose.get("services", {}).values():
+                if "extends" in service:
+                    assert service["extends"]["file"] == "infra/compose.base.yml"
+
     def test_compose_uses_only_implicit_default_network(self, project_fullstack: Path):
         """Generated compose files must not declare custom networks."""
         import yaml
@@ -728,10 +742,47 @@ class TestIntegration:
         output = run_copier(tmp_path, "backend")
         shutil.copy(output / ".env.example", output / ".env")
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
+            [
+                "docker",
+                "compose",
+                "--project-directory",
+                ".",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
             capture_output=True,
             text=True,
             cwd=output,
+            env={**os.environ, "PWD": str(output)},
+        )
+        assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_docker_compose_worker_config_valid(self, tmp_path: Path):
+        """worker compose should resolve with the same project-directory make uses."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend,notifications")
+        shutil.copy(output / ".env.example", output / ".env")
+        result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--project-directory",
+                ".",
+                "-f",
+                "infra/compose.base.yml",
+                "-f",
+                "infra/compose.dev.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
@@ -743,10 +794,21 @@ class TestIntegration:
         output = run_copier(tmp_path, "backend,tg_bot,notifications,frontend")
         shutil.copy(output / ".env.example", output / ".env")
         result = subprocess.run(  # noqa: S603, S607
-            ["docker", "compose", "--env-file", ".env", "-f", "infra/compose.base.yml", "config"],
+            [
+                "docker",
+                "compose",
+                "--project-directory",
+                ".",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
             capture_output=True,
             text=True,
             cwd=output,
+            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
@@ -1257,7 +1319,10 @@ class TestCIWorkflowSimulation:
                 if not isinstance(service_config, dict):
                     continue
                 for env_file in service_config.get("env_file", []):
-                    env_path = (compose_path.parent / env_file).resolve()
+                    if env_file.startswith("${PWD}/"):
+                        env_path = project_dir / env_file.removeprefix("${PWD}/")
+                    else:
+                        env_path = (compose_path.parent / env_file).resolve()
                     if not env_path.exists():
                         errors.append(
                             f"{compose_path.name}:{service_name} expects env_file "
@@ -1286,6 +1351,8 @@ class TestCIWorkflowSimulation:
                 [
                     "docker",
                     "compose",
+                    "--project-directory",
+                    ".",
                     "--env-file",
                     ".env",
                     "-f",
@@ -1295,6 +1362,7 @@ class TestCIWorkflowSimulation:
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
+                env={**os.environ, "PWD": str(project_dir)},
             )
             if result.returncode != 0:
                 errors.append(
@@ -1402,6 +1470,7 @@ class TestDockerReadiness:
         # Set required IMAGE variables for prod compose
         env = {
             **os.environ,
+            "PWD": str(output),
             "BACKEND_IMAGE": "test:latest",
             "TG_BOT_IMAGE": "test:latest",
             "NOTIFICATIONS_WORKER_IMAGE": "test:latest",
@@ -1412,6 +1481,8 @@ class TestDockerReadiness:
             [
                 "docker",
                 "compose",
+                "--project-directory",
+                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -1441,6 +1512,8 @@ class TestDockerReadiness:
             [
                 "docker",
                 "compose",
+                "--project-directory",
+                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -1452,6 +1525,7 @@ class TestDockerReadiness:
             capture_output=True,
             text=True,
             cwd=output,
+            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"compose.dev.yml config failed:\n{result.stderr}"
 

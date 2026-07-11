@@ -2,16 +2,16 @@
 services:
   backend:
     extends:
-      file: compose.base.yml
+      file: infra/compose.base.yml
       service: backend
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     env_file:
-      - ../.env
-      - ./.env.test
+      - ${PWD}/.env
+      - ${PWD}/infra/.env.test
     environment:
       PYTHONPATH: /workspace
       PATH: /app/services/backend/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -19,7 +19,7 @@ services:
       ASYNC_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-service_template}
       REDIS_URL: redis://redis:6379
     volumes:
-      - ../:/workspace:delegated
+      - ${PWD}:/workspace:delegated
       - /app/services/backend/.venv
     working_dir: /workspace
     healthcheck:
@@ -32,7 +32,7 @@ services:
 
   db:
     extends:
-      file: compose.base.yml
+      file: infra/compose.base.yml
       service: db
     volumes:
       - type: tmpfs
@@ -40,24 +40,24 @@ services:
 
   redis:
     extends:
-      file: compose.base.yml
+      file: infra/compose.base.yml
       service: redis
 
   integration-tests:
     image: ${BACKEND_IMAGE:-{{ project_slug }}-backend:latest}
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: services/backend/Dockerfile
       args:
         INSTALL_DEV_DEPS: "true"
     command: pytest -q tests/integration
     working_dir: /workspace
     volumes:
-      - ../:/workspace:delegated
+      - ${PWD}:/workspace:delegated
       - /app/services/backend/.venv
     env_file:
-      - ../.env
-      - ./.env.test
+      - ${PWD}/.env
+      - ${PWD}/infra/.env.test
     environment:
       PYTHONPATH: /workspace
       PATH: /app/services/backend/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin

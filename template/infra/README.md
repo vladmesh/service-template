@@ -105,7 +105,11 @@ the host. Configure those ports in `.env`:
 Production mode uses:
 
 ```bash
-docker compose -f infra/compose.base.yml -f infra/compose.prod.yml up -d --remove-orphans
+docker compose \
+  --project-directory . \
+  -f infra/compose.base.yml \
+  -f infra/compose.prod.yml \
+  up -d --remove-orphans
 ```
 
 Integration-test mode uses `infra/compose.tests.integration.yml` directly
