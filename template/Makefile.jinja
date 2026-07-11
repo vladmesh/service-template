@@ -4,7 +4,6 @@
 export
 
 DOCKER_COMPOSE ?= docker compose
-COMPOSE_PROJECT_DIR := --project-directory .
 COMPOSE_BASE := -f infra/compose.base.yml
 COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
 COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml
@@ -23,7 +22,7 @@ PYTHON := $(VENV)/python
 {% if 'backend' in modules %}
 ALEMBIC_CONFIG := services/backend/migrations/alembic.ini
 BACKEND_ALEMBIC := PYTHONPATH=. services/backend/.venv/bin/alembic -c $(ALEMBIC_CONFIG)
-DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --build backend alembic -c $(ALEMBIC_CONFIG)
+DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend alembic -c $(ALEMBIC_CONFIG)
 ifeq ($(SKIP_INFRA_START),1)
 ALEMBIC := $(BACKEND_ALEMBIC)
 else
@@ -143,8 +142,8 @@ makemigrations:
 	$(ALEMBIC) revision --autogenerate -m "$(name)"
 
 test-integration:
-	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests
-	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_TEST_INTEGRATION) down --volumes --remove-orphans
+	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) up --build --abort-on-container-exit --exit-code-from integration-tests
+	$(COMPOSE_ENV_INTEGRATION) $(DOCKER_COMPOSE) $(COMPOSE_TEST_INTEGRATION) down --volumes --remove-orphans
 {% endif %}
 log:
 	@service="$(if $(service),$(service),$(LOG_SERVICE))"; \
@@ -154,26 +153,26 @@ log:
 		exit 1; \
 	fi; \
 	echo ">> Showing logs for $$service"; \
-		$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) logs --tail=100 $$service
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) logs --tail=100 $$service
 
 infra-start:
 	@if [ -z "$(strip $(INFRA_SERVICES))" ]; then \
 		echo "No infrastructure services selected, skipping"; \
 	else \
-		$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES); \
+		$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES); \
 	fi
 
 ps:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) ps
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps
 
 worker-start:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) up -d --build --wait $(svc)
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)
 
 worker-stop:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) down --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans
 
 worker-clean:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) down --volumes --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans
 
 down: worker-stop
 
@@ -182,17 +181,17 @@ smoke-probe:
 		echo "Usage: make smoke-probe SMOKE_RUNNER=<python_service> SMOKE_URL=http://service:port/path"; \
 		exit 1; \
 	fi
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url = sys.argv[1]; response = urllib.request.urlopen(url, timeout=10); print(f"{url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$(SMOKE_URL)"
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url = sys.argv[1]; response = urllib.request.urlopen(url, timeout=10); print(f"{url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$(SMOKE_URL)"
 
 worker-call:
 	@if [ -z "$(SMOKE_RUNNER)" ] || [ -z "$(url)" ]; then \
 		echo "Usage: make worker-call SMOKE_RUNNER=<python_service> url=http://service:port/path [method=POST] [body='{}']"; \
 		exit 1; \
 	fi
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url, method, body = sys.argv[1:4]; data = body.encode() if body else None; request = urllib.request.Request(url, data=data, method=method.upper()); request.add_header("Content-Type", "application/json"); response = urllib.request.urlopen(request, timeout=10); print(f"{method.upper()} {url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$$url" "$$method" "$$body"
+	$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c 'import sys, urllib.request; url, method, body = sys.argv[1:4]; data = body.encode() if body else None; request = urllib.request.Request(url, data=data, method=method.upper()); request.add_header("Content-Type", "application/json"); response = urllib.request.urlopen(request, timeout=10); print(f"{method.upper()} {url} -> {response.status}"); sys.exit(0 if response.status < 400 else 1)' "$$url" "$$method" "$$body"
 
 dev-start:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) up -d --build --wait $(svc)
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)
 
 dev-smoke:
 	@set -e; \
@@ -201,24 +200,24 @@ dev-smoke:
 		echo "No Python services selected, skipping"; \
 		exit 0; \
 	fi; \
-	cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
 	trap cleanup EXIT; \
 	for svc in $$services; do \
 		echo ">> Smoke testing $$svc in dev compose"; \
-		$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --build --no-deps "$$svc" python -c 'import sys; print(sys.executable); assert sys.executable.startswith("/app/services/")'; \
+		$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build --no-deps "$$svc" python -c 'import sys; print(sys.executable); assert sys.executable.startswith("/app/services/")'; \
 	done
 
 dev-stop:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) down --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans
 
 dev-clean:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) down --volumes --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans
 
 prod-start:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_PROD) up -d --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_PROD) up -d --remove-orphans
 
 prod-stop:
-	$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_PROD) down --remove-orphans
+	$(DOCKER_COMPOSE) $(COMPOSE_PROD) down --remove-orphans
 
 tooling-tests:
 	@dirs=""; \

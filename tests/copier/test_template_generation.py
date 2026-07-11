@@ -49,17 +49,16 @@ def test_root_infra_readme_points_to_template_contract() -> None:
     assert "worker-mode\ncontract" in root_readme
 
 
-def test_template_ci_validates_compose_with_project_directory() -> None:
-    """Template CI should use the same compose contract as generated Makefile."""
+def test_template_ci_validates_compose_with_env_file() -> None:
+    """Template CI should validate root compose calls with explicit env file."""
     workflow = Path(".github/workflows/test-template.yml").read_text()
 
     assert "--defaults --trust --vcs-ref=HEAD" in workflow
     assert (
-        "docker compose --project-directory . --env-file .env "
-        "-f infra/compose.base.yml config"
+        "docker compose --env-file .env -f infra/compose.base.yml config"
     ) in workflow
     assert (
-        "docker compose --project-directory . --env-file .env "
+        "docker compose --env-file .env "
         "-f infra/compose.base.yml -f infra/compose.dev.yml config"
     ) in workflow
 
@@ -137,7 +136,7 @@ class TestBackendOnlyGeneration:
         assert "## Parallel run isolation" in infra_readme
         assert "COMPOSE_PROJECT_NAME=my-project-dev make dev-start" in infra_readme
         assert "make worker-call SMOKE_RUNNER=backend url=http://backend:8000/users" in infra_readme
-        assert "docker compose --project-directory ." in infra_readme
+        assert "docker compose --env-file .env" in infra_readme
         assert "`--project-name` option explicitly" in infra_readme
         assert "`infra/README.md`" in agents
 
@@ -163,8 +162,8 @@ class TestBackendOnlyGeneration:
 
         tg_bot = compose["services"]["tg_bot"]
         notifications_worker = compose["services"]["notifications_worker"]
-        assert tg_bot["env_file"] == ["${PWD}/.env"]
-        assert notifications_worker["env_file"] == ["${PWD}/.env"]
+        assert tg_bot["env_file"] == ["../.env"]
+        assert notifications_worker["env_file"] == ["../.env"]
         assert "REDIS_URL" not in tg_bot.get("environment", {})
         assert "REDIS_URL" not in notifications_worker.get("environment", {})
 
@@ -553,8 +552,16 @@ class TestComposeServices:
             for service_name, service in compose.get("services", {}).items():
                 assert "ports" not in service, f"{filename}:{service_name} publishes ports"
 
-    def test_compose_extends_paths_match_project_directory(self, project_fullstack: Path):
-        """Compose overrides should resolve extends when project-directory is root."""
+    def test_base_compose_sets_project_name_default(self, project_fullstack: Path):
+        """Base compose should use COMPOSE_PROJECT_NAME or deterministic slug."""
+        import yaml
+
+        compose = yaml.safe_load((project_fullstack / "infra" / "compose.base.yml").read_text())
+
+        assert compose["name"] == "${COMPOSE_PROJECT_NAME:-test_project}"
+
+    def test_compose_extends_paths_match_infra_directory(self, project_fullstack: Path):
+        """Compose overrides should keep the root compose contract from main."""
         import yaml
 
         for filename in (
@@ -565,7 +572,7 @@ class TestComposeServices:
             compose = yaml.safe_load((project_fullstack / "infra" / filename).read_text())
             for service in compose.get("services", {}).values():
                 if "extends" in service:
-                    assert service["extends"]["file"] == "infra/compose.base.yml"
+                    assert service["extends"]["file"] == "compose.base.yml"
 
     def test_compose_uses_only_implicit_default_network(self, project_fullstack: Path):
         """Generated compose files must not declare custom networks."""
@@ -760,8 +767,6 @@ class TestIntegration:
             [
                 "docker",
                 "compose",
-                "--project-directory",
-                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -771,12 +776,11 @@ class TestIntegration:
             capture_output=True,
             text=True,
             cwd=output,
-            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
     def test_docker_compose_worker_config_valid(self, tmp_path: Path):
-        """worker compose should resolve with the same project-directory make uses."""
+        """worker compose should resolve from the generated project root."""
         if shutil.which("docker") is None:
             pytest.skip("docker not available")
 
@@ -786,8 +790,8 @@ class TestIntegration:
             [
                 "docker",
                 "compose",
-                "--project-directory",
-                ".",
+                "--env-file",
+                ".env",
                 "-f",
                 "infra/compose.base.yml",
                 "-f",
@@ -797,9 +801,71 @@ class TestIntegration:
             capture_output=True,
             text=True,
             cwd=output,
-            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_docker_compose_project_name_default_and_env_override(self, tmp_path: Path):
+        """Compose should use the slug by default and COMPOSE_PROJECT_NAME when set."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        import yaml
+
+        output = run_copier(tmp_path, "backend")
+        env = {key: value for key, value in os.environ.items() if key != "COMPOSE_PROJECT_NAME"}
+        base_cmd = [
+            "docker",
+            "compose",
+            "--env-file",
+            ".env",
+            "-f",
+            "infra/compose.base.yml",
+            "config",
+        ]
+
+        shutil.copy(output / ".env.example", output / ".env")
+        default_result = subprocess.run(  # noqa: S603, S607
+            base_cmd,
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert default_result.returncode == 0, default_result.stderr
+        assert yaml.safe_load(default_result.stdout)["name"] == "test_project"
+
+        (output / ".env").write_text(
+            (output / ".env.example").read_text() + "\nCOMPOSE_PROJECT_NAME=custom_project\n"
+        )
+        custom_result = subprocess.run(  # noqa: S603, S607
+            base_cmd,
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert custom_result.returncode == 0, custom_result.stderr
+        assert yaml.safe_load(custom_result.stdout)["name"] == "custom_project"
+
+        explicit_result = subprocess.run(  # noqa: S603, S607
+            [
+                "docker",
+                "compose",
+                "--project-name",
+                "external_project",
+                "--env-file",
+                ".env",
+                "-f",
+                "infra/compose.base.yml",
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=output,
+            env=env,
+        )
+        assert explicit_result.returncode == 0, explicit_result.stderr
+        assert yaml.safe_load(explicit_result.stdout)["name"] == "external_project"
 
     def test_docker_compose_config_full_stack(self, tmp_path: Path):
         """docker compose config should pass for full stack."""
@@ -812,8 +878,6 @@ class TestIntegration:
             [
                 "docker",
                 "compose",
-                "--project-directory",
-                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -823,7 +887,6 @@ class TestIntegration:
             capture_output=True,
             text=True,
             cwd=output,
-            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
 
@@ -853,14 +916,12 @@ class TestIntegration:
         assert "smoke-probe:" in makefile
         assert "infra-start:" in makefile
         assert "ps:" in makefile
-        assert "COMPOSE_PROJECT_DIR := --project-directory ." in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) ps" in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "dev-clean:" in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
-            "down --volumes --remove-orphans"
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
         ) in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
@@ -875,8 +936,8 @@ class TestIntegration:
         assert "COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml" in makefile
         assert "BACKEND_ALEMBIC := PYTHONPATH=. services/backend/.venv/bin/alembic" in makefile
         assert (
-            "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
-            "run --rm --build backend alembic -c $(ALEMBIC_CONFIG)"
+            "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend "
+            "alembic -c $(ALEMBIC_CONFIG)"
         ) in makefile
         assert "$(MAKE) worker-start svc=db" in makefile
         assert "$(MAKE) dev-start svc=db" not in makefile
@@ -888,21 +949,17 @@ class TestIntegration:
         makefile = (project_backend / "Makefile").read_text()
 
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
-            "up -d --build --wait $(svc)"
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)"
         ) in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) down --remove-orphans"
-            in makefile
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
         )
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
-            "down --volumes --remove-orphans"
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans"
         ) in makefile
         assert "SMOKE_URL ?= http://backend:8000/health" in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps "
-            "$(SMOKE_RUNNER) python -c"
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c"
         ) in makefile
         assert (
             "worker-call:\n\t@if [ -z \"$(SMOKE_RUNNER)\" ] || [ -z \"$(url)\" ]; then"
@@ -955,20 +1012,16 @@ class TestIntegration:
         makefile = (project_backend_tg_bot / "Makefile").read_text()
 
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
-            "up -d --build --wait $(svc)"
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)"
         ) in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) down --remove-orphans"
-            in makefile
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
         )
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
-            "down --volumes --remove-orphans"
+            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
         ) in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
-            "up -d --wait $(INFRA_SERVICES)"
+            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)"
         ) in makefile
         assert "INFRA_SERVICES := db redis" in makefile
 
@@ -1047,12 +1100,12 @@ class TestIntegration:
         assert "COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME=test_project-dev-smoke" in makefile
         assert "@set -e;" in makefile
         assert (
-            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) "
-            "$(COMPOSE_DEV) down --volumes --remove-orphans"
+            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down "
+            "--volumes --remove-orphans"
         ) in makefile
         assert (
-            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) "
-            '$(COMPOSE_DEV) run --rm --build --no-deps "$$svc"'
+            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm "
+            '--build --no-deps "$$svc"'
         ) in makefile
 
     def test_dev_smoke_fails_when_any_service_fails(self, project_fullstack: Path, tmp_path: Path):
@@ -1366,8 +1419,6 @@ class TestCIWorkflowSimulation:
                 [
                     "docker",
                     "compose",
-                    "--project-directory",
-                    ".",
                     "--env-file",
                     ".env",
                     "-f",
@@ -1377,7 +1428,6 @@ class TestCIWorkflowSimulation:
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
-                env={**os.environ, "PWD": str(project_dir)},
             )
             if result.returncode != 0:
                 errors.append(
@@ -1485,7 +1535,6 @@ class TestDockerReadiness:
         # Set required IMAGE variables for prod compose
         env = {
             **os.environ,
-            "PWD": str(output),
             "BACKEND_IMAGE": "test:latest",
             "TG_BOT_IMAGE": "test:latest",
             "NOTIFICATIONS_WORKER_IMAGE": "test:latest",
@@ -1496,8 +1545,6 @@ class TestDockerReadiness:
             [
                 "docker",
                 "compose",
-                "--project-directory",
-                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -1527,8 +1574,6 @@ class TestDockerReadiness:
             [
                 "docker",
                 "compose",
-                "--project-directory",
-                ".",
                 "--env-file",
                 ".env",
                 "-f",
@@ -1540,7 +1585,6 @@ class TestDockerReadiness:
             capture_output=True,
             text=True,
             cwd=output,
-            env={**os.environ, "PWD": str(output)},
         )
         assert result.returncode == 0, f"compose.dev.yml config failed:\n{result.stderr}"
 
@@ -1931,21 +1975,19 @@ class TestSlowIntegration:
         compose_file = None
         for name in ("compose.base.yml", "docker-compose.yml", "compose.yml"):
             if (infra / name).exists():
-                compose_file = f"infra/{name}"
+                compose_file = name
                 break
         if compose_file is None:
             pytest.skip("No compose file found in infra/")
 
-        compose_cmd = ["docker", "compose", "--project-directory", ".", "-f", compose_file]
-        compose_env = {**os.environ, "PWD": str(output)}
+        compose_cmd = ["docker", "compose", "-f", compose_file]
 
         # Build the specific service image
         result = subprocess.run(  # noqa: S603
             [*compose_cmd, "build", service],
-            cwd=output,
+            cwd=infra,
             capture_output=True,
             text=True,
-            env=compose_env,
             timeout=600,
         )
         assert result.returncode == 0, (
@@ -1974,10 +2016,9 @@ class TestSlowIntegration:
                 "-c",
                 f"import {module_path}; print('OK')",
             ],
-            cwd=output,
+            cwd=infra,
             capture_output=True,
             text=True,
-            env=compose_env,
             timeout=60,
         )
         assert result.returncode == 0, (

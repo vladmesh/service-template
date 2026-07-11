@@ -87,7 +87,6 @@ This expands to:
 
 ```bash
 docker compose \
-  --project-directory . \
   -f infra/compose.base.yml \
   -f infra/compose.dev.yml \
   -f infra/compose.local.yml \
@@ -106,7 +105,6 @@ Production mode uses:
 
 ```bash
 docker compose \
-  --project-directory . \
   -f infra/compose.base.yml \
   -f infra/compose.prod.yml \
   up -d --remove-orphans
@@ -134,15 +132,15 @@ ports in `.env` when the local-port layer is enabled:
 - `FRONTEND_PORT` for the frontend.
 
 Use `make ps` and `make log <service>` to inspect the selected Compose project.
-Plain `docker compose ps` does not load the generated `.env`; either use the
-Makefile targets, export the same values in your shell, or pass the compose
-files and project directory explicitly.
+For local work, prefer the Makefile targets. They include and export the
+generated `.env` before invoking Compose.
 
-When running Compose by hand from the project root, include `--project-directory .`
-so Compose reads the root `.env` and uses the same project name as `make`:
+When running Compose by hand from the project root, include `--env-file .env`
+or export the same variables in your shell. Without that, the top-level Compose
+`name:` falls back to the generated project slug.
 
 ```bash
-docker compose --project-directory . \
+docker compose --env-file .env \
   -f infra/compose.base.yml \
   -f infra/compose.dev.yml \
   run --rm --no-deps backend \
