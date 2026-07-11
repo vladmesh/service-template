@@ -53,6 +53,7 @@ For a backend plus notifications project, a full worker-mode smoke run is:
 ```bash
 make worker-start
 make smoke-probe
+make worker-call url=http://backend:8000/users method=POST body='{"name":"Ada"}'
 make worker-stop
 ```
 
@@ -62,6 +63,12 @@ used as a one-off runner and the URL:
 
 ```bash
 make smoke-probe SMOKE_RUNNER=backend SMOKE_URL=http://backend:8000/health
+```
+
+Use `make worker-call` for non-GET requests:
+
+```bash
+make worker-call SMOKE_RUNNER=backend url=http://backend:8000/users method=POST body='{"name":"Ada"}'
 ```
 
 Worker mode must not depend on published host ports. The dev layer keeps
@@ -80,6 +87,7 @@ This expands to:
 
 ```bash
 docker compose \
+  --project-directory . \
   -f infra/compose.base.yml \
   -f infra/compose.dev.yml \
   -f infra/compose.local.yml \
@@ -122,8 +130,20 @@ ports in `.env` when the local-port layer is enabled:
 - `FRONTEND_PORT` for the frontend.
 
 Use `make ps` and `make log <service>` to inspect the selected Compose project.
-Plain `docker compose ps` does not load the generated `.env`; either export the
-same values in your shell or pass the compose files and project name explicitly.
+Plain `docker compose ps` does not load the generated `.env`; either use the
+Makefile targets, export the same values in your shell, or pass the compose
+files and project directory explicitly.
+
+When running Compose by hand from the project root, include `--project-directory .`
+so Compose reads the root `.env` and uses the same project name as `make`:
+
+```bash
+docker compose --project-directory . \
+  -f infra/compose.base.yml \
+  -f infra/compose.dev.yml \
+  run --rm --no-deps backend \
+  python -c 'import urllib.request; urllib.request.urlopen("http://backend:8000/health")'
+```
 
 `make worker-clean` runs `docker compose down --volumes --remove-orphans` with
 the base and dev layers only. `make dev-clean` does the same with the local

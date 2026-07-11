@@ -23,8 +23,10 @@ uvx copier copy gh:vladmesh/service-template my-project \
   --vcs-ref=HEAD
 ```
 
-Copier uses the latest git tag for git sources by default. `--vcs-ref=HEAD` generates from the
-current default branch; replace it with another branch/ref when needed.
+Copier uses the latest git tag for git sources by default. For `gh:vladmesh/service-template`,
+omitting `--vcs-ref` can silently generate from an older release tag instead of the current
+default branch. `--vcs-ref=HEAD` keeps bootstrap output on the latest template state; replace it
+with another branch/ref when needed.
 
 ### Available Modules
 

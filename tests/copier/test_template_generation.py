@@ -104,6 +104,7 @@ class TestBackendOnlyGeneration:
         assert "Use `make ps` to see the current project's Compose stack status." in content
         assert "`REDIS_HOST_PORT` maps Redis to container port `6379`" in content
         assert "use `users` as the reference entity" in content
+        assert "make worker-call url=http://backend:8000/users method=POST" in content
 
     def test_infra_contract_documented(self, project_backend: Path):
         """Generated project should document the compose infra contract."""
@@ -120,6 +121,8 @@ class TestBackendOnlyGeneration:
         assert "consumers load `REDIS_URL` from generated `.env`" in infra_readme
         assert "## Parallel run isolation" in infra_readme
         assert "COMPOSE_PROJECT_NAME=my-project-dev make dev-start" in infra_readme
+        assert "make worker-call SMOKE_RUNNER=backend url=http://backend:8000/users" in infra_readme
+        assert "docker compose --project-directory ." in infra_readme
         assert "`--project-name` option explicitly" in infra_readme
         assert "`infra/README.md`" in agents
 
@@ -769,14 +772,19 @@ class TestIntegration:
         assert "dev-start:" in makefile
         assert "worker-start:" in makefile
         assert "worker-stop:" in makefile
+        assert "worker-call:" in makefile
         assert "smoke-probe:" in makefile
         assert "infra-start:" in makefile
         assert "ps:" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
+        assert "COMPOSE_PROJECT_DIR := --project-directory ." in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) ps" in makefile
         assert "dev-smoke:" in makefile
         assert "dev-stop:" in makefile
         assert "dev-clean:" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
+            "down --volumes --remove-orphans"
+        ) in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
 
@@ -790,8 +798,8 @@ class TestIntegration:
         assert "COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml" in makefile
         assert "BACKEND_ALEMBIC := PYTHONPATH=. services/backend/.venv/bin/alembic" in makefile
         assert (
-            "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --build backend "
-            "alembic -c $(ALEMBIC_CONFIG)"
+            "DOCKER_ALEMBIC := $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
+            "run --rm --build backend alembic -c $(ALEMBIC_CONFIG)"
         ) in makefile
         assert "$(MAKE) worker-start svc=db" in makefile
         assert "$(MAKE) dev-start svc=db" not in makefile
@@ -802,24 +810,51 @@ class TestIntegration:
         """Worker mode should use base+dev compose and omit the local port layer."""
         makefile = (project_backend / "Makefile").read_text()
 
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans" in makefile
-        assert "SMOKE_URL ?= http://backend:8000/health" in makefile
         assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c"
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
+            "up -d --build --wait $(svc)"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) down --remove-orphans"
             in makefile
         )
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
+            "down --volumes --remove-orphans"
+        ) in makefile
+        assert "SMOKE_URL ?= http://backend:8000/health" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) run --rm --no-deps "
+            "$(SMOKE_RUNNER) python -c"
+        ) in makefile
+        assert (
+            "worker-call:\n\t@if [ -z \"$(SMOKE_RUNNER)\" ] || [ -z \"$(url)\" ]; then"
+            in makefile
+        )
+        assert "method ?= POST" in makefile
+        assert "urllib.request.Request(url, data=data, method=method.upper())" in makefile
         assert "urllib.request.urlopen" in makefile
 
     def test_dev_start_uses_local_compose_layer(self, project_backend_tg_bot: Path):
         """Human dev-start should still publish ports through compose.local.yml."""
         makefile = (project_backend_tg_bot / "Makefile").read_text()
 
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans" in makefile
-        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)" in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
+            "up -d --build --wait $(svc)"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) down --remove-orphans"
+            in makefile
+        )
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_LOCAL) "
+            "down --volumes --remove-orphans"
+        ) in makefile
+        assert (
+            "$(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) $(COMPOSE_DEV) "
+            "up -d --wait $(INFRA_SERVICES)"
+        ) in makefile
         assert "INFRA_SERVICES := db redis" in makefile
 
     def test_infra_start_uses_only_available_infra_services(self, project_standalone: Path):
@@ -897,12 +932,12 @@ class TestIntegration:
         assert "COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME=test_project-dev-smoke" in makefile
         assert "@set -e;" in makefile
         assert (
-            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) down "
-            "--volumes --remove-orphans"
+            "cleanup() { $(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) "
+            "$(COMPOSE_DEV) down --volumes --remove-orphans"
         ) in makefile
         assert (
-            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm "
-            '--build --no-deps "$$svc"'
+            "$(COMPOSE_ENV_DEV_SMOKE) $(DOCKER_COMPOSE) $(COMPOSE_PROJECT_DIR) "
+            '$(COMPOSE_DEV) run --rm --build --no-deps "$$svc"'
         ) in makefile
 
     def test_dev_smoke_fails_when_any_service_fails(self, project_fullstack: Path, tmp_path: Path):
