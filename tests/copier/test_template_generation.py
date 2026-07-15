@@ -54,12 +54,9 @@ def test_template_ci_validates_compose_with_env_file() -> None:
     workflow = Path(".github/workflows/test-template.yml").read_text()
 
     assert "--defaults --trust --vcs-ref=HEAD" in workflow
+    assert ("docker compose --env-file .env -f infra/compose.base.yml config") in workflow
     assert (
-        "docker compose --env-file .env -f infra/compose.base.yml config"
-    ) in workflow
-    assert (
-        "docker compose --env-file .env "
-        "-f infra/compose.base.yml -f infra/compose.dev.yml config"
+        "docker compose --env-file .env -f infra/compose.base.yml -f infra/compose.dev.yml config"
     ) in workflow
 
 
@@ -707,6 +704,33 @@ class TestIntegrationCompose:
             f"integration-tests PATH must not use host-mounted venv: {path_val}"
         )
 
+    def test_workspace_writers_require_checkout_ownership(self, project_backend: Path):
+        """Both containers writing to /workspace must use the checkout owner."""
+        import yaml
+
+        compose_text = (project_backend / "infra" / "compose.tests.integration.yml").read_text()
+        compose = yaml.safe_load(compose_text)
+        expected = (
+            "${HOST_UID:?set HOST_UID to the checkout owner UID}:"
+            "${HOST_GID:?set HOST_GID to the checkout owner GID}"
+        )
+
+        for service_name in ("backend", "integration-tests"):
+            assert compose["services"][service_name]["user"] == expected
+
+        assert "${HOST_UID:-1000}" not in compose_text
+        assert "${HOST_GID:-1000}" not in compose_text
+
+    def test_integration_tests_run_generation_in_container(self, project_backend: Path):
+        """The integration container must exercise generation against the bind mount."""
+        import yaml
+
+        compose = yaml.safe_load(
+            (project_backend / "infra" / "compose.tests.integration.yml").read_text()
+        )
+        command = compose["services"]["integration-tests"]["command"]
+        assert "python -m framework.generate" in command
+
     def test_backend_has_healthcheck(self, project_backend: Path):
         """Backend must define a healthcheck so integration-tests can wait for readiness."""
         import yaml
@@ -803,6 +827,86 @@ class TestIntegration:
             cwd=output,
         )
         assert result.returncode == 0, f"docker compose config failed: {result.stderr}"
+
+    def test_integration_generation_with_non_default_checkout_owner(self, tmp_path: Path):
+        """Container generation can write a checkout owned by a non-1000 UID/GID."""
+        if shutil.which("docker") is None:
+            pytest.skip("docker not available")
+
+        output = run_copier(tmp_path, "backend")
+        shutil.copy(output / ".env.example", output / ".env")
+        owner = "12345:12345"
+        compose = ["docker", "compose", "-f", "infra/compose.tests.integration.yml"]
+        env = {**os.environ, "HOST_UID": "12345", "HOST_GID": "12345"}
+
+        try:
+            chown = subprocess.run(  # noqa: S603, S607
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-v",
+                    f"{output}:/workspace",
+                    "alpine:3.20",
+                    "chown",
+                    "-R",
+                    owner,
+                    "/workspace",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert chown.returncode == 0, chown.stderr
+
+            registry = output / "services" / "backend" / "src" / "generated" / "registry.py"
+            registry.unlink(missing_ok=True)
+            result = subprocess.run(  # noqa: S603, S607
+                [
+                    *compose,
+                    "run",
+                    "--rm",
+                    "--no-deps",
+                    "--build",
+                    "integration-tests",
+                    "python",
+                    "-m",
+                    "framework.generate",
+                ],
+                cwd=output,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stderr
+            assert registry.exists()
+            assert registry.stat().st_uid == 12345
+            assert registry.stat().st_gid == 12345
+        finally:
+            subprocess.run(  # noqa: S603, S607
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-v",
+                    f"{output}:/workspace",
+                    "alpine:3.20",
+                    "chown",
+                    "-R",
+                    f"{os.getuid()}:{os.getgid()}",
+                    "/workspace",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            subprocess.run(  # noqa: S603, S607
+                [*compose, "down", "--volumes", "--remove-orphans"],
+                cwd=output,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
     def test_docker_compose_project_name_default_and_env_override(self, tmp_path: Path):
         """Compose should use the slug by default and COMPOSE_PROJECT_NAME when set."""
@@ -918,11 +1022,16 @@ class TestIntegration:
         assert "ps:" in makefile
         assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) ps" in makefile
         assert "dev-smoke:" in makefile
+
+    def test_makefile_passes_checkout_owner_to_integration_compose(self, project_backend: Path):
+        """Local integration runs derive the same ownership contract as CI."""
+        makefile = (project_backend / "Makefile").read_text()
+        assert "CHECKOUT_UID := $(shell stat -c '%u' .)" in makefile
+        assert "CHECKOUT_GID := $(shell stat -c '%g' .)" in makefile
+        assert "HOST_UID=$(CHECKOUT_UID) HOST_GID=$(CHECKOUT_GID)" in makefile
         assert "dev-stop:" in makefile
         assert "dev-clean:" in makefile
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
-        ) in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans") in makefile
         assert "lint:" in makefile
         assert "tests:" in makefile
 
@@ -948,31 +1057,20 @@ class TestIntegration:
         """Worker mode should use base+dev compose and omit the local port layer."""
         makefile = (project_backend / "Makefile").read_text()
 
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)"
-        ) in makefile
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
-        )
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans"
-        ) in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --build --wait $(svc)") in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --remove-orphans" in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_DEV) down --volumes --remove-orphans") in makefile
         assert "SMOKE_URL ?= http://backend:8000/health" in makefile
         assert (
             "$(DOCKER_COMPOSE) $(COMPOSE_DEV) run --rm --no-deps $(SMOKE_RUNNER) python -c"
         ) in makefile
-        assert (
-            "worker-call:\n\t@if [ -z \"$(SMOKE_RUNNER)\" ] || [ -z \"$(url)\" ]; then"
-            in makefile
-        )
+        assert 'worker-call:\n\t@if [ -z "$(SMOKE_RUNNER)" ] || [ -z "$(url)" ]; then' in makefile
         assert "method ?= POST" in makefile
         assert "urllib.request.Request(url, data=data, method=method.upper())" in makefile
         assert "urllib.request.urlopen" in makefile
         assert '"$$url" "$$method" "$$body"' in makefile
 
-    def test_worker_call_preserves_json_body_quoting(
-        self, tmp_path: Path, project_backend: Path
-    ):
+    def test_worker_call_preserves_json_body_quoting(self, tmp_path: Path, project_backend: Path):
         """worker-call should pass JSON bodies to the runner without shell stripping."""
         capture = tmp_path / "argv.txt"
         fake_compose = tmp_path / "docker-compose"
@@ -1011,18 +1109,10 @@ class TestIntegration:
         """Human dev-start should still publish ports through compose.local.yml."""
         makefile = (project_backend_tg_bot / "Makefile").read_text()
 
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)"
-        ) in makefile
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
-        )
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans"
-        ) in makefile
-        assert (
-            "$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)"
-        ) in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) up -d --build --wait $(svc)") in makefile
+        assert "$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --remove-orphans" in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_LOCAL) down --volumes --remove-orphans") in makefile
+        assert ("$(DOCKER_COMPOSE) $(COMPOSE_DEV) up -d --wait $(INFRA_SERVICES)") in makefile
         assert "INFRA_SERVICES := db redis" in makefile
 
     def test_infra_start_uses_only_available_infra_services(self, project_standalone: Path):
@@ -1214,6 +1304,12 @@ class TestWorkflowGeneration:
         assert workflows_dir.exists()
         assert (workflows_dir / "ci.yml").exists()
         assert (workflows_dir / "deploy.yml").exists()
+
+    def test_backend_ci_exports_checkout_owner(self, project_backend: Path):
+        """CI must pass the checkout owner UID/GID to integration compose."""
+        ci_yml = (project_backend / ".github" / "workflows" / "ci.yml").read_text()
+        assert 'echo "HOST_UID=$(stat -c \'%u\' .)" >> "$GITHUB_ENV"' in ci_yml
+        assert 'echo "HOST_GID=$(stat -c \'%g\' .)" >> "$GITHUB_ENV"' in ci_yml
 
     def test_workflow_no_jinja_source_files(self, project_backend: Path):
         """Jinja source templates should not be copied."""

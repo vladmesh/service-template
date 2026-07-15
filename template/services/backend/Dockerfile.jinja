@@ -16,10 +16,12 @@ ARG INSTALL_DEV_DEPS
 COPY shared/pyproject.toml ./shared/pyproject.toml
 RUN mkdir -p ./shared/shared && touch ./shared/shared/__init__.py
 COPY services/backend/pyproject.toml services/backend/uv.lock ./services/backend/
+COPY .framework ./.framework
 RUN --mount=type=cache,target=/root/.cache/uv \
     cd services/backend \
     && if [ "$INSTALL_DEV_DEPS" = "true" ]; then \
-    uv sync --frozen --no-install-project; \
+    uv sync --frozen --no-install-project \
+    && uv pip install --python .venv/bin/python -e ../../.framework; \
     else \
     uv sync --frozen --no-install-project --no-dev; \
     fi
@@ -31,6 +33,7 @@ ENV PATH="/app/services/backend/.venv/bin:${PATH}"
 COPY services/backend ./services/backend
 COPY services/backend/README.md ./README.md
 COPY shared ./shared
+COPY .framework ./.framework
 
 RUN chown -R 1000:1000 /app
 USER 1000
