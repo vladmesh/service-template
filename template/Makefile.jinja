@@ -9,7 +9,9 @@ COMPOSE_DEV := $(COMPOSE_BASE) -f infra/compose.dev.yml
 COMPOSE_LOCAL := $(COMPOSE_DEV) -f infra/compose.local.yml
 COMPOSE_PROD := $(COMPOSE_BASE) -f infra/compose.prod.yml
 COMPOSE_TEST_INTEGRATION := -f infra/compose.tests.integration.yml
-COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration
+CHECKOUT_UID := $(shell stat -c '%u' .)
+CHECKOUT_GID := $(shell stat -c '%g' .)
+COMPOSE_ENV_INTEGRATION := COMPOSE_PROJECT_NAME=tests-integration HOST_UID=$(CHECKOUT_UID) HOST_GID=$(CHECKOUT_GID)
 COMPOSE_ENV_DEV_SMOKE := COMPOSE_PROJECT_NAME={{ project_slug }}-dev-smoke
 INFRA_SERVICES :={% if 'backend' in modules %} db{% endif %}{% if 'backend' in modules or 'tg_bot' in modules or 'notifications' in modules %} redis{% endif %}
 SMOKE_RUNNER ?={% if 'backend' in modules %} backend{% elif 'tg_bot' in modules %} tg_bot{% elif 'notifications' in modules %} notifications_worker{% endif %}
