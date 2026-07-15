@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 
 from framework import generate
+from framework.lib.fs import GENERATED_FILE_MODE
 
 
 def test_generate_all_creates_files(fake_repo) -> None:
@@ -95,6 +96,10 @@ operations:
     # Check service generated files (protocols)
     backend_gen = root / "services" / "backend" / "src" / "generated"
     assert (backend_gen / "protocols.py").exists()
+
+    generated_files = [*shared_gen.glob("*.py"), *backend_gen.rglob("*.py")]
+    assert generated_files
+    assert all(path.stat().st_mode & 0o777 == GENERATED_FILE_MODE for path in generated_files)
 
     protocols = (backend_gen / "protocols.py").read_text()
     assert "class UsersControllerProtocol(Protocol):" in protocols

@@ -887,6 +887,24 @@ class TestIntegration:
             assert registry.exists()
             assert registry.stat().st_uid == 12345
             assert registry.stat().st_gid == 12345
+            read_as_runtime_user = subprocess.run(  # noqa: S603, S607
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--user",
+                    "23456:23456",
+                    "-v",
+                    f"{output}:/workspace:ro",
+                    "alpine:3.20",
+                    "cat",
+                    "/workspace/services/backend/src/generated/registry.py",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert read_as_runtime_user.returncode == 0, read_as_runtime_user.stderr
+            assert "def create_api_router" in read_as_runtime_user.stdout
         finally:
             subprocess.run(  # noqa: S603, S607
                 [
