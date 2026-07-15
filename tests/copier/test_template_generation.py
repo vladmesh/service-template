@@ -730,6 +730,8 @@ class TestIntegrationCompose:
         )
         command = compose["services"]["integration-tests"]["command"]
         assert "python -m framework.generate" in command
+        dockerignore = (project_backend / ".dockerignore").read_text()
+        assert "!.framework/**" in dockerignore
 
     def test_backend_has_healthcheck(self, project_backend: Path):
         """Backend must define a healthcheck so integration-tests can wait for readiness."""
