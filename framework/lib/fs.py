@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import tempfile
 
+GENERATED_FILE_MODE = 0o644
+
 
 def parse_python(path: Path) -> ast.Module | None:
     """Parse a Python file into an AST module, or None if it can't be read or parsed.
@@ -30,6 +32,7 @@ def atomic_write_text(path: Path, content: str) -> None:
     try:
         with os.fdopen(fd, "w") as f:
             f.write(content)
+        os.chmod(tmp_name, GENERATED_FILE_MODE)
         os.replace(tmp_name, path)
     except BaseException:
         Path(tmp_name).unlink(missing_ok=True)
