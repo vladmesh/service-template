@@ -1515,6 +1515,12 @@ class TestCIWorkflowSimulation:
 
         errors = []
         compose_files = list((project_dir / "infra").glob("compose.tests.*.yml"))
+        checkout_stat = project_dir.stat()
+        env = {
+            **os.environ,
+            "HOST_UID": str(checkout_stat.st_uid),
+            "HOST_GID": str(checkout_stat.st_gid),
+        }
 
         for compose_path in compose_files:
             result = subprocess.run(  # noqa: S603, S607
@@ -1528,6 +1534,7 @@ class TestCIWorkflowSimulation:
                     "config",
                 ],
                 cwd=project_dir,
+                env=env,
                 capture_output=True,
                 text=True,
             )
