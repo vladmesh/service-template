@@ -730,6 +730,10 @@ class TestIntegrationCompose:
         )
         command = compose["services"]["integration-tests"]["command"]
         assert "python -m framework.generate" in command
+        assert (
+            compose["services"]["integration-tests"]["environment"]["SERVICE_TEMPLATE_ROOT"]
+            == "/workspace"
+        )
         dockerignore = (project_backend / ".dockerignore").read_text()
         assert "!.framework/**" in dockerignore
 
