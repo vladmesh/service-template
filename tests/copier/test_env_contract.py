@@ -87,6 +87,15 @@ def test_backend_contract_classifies_infrastructure_values(project_backend: Path
         "required": True,
         "value": 6379,
     }
-    for key in ("APP_SECRET_KEY", "POSTGRES_PASSWORD", "REDIS_URL"):
+    for key in ("APP_SECRET_KEY", "POSTGRES_PASSWORD"):
         assert entries[key]["source"] == "generated_secret"
+    assert entries["REDIS_URL"] == {
+        "source": "literal",
+        "environments": ["local", "production"],
+        "consumers": ["backend"],
+        "required": True,
+        "value": "redis://redis:6379",
+    }
+    for key in ("ENVIRONMENT", "APP_ENV"):
+        assert entries[key]["source"] == "derived"
     assert entries["BACKEND_IMAGE"]["source"] == "derived"
