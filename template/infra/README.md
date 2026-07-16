@@ -110,6 +110,11 @@ docker compose \
   up -d --remove-orphans
 ```
 
+`infra/compose.prod.yml` publishes the backend on `${BACKEND_PORT}:8000` so the
+deployed service is reachable at `http://<host>:${BACKEND_PORT}/health` from
+outside the Compose network. `BACKEND_PORT` is required in this mode (no default)
+so co-located apps on the same host must each pick a unique host port.
+
 Integration-test mode uses `infra/compose.tests.integration.yml` directly
 through `make test-integration`.
 

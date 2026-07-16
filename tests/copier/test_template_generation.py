@@ -596,6 +596,22 @@ class TestComposeServices:
         assert compose_local["services"]["redis"]["ports"] == ["${REDIS_HOST_PORT:-6379}:6379"]
         assert compose_local["services"]["frontend"]["ports"] == ["${FRONTEND_PORT:-3000}:3000"]
 
+    def test_prod_compose_publishes_backend_port(self, project_backend_tg_bot: Path):
+        """Prod deploy (base+prod, no local) must publish backend on the host."""
+        import yaml
+
+        compose_prod_path = project_backend_tg_bot / "infra" / "compose.prod.yml"
+        compose_text = compose_prod_path.read_text()
+        compose_prod = yaml.safe_load(compose_text)
+
+        backend_ports = compose_prod["services"]["backend"]["ports"]
+        expected = "${BACKEND_PORT:?Set BACKEND_PORT to a unique host port for this app}:8000"
+        assert backend_ports == [expected]
+        # Host port comes from BACKEND_PORT with no hardcoded fallback, so two
+        # apps with distinct BACKEND_PORT values never collide on the host.
+        assert ":8000" in compose_text
+        assert "8000:8000" not in compose_text
+
     def test_dev_compose_has_redis_backend_only(self, project_backend: Path):
         """compose.dev.yml should include redis for backend event publishing."""
         import yaml
