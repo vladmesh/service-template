@@ -89,6 +89,18 @@ def project_standalone(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
+def project_notifications(tmp_path_factory):
+    """Generate a standalone notifications project (once per session)."""
+    return run_copier(tmp_path_factory.mktemp("notifications"), "notifications")
+
+
+@pytest.fixture(scope="session")
+def project_frontend(tmp_path_factory):
+    """Generate a standalone frontend project (once per session)."""
+    return run_copier(tmp_path_factory.mktemp("frontend"), "frontend")
+
+
+@pytest.fixture(scope="session")
 def project_backend_tg_bot(tmp_path_factory):
     """Generate a backend+tg_bot project (once per session)."""
     return run_copier(tmp_path_factory.mktemp("backend_tg_bot"), "backend,tg_bot")

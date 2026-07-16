@@ -45,6 +45,7 @@ _exclude:
   - "{% if 'backend' not in modules %}shared/shared/http_client.py{% endif %}"
   - "{% if 'backend' not in modules %}services/*/spec{% endif %}"
   - "{% if 'backend' not in modules %}services/*/spec/**{% endif %}"
+  - "{% if 'backend' not in modules and 'tg_bot' not in modules and 'notifications' not in modules %}infra/env.contract.yaml{% endif %}"
 
 # Files to skip if they already exist (preserve user modifications on update)
 _skip_if_exists:

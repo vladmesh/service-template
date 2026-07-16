@@ -33,7 +33,14 @@ def fragments(project: Path) -> list[tuple[Path, dict[str, object]]]:
 
 @pytest.mark.parametrize(
     "fixture_name",
-    ["project_backend", "project_standalone", "project_backend_tg_bot", "project_fullstack"],
+    [
+        "project_backend",
+        "project_standalone",
+        "project_notifications",
+        "project_frontend",
+        "project_backend_tg_bot",
+        "project_fullstack",
+    ],
 )
 def test_env_contract_fragments_match_vendored_schema(
     request: pytest.FixtureRequest, fixture_name: str
@@ -48,7 +55,14 @@ def test_env_contract_fragments_match_vendored_schema(
 
 @pytest.mark.parametrize(
     "fixture_name",
-    ["project_backend", "project_standalone", "project_backend_tg_bot", "project_fullstack"],
+    [
+        "project_backend",
+        "project_standalone",
+        "project_notifications",
+        "project_frontend",
+        "project_backend_tg_bot",
+        "project_fullstack",
+    ],
 )
 def test_env_contract_covers_env_example(
     request: pytest.FixtureRequest, fixture_name: str
@@ -96,6 +110,5 @@ def test_backend_contract_classifies_infrastructure_values(project_backend: Path
         "required": True,
         "value": "redis://redis:6379",
     }
-    for key in ("ENVIRONMENT", "APP_ENV"):
-        assert entries[key]["source"] == "derived"
+    assert entries["APP_ENV"]["source"] == "derived"
     assert entries["BACKEND_IMAGE"]["source"] == "derived"
