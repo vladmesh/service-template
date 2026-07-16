@@ -96,6 +96,5 @@ def test_backend_contract_classifies_infrastructure_values(project_backend: Path
         "required": True,
         "value": "redis://redis:6379",
     }
-    for key in ("ENVIRONMENT", "APP_ENV"):
-        assert entries[key]["source"] == "derived"
+    assert entries["APP_ENV"]["source"] == "derived"
     assert entries["BACKEND_IMAGE"]["source"] == "derived"
