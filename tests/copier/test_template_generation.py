@@ -349,7 +349,14 @@ class TestEnvExample:
 
     @pytest.mark.parametrize(
         "fixture_name",
-        ["project_backend", "project_standalone", "project_backend_tg_bot", "project_fullstack"],
+        [
+            "project_backend",
+            "project_standalone",
+            "project_notifications",
+            "project_frontend",
+            "project_backend_tg_bot",
+            "project_fullstack",
+        ],
     )
     def test_env_and_example_have_same_keys(
         self, request: pytest.FixtureRequest, fixture_name: str
