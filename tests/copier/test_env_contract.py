@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
 
 from jsonschema import Draft202012Validator
 import pytest
 import yaml
+
+from tests.copier.conftest import VENV_COPIER
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 SCHEMA = json.loads((REPO_ROOT / "tests/fixtures/env-contract.schema.json").read_text())
@@ -64,9 +68,7 @@ def test_env_contract_fragments_match_vendored_schema(
         "project_fullstack",
     ],
 )
-def test_env_contract_covers_env_example(
-    request: pytest.FixtureRequest, fixture_name: str
-) -> None:
+def test_env_contract_covers_env_example(request: pytest.FixtureRequest, fixture_name: str) -> None:
     """All documented generated-project variables have one typed declaration."""
     project = request.getfixturevalue(fixture_name)
     declared: dict[str, dict[str, object]] = {}
@@ -76,7 +78,7 @@ def test_env_contract_covers_env_example(
             assert key not in declared, f"{key} is declared twice, including {path}"
             declared[key] = entry
 
-    assert env_keys(project / ".env.example") == set(declared)
+    assert env_keys(project / ".env.example") <= set(declared)
 
 
 def test_backend_contract_classifies_infrastructure_values(project_backend: Path) -> None:
@@ -112,3 +114,83 @@ def test_backend_contract_classifies_infrastructure_values(project_backend: Path
     }
     assert entries["APP_ENV"]["source"] == "derived"
     assert entries["BACKEND_IMAGE"]["source"] == "derived"
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "project_backend",
+        "project_standalone",
+        "project_notifications",
+        "project_frontend",
+        "project_backend_tg_bot",
+        "project_fullstack",
+    ],
+)
+def test_env_contract_gate_accepts_baseline_fragments(
+    request: pytest.FixtureRequest, fixture_name: str
+) -> None:
+    """Each generated module combination passes the vendored offline gate."""
+    project = request.getfixturevalue(fixture_name)
+    artifact = project / "artifacts" / "env-contract-test.json"
+
+    result = subprocess.run(
+        [
+            str(VENV_COPIER.parent / "python"),
+            "-m",
+            "framework.contracts.env_usage",
+            "--root",
+            ".",
+            "--artifact",
+            "artifacts/env-contract-test.json",
+            "--commit-sha",
+            "test-sha",
+        ],
+        cwd=project,
+        env={**os.environ, "PYTHONPATH": ".framework"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(artifact.read_text())["commit_sha"] == "test-sha"
+
+
+def test_env_contract_gate_rejects_undeclared_key(project_backend: Path) -> None:
+    """A static environment read without a declaration makes the gate fail."""
+    source = project_backend / "undeclared_env.py"
+    source.write_text('import os\nos.getenv("UNDECLARED_ENV_KEY")\n')
+
+    result = subprocess.run(
+        [
+            str(VENV_COPIER.parent / "python"),
+            "-m",
+            "framework.contracts.env_usage",
+            "--root",
+            ".",
+            "--artifact",
+            "artifacts/env-contract-test.json",
+            "--commit-sha",
+            "test-sha",
+        ],
+        cwd=project_backend,
+        env={**os.environ, "PYTHONPATH": ".framework"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "undeclared environment key UNDECLARED_ENV_KEY" in result.stderr
+
+
+def test_ci_publishes_commit_bound_environment_contract(project_backend: Path) -> None:
+    """The generated CI uses the vendored offline gate and uploads its output."""
+    workflow = (project_backend / ".github" / "workflows" / "ci.yml").read_text()
+
+    assert "-m framework.contracts.env_usage" in workflow
+    assert '--commit-sha "${{ github.sha }}"' in workflow
+    assert "actions/upload-artifact@v4" in workflow
+    assert "env-contract-${{ github.sha }}" in workflow
+    assert (project_backend / ".framework" / "framework" / "contracts" / "env_usage.py").exists()

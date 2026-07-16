@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Typed environment-contract baseline fragments for infrastructure, backend and
   Telegram bot modules, with schema validation in template tests.
+- Generated-project CI now checks static environment usage against contract
+  fragments and uploads a commit-bound canonical contract artifact.
 
 ## [0.3.0] - 2026-07-11
 

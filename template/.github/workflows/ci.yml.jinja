@@ -38,6 +38,20 @@ jobs:
             echo "infra/.env.test missing" >&2
             exit 1
           fi
+
+      - name: Check environment contract
+        run: |
+          .venv/bin/python -m framework.contracts.env_usage \
+            --root . \
+            --artifact "artifacts/env-contract-${{ '{{' }} github.sha {{ '}}' }}.json" \
+            --commit-sha "${{ '{{' }} github.sha {{ '}}' }}"
+
+      - name: Upload environment contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-contract-${{ '{{' }} github.sha {{ '}}' }}
+          path: artifacts/env-contract-${{ '{{' }} github.sha {{ '}}' }}.json
+          if-no-files-found: error
 {% if 'backend' in modules %}
       - name: Export checkout ownership
         run: |
