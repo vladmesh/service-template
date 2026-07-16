@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Typed environment-contract baseline fragments for infrastructure, backend and
+  Telegram bot modules, with schema validation in template tests.
+
 ## [0.3.0] - 2026-07-11
 
 Release of the dogfood sprint: two smoke runs, a 3x2 task/head matrix and a control

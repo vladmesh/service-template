@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EnvContractFragment",
+  "description": "Vendored from codegen_orchestrator/shared/contracts/schemas/env-contract.schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["owner"],
+  "properties": {
+    "version": {"const": "1", "default": "1"},
+    "owner": {"type": "string", "minLength": 1},
+    "entries": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "environments", "required"],
+      "properties": {
+        "source": {"enum": ["user_secret", "generated_secret", "allocation", "derived", "literal"]},
+        "environments": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "consumers": {"type": "array", "items": {"type": "string"}},
+        "required": {"type": "boolean"},
+        "description": {"type": ["string", "null"]},
+        "sensitive": {"type": "boolean"},
+        "service": {"type": ["string", "null"], "minLength": 1},
+        "resource": {"type": ["string", "null"], "minLength": 1},
+        "value": {"type": ["string", "integer", "number", "boolean"]}
+      }
+    },
+    "entry": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/$defs/base"}, {"properties": {"source": {"const": "user_secret"}, "consumers": {"minItems": 1}, "description": {"type": "string", "minLength": 1}, "sensitive": {"const": true}}, "required": ["consumers", "description"]}]},
+        {"allOf": [{"$ref": "#/$defs/base"}, {"properties": {"source": {"const": "generated_secret"}, "sensitive": {"const": true}}}]},
+        {"allOf": [{"$ref": "#/$defs/base"}, {"properties": {"source": {"const": "allocation"}}, "anyOf": [{"required": ["service"]}, {"required": ["resource"]}]}]},
+        {"allOf": [{"$ref": "#/$defs/base"}, {"properties": {"source": {"const": "derived"}, "sensitive": {"const": false}}}]},
+        {"allOf": [{"$ref": "#/$defs/base"}, {"properties": {"source": {"const": "literal"}, "sensitive": {"const": false}}, "required": ["value"]}]}
+      ]
+    }
+  }
+}
