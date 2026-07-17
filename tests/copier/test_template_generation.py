@@ -177,6 +177,27 @@ class TestBackendOnlyGeneration:
         # Framework copier tests should NOT be copied
         assert not (tests_dir / "copier").exists()
 
+    def test_ci_pins_uv(self, project_backend: Path):
+        """Generated CI must pin setup-uv and uv instead of resolving 'latest'."""
+        import yaml
+
+        from framework.toolchain import SETUP_UV_ACTION, UV_VERSION
+
+        ci_yml = yaml.safe_load(
+            (project_backend / ".github" / "workflows" / "ci.yml").read_text()
+        )
+        steps = [
+            step
+            for job in ci_yml["jobs"].values()
+            for step in job["steps"]
+            if str(step.get("uses", "")).startswith("astral-sh/setup-uv")
+        ]
+
+        assert len(steps) == 2, "expected setup-uv in both lint-and-test and build-and-push"
+        for step in steps:
+            assert step["uses"] == SETUP_UV_ACTION
+            assert step["with"]["version"] == UV_VERSION
+
     def test_copier_answers_file_created(self, project_backend: Path):
         """Generated project should have .copier-answers.yml."""
         import yaml
